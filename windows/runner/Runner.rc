@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "de.lemarq" "\0"
-            VALUE "FileDescription", "valrow" "\0"
+            VALUE "FileDescription", "Calcrow" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "valrow" "\0"
+            VALUE "InternalName", "calcrow" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 de.lemarq. All rights reserved." "\0"
-            VALUE "OriginalFilename", "valrow.exe" "\0"
-            VALUE "ProductName", "valrow" "\0"
+            VALUE "OriginalFilename", "calcrow.exe" "\0"
+            VALUE "ProductName", "Calcrow" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

@@ -4,20 +4,20 @@ import 'theme/app_theme.dart';
 import '../features/home/presentation/home_shell.dart';
 import '../features/onboarding/presentation/onboarding_screen.dart';
 
-class CsvrowApp extends StatefulWidget {
-  const CsvrowApp({super.key});
+class CalcrowApp extends StatefulWidget {
+  const CalcrowApp({super.key});
 
   @override
-  State<CsvrowApp> createState() => _CsvrowAppState();
+  State<CalcrowApp> createState() => _CalcrowAppState();
 }
 
-class _CsvrowAppState extends State<CsvrowApp> {
+class _CalcrowAppState extends State<CalcrowApp> {
   bool _didCompleteOnboarding = false;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'CSVrow',
+      title: 'Calcrow',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       home: _didCompleteOnboarding

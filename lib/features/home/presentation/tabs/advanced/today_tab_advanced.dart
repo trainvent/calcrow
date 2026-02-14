@@ -70,7 +70,6 @@ class _TodayTabAdvancedState extends State<TodayTabAdvanced> {
       const <TextEditingController>[];
   int _simpleEditingRowIndex = 0;
   String? _importedFileName;
-  int? _importedRowCount;
   List<List<String>> _allRows = const <List<String>>[];
   int? _selectedExistingRowIndex;
   double _moodLevel = 0.45;
@@ -528,7 +527,6 @@ class _TodayTabAdvancedState extends State<TodayTabAdvanced> {
         _setupDone = true;
         _importedFileName = file.name;
         _allRows = parsedRows.reversed.toList();
-        _importedRowCount = _allRows.length;
         _selectedExistingRowIndex = null;
         _showRowDefinement = true;
         _showWorkhours = true;
@@ -563,7 +561,6 @@ class _TodayTabAdvancedState extends State<TodayTabAdvanced> {
     setState(() {
       _setupDone = true;
       _importedFileName = _buildMonthlyFileName(now);
-      _importedRowCount = 0;
       _allRows = <List<String>>[];
       _selectedExistingRowIndex = null;
       _showRowDefinement = true;
@@ -604,7 +601,6 @@ class _TodayTabAdvancedState extends State<TodayTabAdvanced> {
       _setupDone = true;
       _selectedExistingRowIndex = null;
       _allRows = <List<String>>[row, ..._allRows];
-      _importedRowCount = _allRows.length;
     });
     SheetPreviewStore.notifier.value = SheetPreviewStore.notifier.value
         .copyWith(

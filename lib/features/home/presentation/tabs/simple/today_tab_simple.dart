@@ -82,7 +82,6 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
   int _simpleEditingRowIndex = 0;
   String? _importedFileName;
   String? _simpleXlsxLink;
-  int? _importedRowCount;
   List<List<String>> _allRows = const <List<String>>[];
   int? _selectedExistingRowIndex;
   double _moodLevel = 0.45;
@@ -373,31 +372,6 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
 
     _selectSimpleEditorTargetRow();
     _publishSimpleRowsToPreview();
-  }
-
-  String _xlsxCellToString(excel_pkg.Data? cell) {
-    if (cell == null) return '';
-    final value = cell.value;
-    if (value == null) return '';
-    if (value is excel_pkg.DateCellValue) {
-      return _formatDate(value.asDateTimeLocal());
-    }
-    if (value is excel_pkg.DateTimeCellValue) {
-      return _formatDate(value.asDateTimeLocal());
-    }
-    if (value is excel_pkg.TimeCellValue) {
-      return value.toString();
-    }
-    if (value is excel_pkg.IntCellValue) {
-      return value.value.toString();
-    }
-    if (value is excel_pkg.DoubleCellValue) {
-      return value.value.toString().replaceAll('.', ',');
-    }
-    if (value is num) {
-      return value.toString().replaceAll('.', ',');
-    }
-    return value.toString().trim();
   }
 
   String? _readXFilePath(XFile file) {
@@ -757,7 +731,6 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
         _setupDone = true;
         _importedFileName = file.name;
         _allRows = parsedRows.reversed.toList();
-        _importedRowCount = _allRows.length;
         _selectedExistingRowIndex = null;
         _showRowDefinement = true;
         _showWorkhours = true;
@@ -792,7 +765,6 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     setState(() {
       _setupDone = true;
       _importedFileName = _buildMonthlyFileName(now);
-      _importedRowCount = 0;
       _allRows = <List<String>>[];
       _selectedExistingRowIndex = null;
       _showRowDefinement = true;
@@ -833,7 +805,6 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       _setupDone = true;
       _selectedExistingRowIndex = null;
       _allRows = <List<String>>[row, ..._allRows];
-      _importedRowCount = _allRows.length;
     });
     SheetPreviewStore.notifier.value = SheetPreviewStore.notifier.value
         .copyWith(
@@ -929,97 +900,6 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     return count;
   }
 
-  bool _looksLikeTypeRow(List<String> values) {
-    if (values.isEmpty) return false;
-    var matches = 0;
-    for (final value in values) {
-      final normalized = value.trim().toLowerCase();
-      if (normalized.isEmpty) continue;
-      if (_isKnownTypeToken(normalized)) {
-        matches++;
-      }
-    }
-    return matches >= (values.length / 2).ceil();
-  }
-
-  bool _isKnownTypeToken(String type) {
-    if (type.contains('date')) return true;
-    if (type.contains('time')) return true;
-    if (type.contains('int')) return true;
-    if (type.contains('double')) return true;
-    if (type.contains('decimal')) return true;
-    if (type.contains('number')) return true;
-    if (type.contains('num')) return true;
-    if (type.contains('bool')) return true;
-    if (type.contains('text')) return true;
-    if (type.contains('string')) return true;
-    if (type.contains('currency')) return true;
-    if (type.contains('money')) return true;
-    if (type.contains('email')) return true;
-    if (type.contains('phone')) return true;
-    return false;
-  }
-
-  List<String> _inferSimpleTypes(
-    int width,
-    List<List<String>> sampleRows, {
-    List<String>? headers,
-  }) {
-    return List<String>.generate(width, (index) {
-      if (headers != null &&
-          index < headers.length &&
-          _isDateHeaderName(headers[index])) {
-        return 'date';
-      }
-      for (final row in sampleRows) {
-        if (index >= row.length) continue;
-        final value = row[index].trim();
-        if (value.isEmpty) continue;
-        if (_looksLikeDateValue(value)) return 'date';
-        if (_looksLikeTimeValue(value)) return 'time';
-        if (_looksLikeDecimalValue(value)) return 'decimal';
-        if (_looksLikeIntegerValue(value)) return 'int';
-        return 'text';
-      }
-      return 'text';
-    });
-  }
-
-  String _normalizeTypeLabel(String raw) {
-    final type = raw.trim().toLowerCase();
-    if (type.contains('date')) return 'date';
-    if (type.contains('time')) return 'time';
-    if (type.contains('int')) return 'int';
-    if (type.contains('double') ||
-        type.contains('decimal') ||
-        type.contains('number')) {
-      return 'decimal';
-    }
-    if (type.contains('email')) return 'email';
-    if (type.contains('phone')) return 'phone';
-    return 'text';
-  }
-
-  bool _looksLikeDateValue(String value) {
-    final compact = value.trim();
-    return RegExp(r'^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}$').hasMatch(compact) ||
-        RegExp(r'^\d{4}[./-]\d{1,2}[./-]\d{1,2}$').hasMatch(compact);
-  }
-
-  bool _looksLikeTimeValue(String value) {
-    final compact = value.trim().toLowerCase();
-    return RegExp(r'^\d{1,2}:\d{2}(:\d{2})?(\s?(am|pm))?$').hasMatch(compact);
-  }
-
-  bool _looksLikeIntegerValue(String value) {
-    return RegExp(r'^[+-]?\d+$').hasMatch(value.trim());
-  }
-
-  bool _looksLikeDecimalValue(String value) {
-    final compact = value.trim();
-    return RegExp(r'^[+-]?\d+[.,]\d+$').hasMatch(compact);
-  }
-
   bool _isDateHeaderName(String header) {
     final value = header.trim().toLowerCase();
     return value == 'date' ||
@@ -1027,13 +907,6 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
         value == 'tag' ||
         value == 'data' ||
         value == 'fecha';
-  }
-
-  bool _looksLikeFormulaExpression(String value) {
-    final compact = value.trim();
-    if (compact.isEmpty) return false;
-    if (compact.startsWith('=')) return true;
-    return RegExp(r'^[A-Z]{1,3}\d+\s*=').hasMatch(compact);
   }
 
   DateTime? _parseDateFromCellValue(String raw) {
@@ -1793,7 +1666,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       }
       return 'Get Started';
     }
-    return _setupDone ? 'CSVrow Daily Editor' : 'Get Started';
+    return _setupDone ? 'Calcrow Daily Editor' : 'Get Started';
   }
 
   void _handleBack() {

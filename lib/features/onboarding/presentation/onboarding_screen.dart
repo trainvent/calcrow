@@ -19,7 +19,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _OnboardingPage(
       title: 'Track workdays in under a minute',
       body:
-          'CSVrow gives you one clean daily editor so you update logs fast on your phone.',
+          'Calcrow gives you one clean daily editor so you update logs fast on your phone.',
       icon: Icons.checklist_rounded,
     ),
     _OnboardingPage(
@@ -171,7 +171,7 @@ class _OnboardingCard extends StatelessWidget {
                 width: 64,
                 height: 64,
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withOpacity(0.12),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Icon(
