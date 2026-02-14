@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "743453990456",
+    "project_id": "calcrow-prod",
+    "storage_bucket": "calcrow-prod.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:743453990456:android:dc6be13c25cc537f5f90cd",
+        "android_client_info": {
+          "package_name": "de.lemarq.calcrow"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD4KFkuDkwawx-ytpNg_6tq6C9HlgPey8M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
