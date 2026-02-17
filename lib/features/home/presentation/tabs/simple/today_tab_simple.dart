@@ -1436,6 +1436,11 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     final targetLabel = isEditingExisting
         ? 'Editing row ${_simpleEditingRowIndex + 1} of ${_simpleRows.length}'
         : 'Editing new row at bottom';
+    final isXlsxSource = _simpleImportedFormat == SimpleFileFormat.xlsx;
+    final sheetName = _simpleImportedSheetName?.trim();
+    final activeSheetLabel = isXlsxSource
+        ? ((sheetName == null || sheetName.isEmpty) ? 'default' : sheetName)
+        : null;
 
     return Column(
       children: [
@@ -1456,6 +1461,13 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
                             : '${_simpleImportedFileName!} - $targetLabel',
                         style: theme.textTheme.bodyMedium,
                       ),
+                      if (activeSheetLabel != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Active sheet: $activeSheetLabel',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ],
                     ],
                   ),
                 ),
