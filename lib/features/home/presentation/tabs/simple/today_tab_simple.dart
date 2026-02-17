@@ -5,11 +5,14 @@ import 'package:excel/excel.dart' as excel_pkg;
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:valrow/core/data/di/service_locator.dart';
 import 'package:valrow/features/home/presentation/tabs/advanced/widgets/notes_widget.dart';
 import 'package:valrow/features/home/presentation/tabs/advanced/widgets/row_definement_widget.dart';
 import 'package:valrow/features/home/presentation/tabs/advanced/widgets/smart_data_widget.dart';
 import 'package:valrow/features/home/presentation/tabs/advanced/widgets/wellbeing_widget.dart';
 import 'package:valrow/features/home/presentation/tabs/advanced/widgets/workhours_widget.dart';
+import 'package:valrow/core/data/services/google_drive_auth_service.dart';
+import 'package:valrow/core/data/services/google_drive_sync_service.dart';
 import 'package:valrow/core/sheet_type_logic/csv_logic.dart';
 import 'package:valrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:valrow/core/sheet_type_logic/xlsx_logic.dart';
@@ -517,6 +520,40 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     try {
       final destination = await _persistSimpleSheet();
       if (!mounted) return;
+      try {
+        final syncFileName = await _syncSimpleSheetToGoogleDrive();
+        if (!mounted) return;
+        if (syncFileName != null) {
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(
+                'Row saved to $destination and synced to Google Drive ($syncFileName).',
+              ),
+            ),
+          );
+          return;
+        }
+      } on GoogleDriveAuthException catch (error) {
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              'Row saved to $destination, but cloud sync failed: ${error.message}',
+            ),
+          ),
+        );
+        return;
+      } on GoogleDriveSyncException catch (error) {
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              'Row saved to $destination, but cloud sync failed: ${error.message}',
+            ),
+          ),
+        );
+        return;
+      }
       messenger.showSnackBar(
         SnackBar(content: Text('Row saved to $destination')),
       );
@@ -599,6 +636,64 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       return _persistSimpleXlsx();
     }
     return _persistSimpleCsv();
+  }
+
+  Future<String?> _syncSimpleSheetToGoogleDrive() async {
+    if (!ServiceLocator.isSetup) return null;
+
+    final session = ServiceLocator.authService.currentSession;
+    if (session == null) return null;
+
+    final settings = await ServiceLocator.dbService.getUserSettings(session.uid);
+    final linked = settings?['googleDriveLinked'];
+    if (linked is! bool || !linked) return null;
+
+    final accessToken = await ServiceLocator.googleDriveAuthService
+        .getAccessToken();
+
+    final format = _simpleImportedFormat;
+    final simpleData = _buildSimpleSheetDataForPersist();
+    final bytes = format == SimpleFileFormat.xlsx
+        ? XlsxSheetLogic.buildBytes(simpleData)
+        : CsvSheetLogic.buildBytes(simpleData);
+    final mimeType = format == SimpleFileFormat.xlsx
+        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        : 'text/csv';
+    final fileName = _simpleSuggestedFileName(
+      defaultExtension: format == SimpleFileFormat.xlsx ? 'xlsx' : 'csv',
+    );
+
+    final existingFileId = (settings?['googleDriveSyncFileId'] as String?)?.trim();
+    final existingMimeType =
+        (settings?['googleDriveSyncMimeType'] as String?)?.trim();
+
+    final GoogleDriveFileMetadata metadata;
+    if (existingFileId == null ||
+        existingFileId.isEmpty ||
+        existingMimeType == null ||
+        existingMimeType.isEmpty ||
+        existingMimeType != mimeType) {
+      metadata = await ServiceLocator.googleDriveSyncService.createSyncFile(
+        accessToken: accessToken,
+        fileName: fileName,
+        bytes: bytes,
+        mimeType: mimeType,
+      );
+    } else {
+      metadata = await ServiceLocator.googleDriveSyncService.updateFileBytes(
+        accessToken: accessToken,
+        fileId: existingFileId,
+        bytes: bytes,
+        mimeType: mimeType,
+      );
+    }
+    await ServiceLocator.dbService.setGoogleDriveSyncFile(
+      uid: session.uid,
+      fileId: metadata.id,
+      fileName: metadata.name,
+      mimeType: metadata.mimeType,
+    );
+    return metadata.name;
   }
 
   Future<String> _persistSimpleCsv() async {

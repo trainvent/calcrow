@@ -49,6 +49,34 @@ class GoogleDriveAuthService {
     }
   }
 
+  Future<String> getAccessToken({bool interactiveIfNeeded = false}) async {
+    try {
+      final signIn = _googleSignIn ??= _buildGoogleSignIn();
+      GoogleSignInAccount? account = signIn.currentUser;
+      account ??= await signIn.signInSilently();
+      if (account == null && interactiveIfNeeded) {
+        account = await signIn.signIn();
+      }
+      if (account == null) {
+        throw const GoogleDriveAuthException(
+          'Google account is not linked in this session. Re-link Google Drive.',
+        );
+      }
+
+      final auth = await account.authentication;
+      final token = auth.accessToken;
+      if (token == null || token.isEmpty) {
+        throw const GoogleDriveAuthException(
+          'Could not refresh Drive API access token.',
+        );
+      }
+      return token;
+    } catch (error) {
+      if (error is GoogleDriveAuthException) rethrow;
+      throw GoogleDriveAuthException('Google token refresh failed: $error');
+    }
+  }
+
   Future<void> unlinkAccount() async {
     final signIn = _googleSignIn;
     if (signIn == null) return;
@@ -70,7 +98,7 @@ class GoogleDriveAuthService {
       clientId: kIsWeb ? webClientId : null,
       scopes: const <String>[
         'email',
-        'https://www.googleapis.com/auth/drive',
+        'https://www.googleapis.com/auth/drive.file',
       ],
     );
   }

@@ -63,6 +63,15 @@ class DbService {
     });
   }
 
+  Future<Map<String, dynamic>?> getUserSettings(String uid) async {
+    final snapshot = await _firestore.collection(_usersCollection).doc(uid).get();
+    final data = snapshot.data();
+    if (data == null) return null;
+    final settings = data['settings'];
+    if (settings is Map<String, dynamic>) return settings;
+    return null;
+  }
+
   Future<void> setGoogleDriveLink({
     required String uid,
     required String email,
@@ -83,6 +92,27 @@ class DbService {
         'googleDriveLinked': false,
         'googleDriveEmail': FieldValue.delete(),
         'googleDriveLinkedAt': FieldValue.delete(),
+        'googleDriveSyncFileId': FieldValue.delete(),
+        'googleDriveSyncFileName': FieldValue.delete(),
+        'googleDriveSyncMimeType': FieldValue.delete(),
+        'googleDriveLastSyncedAt': FieldValue.delete(),
+      },
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> setGoogleDriveSyncFile({
+    required String uid,
+    required String fileId,
+    required String fileName,
+    required String mimeType,
+  }) {
+    return _firestore.collection(_usersCollection).doc(uid).set({
+      'settings': {
+        'googleDriveSyncFileId': fileId,
+        'googleDriveSyncFileName': fileName,
+        'googleDriveSyncMimeType': mimeType,
+        'googleDriveLastSyncedAt': FieldValue.serverTimestamp(),
       },
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
