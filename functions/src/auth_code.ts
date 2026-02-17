@@ -5,7 +5,7 @@ import {defineSecret} from "firebase-functions/params";
 
 const db = admin.firestore();
 
-const smtpMail = process.env.SMTP_MAIL || "noreply@stimmapp.org";
+const smtpMail = process.env.SMTP_MAIL || "noreply@calcrow.com";
 const smtpPassword = defineSecret('SMTP_PASSWORD');
 const smtpHost = process.env.SMPT_SERVER || "smtp.ionos.de";
 // Generate a random 6-digit code
@@ -34,14 +34,14 @@ async function sendEmail(email: string, code: string, type: 'verification' | 'lo
     } as nodemailer.TransportOptions);
 
     const subject = type === 'login' ? 'Dein Login-Code' : 'Dein Bestätigungscode';
-    const actionText = type === 'login' ? 'um dich bei StimmApp anzumelden' : 'um deine E-Mail zu bestätigen';
+    const actionText = type === 'login' ? 'um dich bei CalcRow anzumelden' : 'um deine E-Mail zu bestätigen';
 
     const mailOptions = {
-        from: `"StimmApp Team" <${smtpMail}>`,
+        from: `"CalcRow Team" <${smtpMail}>`,
         to: email,
         subject: subject,
-        text: `Willkommen bei StimmApp!\n\nDein Code, ${actionText}, lautet: ${code}\n\nDieser Code läuft in 15 Minuten ab.`,
-        html: `<p>Willkommen bei StimmApp!</p><p>Dein Code, ${actionText}, lautet: <strong>${code}</strong></p><p>Dieser Code läuft in 15 Minuten ab.</p>`,
+        text: `Willkommen bei CalcRow!\n\nDein Code, ${actionText}, lautet: ${code}\n\nDieser Code läuft in 15 Minuten ab.`,
+        html: `<p>Willkommen bei CalcRow!</p><p>Dein Code, ${actionText}, lautet: <strong>${code}</strong></p><p>Dieser Code läuft in 15 Minuten ab.</p>`,
     };
 
     try {

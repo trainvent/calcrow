@@ -11,10 +11,15 @@ class ServiceLocator {
   static late final AuthService authService;
   static late final DbService dbService;
   static late final GoogleDriveAuthService googleDriveAuthService;
+  static bool _isSetup = false;
+
+  static bool get isSetup => _isSetup;
 
   static void setup() {
+    if (_isSetup) return;
     authService = AuthService(FirebaseAuth.instance);
     dbService = DbService(FirebaseFirestore.instance);
     googleDriveAuthService = GoogleDriveAuthService();
+    _isSetup = true;
   }
 }

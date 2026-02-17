@@ -6,6 +6,6 @@ void main() {
     await tester.pumpWidget(const CalcrowApp());
 
     expect(find.text('Track workdays in under a minute'), findsOneWidget);
-    expect(find.text('Skip'), findsOneWidget);
+    expect(find.text('Skip for now'), findsOneWidget);
   });
 }
