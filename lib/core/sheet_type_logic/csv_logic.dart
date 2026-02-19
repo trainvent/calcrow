@@ -187,7 +187,10 @@ class CsvSheetLogic {
     return false;
   }
 
-  static List<String> _inferSimpleTypes(int width, List<List<String>> sampleRows) {
+  static List<String> _inferSimpleTypes(
+    int width,
+    List<List<String>> sampleRows,
+  ) {
     return List<String>.generate(width, (index) {
       for (final row in sampleRows) {
         if (index >= row.length) continue;

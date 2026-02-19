@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/data/di/service_locator.dart';
 import '../../../../core/data/services/auth_service.dart';
 import '../../../../core/data/services/google_drive_auth_service.dart';
+import '../../../../core/data/services/google_drive_sync_service.dart';
 import '../../../auth/presentation/sign_in_sheet.dart';
 
 class SettingsTab extends StatefulWidget {
@@ -34,7 +35,7 @@ class _SettingsTabState extends State<SettingsTab> {
             Text('Settings', style: theme.textTheme.headlineLarge),
             const SizedBox(height: 8),
             Text(
-              'Use Valrow offline without login. Sign in only when you want sync.',
+              'Use calcrow offline without login. Sign in only when you want sync.',
               style: theme.textTheme.bodyLarge,
             ),
             const SizedBox(height: 18),
@@ -55,7 +56,8 @@ class _SettingsTabState extends State<SettingsTab> {
                 stream: ServiceLocator.dbService.watchUserSettings(session.uid),
                 builder: (context, snapshot) {
                   final settings = snapshot.data;
-                  final dateFormat = (settings?['defaultDateFormat'] as String?) ??
+                  final dateFormat =
+                      (settings?['defaultDateFormat'] as String?) ??
                       'YYYY-MM-DD';
 
                   return Card(
@@ -76,9 +78,7 @@ class _SettingsTabState extends State<SettingsTab> {
                         ListTile(
                           leading: const Icon(Icons.link_rounded),
                           title: const Text('Link Google account'),
-                          subtitle: Text(
-                            _googleDriveSubtitle(settings),
-                          ),
+                          subtitle: Text(_googleDriveSubtitle(settings)),
                           trailing: _isLinkingGoogle
                               ? const SizedBox(
                                   width: 18,
@@ -163,17 +163,24 @@ class _SettingsTabState extends State<SettingsTab> {
           const SnackBar(content: Text('Google account unlinked.')),
         );
       } else {
-        final linkResult = await ServiceLocator.googleDriveAuthService.linkAccount();
+        final linkResult = await ServiceLocator.googleDriveAuthService
+            .linkAccount();
+        final client = await ServiceLocator.googleDriveAuthService
+            .getAuthenticatedClient();
         final initialBytes = Uint8List.fromList(
           utf8.encode('Date,Start,End,Break (min),Notes\n'),
         );
-        final syncFile = await ServiceLocator.googleDriveSyncService
-            .createSyncFile(
-              accessToken: linkResult.accessToken,
-              fileName: 'calcrow_sync.csv',
-              bytes: initialBytes,
-              mimeType: 'text/csv',
-            );
+        late final GoogleDriveFileMetadata syncFile;
+        try {
+          syncFile = await ServiceLocator.googleDriveSyncService.createSyncFile(
+            authenticatedClient: client,
+            fileName: 'calcrow_sync.csv',
+            bytes: initialBytes,
+            mimeType: 'text/csv',
+          );
+        } finally {
+          client.close();
+        }
         await ServiceLocator.dbService.setGoogleDriveLink(
           uid: uid,
           email: linkResult.email,

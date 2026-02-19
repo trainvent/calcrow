@@ -1,4 +1,4 @@
-# Valrow Mobile (Flutter)
+# calcrow Mobile (Flutter)
 
 A tool to display a line of CSV in a visually appealing way. The line gets picked by date given in the first column. 
 

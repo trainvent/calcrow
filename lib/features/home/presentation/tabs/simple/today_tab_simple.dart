@@ -1,27 +1,42 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:excel/excel.dart' as excel_pkg;
+import 'package:file_picker/file_picker.dart';
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'package:valrow/core/data/di/service_locator.dart';
-import 'package:valrow/features/home/presentation/tabs/advanced/widgets/notes_widget.dart';
-import 'package:valrow/features/home/presentation/tabs/advanced/widgets/row_definement_widget.dart';
-import 'package:valrow/features/home/presentation/tabs/advanced/widgets/smart_data_widget.dart';
-import 'package:valrow/features/home/presentation/tabs/advanced/widgets/wellbeing_widget.dart';
-import 'package:valrow/features/home/presentation/tabs/advanced/widgets/workhours_widget.dart';
-import 'package:valrow/core/data/services/google_drive_auth_service.dart';
-import 'package:valrow/core/data/services/google_drive_sync_service.dart';
-import 'package:valrow/core/sheet_type_logic/csv_logic.dart';
-import 'package:valrow/core/sheet_type_logic/sheet_file_models.dart';
-import 'package:valrow/core/sheet_type_logic/xlsx_logic.dart';
-import 'package:valrow/features/home/presentation/tabs/simple/widgets/select_time_widget.dart';
-import 'package:valrow/features/home/presentation/tabs/simple/widgets/timespan_widget.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:calcrow/core/data/di/service_locator.dart';
+import 'package:calcrow/features/home/presentation/tabs/advanced/widgets/notes_widget.dart';
+import 'package:calcrow/features/home/presentation/tabs/advanced/widgets/row_definement_widget.dart';
+import 'package:calcrow/features/home/presentation/tabs/advanced/widgets/smart_data_widget.dart';
+import 'package:calcrow/features/home/presentation/tabs/advanced/widgets/wellbeing_widget.dart';
+import 'package:calcrow/features/home/presentation/tabs/advanced/widgets/workhours_widget.dart';
+import 'package:calcrow/core/data/services/google_drive_auth_service.dart';
+import 'package:calcrow/core/data/services/google_drive_sync_service.dart';
+import 'package:calcrow/core/sheet_type_logic/csv_logic.dart';
+import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
+import 'package:calcrow/core/sheet_type_logic/xlsx_logic.dart';
+import 'package:calcrow/features/home/presentation/tabs/simple/widgets/select_time_widget.dart';
+import 'package:calcrow/features/home/presentation/tabs/simple/widgets/timespan_widget.dart';
 
 import '../../sheet_preview_store.dart';
 
 enum _WidgetBlock { rowDefinement, workhours, smartData, wellbeing, notes }
+
+class _SimplePersistResult {
+  const _SimplePersistResult({
+    required this.locationLabel,
+    required this.overwroteExistingFile,
+    required this.usedAppDocumentsFallback,
+  });
+
+  final String locationLabel;
+  final bool overwroteExistingFile;
+  final bool usedAppDocumentsFallback;
+}
 
 class TodayTabSimple extends StatefulWidget {
   const TodayTabSimple({super.key});
@@ -149,7 +164,9 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
 
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Loaded ${file.name} (${sheetData.rows.length} entries).'),
+          content: Text(
+            'Loaded ${file.name} (${sheetData.rows.length} entries).',
+          ),
         ),
       );
     } catch (error) {
@@ -300,9 +317,9 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Open via link failed: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Open via link failed: $error')));
     }
   }
 
@@ -332,7 +349,9 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     }
 
     if (host.contains('drive.google.com')) {
-      if (segments.length >= 3 && segments.first == 'file' && segments[1] == 'd') {
+      if (segments.length >= 3 &&
+          segments.first == 'file' &&
+          segments[1] == 'd') {
         final fileId = segments[2];
         return 'https://drive.google.com/uc?export=download&id=$fileId';
       }
@@ -351,7 +370,8 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       orElse: () => '',
     );
     if (xlsxSegment.isNotEmpty) return xlsxSegment;
-    final maybeName = uri.queryParameters['filename'] ?? uri.queryParameters['name'];
+    final maybeName =
+        uri.queryParameters['filename'] ?? uri.queryParameters['name'];
     if (maybeName != null && maybeName.trim().isNotEmpty) {
       return maybeName.trim();
     }
@@ -381,10 +401,21 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     try {
       final path = file.path.trim();
       if (path.isEmpty) return null;
+      if (_isTemporaryPath(path)) return null;
       return path;
     } catch (_) {
       return null;
     }
+  }
+
+  bool _isTemporaryPath(String path) {
+    final normalized = path.toLowerCase();
+    if (normalized.isEmpty) return true;
+    if (kIsWeb) return true;
+    return normalized.contains('/cache/') ||
+        normalized.contains('/tmp/') ||
+        normalized.contains('/file_picker/') ||
+        normalized.contains('/file_selector/');
   }
 
   List<String> _normalizeRowToWidth(List<String> row, int width) {
@@ -496,7 +527,8 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
         updatedRow,
         _simpleHeaders.length,
       );
-      if (forcedTargetIndex != null && forcedTargetIndex != _simpleEditingRowIndex) {
+      if (forcedTargetIndex != null &&
+          forcedTargetIndex != _simpleEditingRowIndex) {
         nextRows[effectiveTargetIndex] = _mergeRowForAutoFill(
           existing: nextRows[effectiveTargetIndex],
           incoming: normalizedUpdated,
@@ -518,7 +550,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     _publishSimpleRowsToPreview();
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final destination = await _persistSimpleSheet();
+      final saveResult = await _persistSimpleSheet();
       if (!mounted) return;
       try {
         final syncFileName = await _syncSimpleSheetToGoogleDrive();
@@ -527,7 +559,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
           messenger.showSnackBar(
             SnackBar(
               content: Text(
-                'Row saved to $destination and synced to Google Drive ($syncFileName).',
+                'Row saved to ${saveResult.locationLabel} and synced to Google Drive ($syncFileName).',
               ),
             ),
           );
@@ -538,7 +570,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
         messenger.showSnackBar(
           SnackBar(
             content: Text(
-              'Row saved to $destination, but cloud sync failed: ${error.message}',
+              'Row saved to ${saveResult.locationLabel}, but cloud sync failed: ${error.message}',
             ),
           ),
         );
@@ -548,15 +580,13 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
         messenger.showSnackBar(
           SnackBar(
             content: Text(
-              'Row saved to $destination, but cloud sync failed: ${error.message}',
+              'Row saved to ${saveResult.locationLabel}, but cloud sync failed: ${error.message}',
             ),
           ),
         );
         return;
       }
-      messenger.showSnackBar(
-        SnackBar(content: Text('Row saved to $destination')),
-      );
+      messenger.showSnackBar(SnackBar(content: Text(_saveMessage(saveResult))));
     } catch (error) {
       if (!mounted) return;
       if (error is StateError && error.message == 'Save canceled.') {
@@ -571,6 +601,19 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
         ),
       );
     }
+  }
+
+  String _saveMessage(_SimplePersistResult saveResult) {
+    if (kIsWeb) {
+      return 'Row updated. Downloaded updated file as ${saveResult.locationLabel}.';
+    }
+    if (saveResult.usedAppDocumentsFallback) {
+      return 'Row saved to app storage at ${saveResult.locationLabel}.';
+    }
+    if (saveResult.overwroteExistingFile) {
+      return 'Row saved to ${saveResult.locationLabel}.';
+    }
+    return 'Row saved to ${saveResult.locationLabel}. Future saves will overwrite this file.';
   }
 
   int? _findBestExistingRowForSave(List<String> updatedRow) {
@@ -603,7 +646,10 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     required List<String> existing,
     required List<String> incoming,
   }) {
-    final normalizedExisting = _normalizeRowToWidth(existing, _simpleHeaders.length);
+    final normalizedExisting = _normalizeRowToWidth(
+      existing,
+      _simpleHeaders.length,
+    );
     return List<String>.generate(_simpleHeaders.length, (index) {
       final next = index < incoming.length ? incoming[index].trim() : '';
       if (next.isNotEmpty) return next;
@@ -630,7 +676,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
         );
   }
 
-  Future<String> _persistSimpleSheet() async {
+  Future<_SimplePersistResult> _persistSimpleSheet() async {
     final format = _simpleImportedFormat;
     if (format == SimpleFileFormat.xlsx) {
       return _persistSimpleXlsx();
@@ -644,12 +690,14 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     final session = ServiceLocator.authService.currentSession;
     if (session == null) return null;
 
-    final settings = await ServiceLocator.dbService.getUserSettings(session.uid);
+    final settings = await ServiceLocator.dbService.getUserSettings(
+      session.uid,
+    );
     final linked = settings?['googleDriveLinked'];
     if (linked is! bool || !linked) return null;
 
-    final accessToken = await ServiceLocator.googleDriveAuthService
-        .getAccessToken();
+    final authenticatedClient = await ServiceLocator.googleDriveAuthService
+        .getAuthenticatedClient();
 
     final format = _simpleImportedFormat;
     final simpleData = _buildSimpleSheetDataForPersist();
@@ -663,29 +711,34 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       defaultExtension: format == SimpleFileFormat.xlsx ? 'xlsx' : 'csv',
     );
 
-    final existingFileId = (settings?['googleDriveSyncFileId'] as String?)?.trim();
-    final existingMimeType =
-        (settings?['googleDriveSyncMimeType'] as String?)?.trim();
+    final existingFileId = (settings?['googleDriveSyncFileId'] as String?)
+        ?.trim();
+    final existingMimeType = (settings?['googleDriveSyncMimeType'] as String?)
+        ?.trim();
 
     final GoogleDriveFileMetadata metadata;
-    if (existingFileId == null ||
-        existingFileId.isEmpty ||
-        existingMimeType == null ||
-        existingMimeType.isEmpty ||
-        existingMimeType != mimeType) {
-      metadata = await ServiceLocator.googleDriveSyncService.createSyncFile(
-        accessToken: accessToken,
-        fileName: fileName,
-        bytes: bytes,
-        mimeType: mimeType,
-      );
-    } else {
-      metadata = await ServiceLocator.googleDriveSyncService.updateFileBytes(
-        accessToken: accessToken,
-        fileId: existingFileId,
-        bytes: bytes,
-        mimeType: mimeType,
-      );
+    try {
+      if (existingFileId == null ||
+          existingFileId.isEmpty ||
+          existingMimeType == null ||
+          existingMimeType.isEmpty ||
+          existingMimeType != mimeType) {
+        metadata = await ServiceLocator.googleDriveSyncService.createSyncFile(
+          authenticatedClient: authenticatedClient,
+          fileName: fileName,
+          bytes: bytes,
+          mimeType: mimeType,
+        );
+      } else {
+        metadata = await ServiceLocator.googleDriveSyncService.updateFileBytes(
+          authenticatedClient: authenticatedClient,
+          fileId: existingFileId,
+          bytes: bytes,
+          mimeType: mimeType,
+        );
+      }
+    } finally {
+      authenticatedClient.close();
     }
     await ServiceLocator.dbService.setGoogleDriveSyncFile(
       uid: session.uid,
@@ -696,7 +749,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     return metadata.name;
   }
 
-  Future<String> _persistSimpleCsv() async {
+  Future<_SimplePersistResult> _persistSimpleCsv() async {
     final bytes = CsvSheetLogic.buildBytes(_buildSimpleSheetDataForPersist());
     final fileName = _simpleSuggestedFileName();
     return _persistSimpleBytes(
@@ -708,7 +761,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     );
   }
 
-  Future<String> _persistSimpleXlsx() async {
+  Future<_SimplePersistResult> _persistSimpleXlsx() async {
     final bytes = XlsxSheetLogic.buildBytes(_buildSimpleSheetDataForPersist());
 
     final fileName = _simpleSuggestedFileName(defaultExtension: 'xlsx');
@@ -724,7 +777,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
 
   SimpleSheetData _buildSimpleSheetDataForPersist() {
     return SimpleSheetData(
-      fileName: _simpleImportedFileName ?? 'valrow_simple',
+      fileName: _simpleImportedFileName ?? 'calcrow_simple',
       path: _simpleImportedPath,
       format: _simpleImportedFormat ?? SimpleFileFormat.csv,
       headers: _simpleHeaders,
@@ -738,7 +791,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     );
   }
 
-  Future<String> _persistSimpleBytes({
+  Future<_SimplePersistResult> _persistSimpleBytes({
     required Uint8List bytes,
     required String fileName,
     required XTypeGroup typeGroup,
@@ -747,34 +800,129 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
   }) async {
     final output = XFile.fromData(bytes, name: fileName, mimeType: mimeType);
     final existingPath = _simpleImportedPath?.trim();
-    if (existingPath != null && existingPath.isNotEmpty) {
+    final canOverwriteExisting =
+        existingPath != null &&
+        existingPath.isNotEmpty &&
+        !_isTemporaryPath(existingPath);
+    if (canOverwriteExisting) {
       try {
         await output.saveTo(existingPath);
-        return existingPath;
+        return _SimplePersistResult(
+          locationLabel: existingPath,
+          overwroteExistingFile: true,
+          usedAppDocumentsFallback: false,
+        );
       } catch (_) {
         // Fall through to save dialog.
       }
     }
 
-    final location = await getSaveLocation(
-      acceptedTypeGroups: <XTypeGroup>[typeGroup],
-      suggestedName: fileName,
-      confirmButtonText: confirmButtonText,
-    );
+    if (_isAndroidPlatform) {
+      final savedPath = await _saveWithAndroidPicker(
+        bytes: bytes,
+        fileName: fileName,
+        typeGroup: typeGroup,
+      );
+      if (savedPath != null && savedPath.isNotEmpty) {
+        _simpleImportedPath = savedPath;
+        return _SimplePersistResult(
+          locationLabel: savedPath,
+          overwroteExistingFile: false,
+          usedAppDocumentsFallback: false,
+        );
+      }
+    }
+
+    FileSaveLocation? location;
+    try {
+      location = await getSaveLocation(
+        acceptedTypeGroups: <XTypeGroup>[typeGroup],
+        suggestedName: fileName,
+        confirmButtonText: confirmButtonText,
+      );
+    } catch (error) {
+      if (!_isSaveLocationUnimplementedError(error)) rethrow;
+      final fallbackPath = await _androidAppDocumentsFallbackPath(fileName);
+      if (fallbackPath == null) {
+        throw StateError('Save picker is unavailable on this platform.');
+      }
+      await output.saveTo(fallbackPath);
+      _simpleImportedPath = fallbackPath;
+      return _SimplePersistResult(
+        locationLabel: fallbackPath,
+        overwroteExistingFile: false,
+        usedAppDocumentsFallback: true,
+      );
+    }
     if (location == null) {
       throw StateError('Save canceled.');
     }
     await output.saveTo(location.path);
     _simpleImportedPath = location.path;
-    return location.path;
+    return _SimplePersistResult(
+      locationLabel: kIsWeb ? fileName : location.path,
+      overwroteExistingFile: false,
+      usedAppDocumentsFallback: false,
+    );
+  }
+
+  bool _isSaveLocationUnimplementedError(Object error) {
+    if (error is UnimplementedError || error is MissingPluginException) {
+      return true;
+    }
+    if (error is PlatformException) {
+      final message = '${error.code} ${error.message ?? ''}'.toLowerCase();
+      return message.contains('unimplemented') ||
+          message.contains('not been implemented');
+    }
+    return false;
+  }
+
+  Future<String?> _androidAppDocumentsFallbackPath(String fileName) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return null;
+    }
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      return '${directory.path}/$fileName';
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool get _isAndroidPlatform =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  Future<String?> _saveWithAndroidPicker({
+    required Uint8List bytes,
+    required String fileName,
+    required XTypeGroup typeGroup,
+  }) async {
+    try {
+      return await FilePicker.platform.saveFile(
+        fileName: fileName,
+        bytes: bytes,
+        type: FileType.custom,
+        allowedExtensions: typeGroup.extensions,
+      );
+    } on UnimplementedError {
+      return null;
+    } on UnsupportedError {
+      return null;
+    } on MissingPluginException {
+      return null;
+    } on PlatformException {
+      return null;
+    }
   }
 
   String _simpleSuggestedFileName({String? defaultExtension}) {
     final current = _simpleImportedFileName?.trim();
-    final extension = defaultExtension ??
+    final extension =
+        defaultExtension ??
         (_simpleImportedFormat == SimpleFileFormat.xlsx ? 'xlsx' : 'csv');
     if (current == null || current.isEmpty) {
-      return 'valrow_simple.$extension';
+      return 'calcrow_simple.$extension';
     }
     if (current.toLowerCase().endsWith('.$extension')) {
       return current;
@@ -1013,9 +1161,9 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       return DateTime(year, month, day);
     }
 
-    final iso = RegExp(r'^(\d{4})[./-](\d{1,2})[./-](\d{1,2})$').firstMatch(
-      value,
-    );
+    final iso = RegExp(
+      r'^(\d{4})[./-](\d{1,2})[./-](\d{1,2})$',
+    ).firstMatch(value);
     if (iso != null) {
       final year = int.parse(iso.group(1)!);
       final month = int.parse(iso.group(2)!);

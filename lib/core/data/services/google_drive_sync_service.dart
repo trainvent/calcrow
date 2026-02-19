@@ -1,6 +1,6 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:http/http.dart' as http;
 
 class GoogleDriveSyncException implements Exception {
@@ -24,148 +24,85 @@ class GoogleDriveFileMetadata {
 }
 
 class GoogleDriveSyncService {
-  static const String _filesApiBase = 'https://www.googleapis.com/drive/v3/files';
-  static const String _uploadApiBase =
-      'https://www.googleapis.com/upload/drive/v3/files';
-
   Future<GoogleDriveFileMetadata> createSyncFile({
-    required String accessToken,
+    required http.Client authenticatedClient,
     required String fileName,
     required Uint8List bytes,
     required String mimeType,
   }) async {
-    final boundary = 'calcrow_boundary_${DateTime.now().microsecondsSinceEpoch}';
-    final metadataJson = jsonEncode(<String, Object>{
-      'name': fileName,
-    });
-
-    final body = _buildMultipartBody(
-      boundary: boundary,
-      metadataJson: metadataJson,
-      bytes: bytes,
-      mimeType: mimeType,
+    final driveApi = drive.DriveApi(authenticatedClient);
+    final fileToUpload = drive.File()..name = fileName;
+    final media = drive.Media(
+      Stream.value(bytes),
+      bytes.length,
+      contentType: mimeType,
     );
 
-    final uri = Uri.parse(
-      '$_uploadApiBase?uploadType=multipart&fields=id,name,mimeType,modifiedTime',
-    );
-    final response = await http.post(
-      uri,
-      headers: <String, String>{
-        'Authorization': 'Bearer $accessToken',
-        'Content-Type': 'multipart/related; boundary=$boundary',
-      },
-      body: body,
-    );
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw GoogleDriveSyncException(
-        'Could not create Drive sync file (${response.statusCode}).',
+    try {
+      final file = await driveApi.files.create(
+        fileToUpload,
+        uploadMedia: media,
+        $fields: 'id,name,mimeType,modifiedTime',
       );
+      return _convertFile(file);
+    } catch (e) {
+      throw GoogleDriveSyncException('Could not create Drive sync file: $e');
     }
-
-    return _parseMetadata(response.body);
   }
 
   Future<GoogleDriveFileMetadata> getFileMetadata({
-    required String accessToken,
+    required http.Client authenticatedClient,
     required String fileId,
   }) async {
-    final uri = Uri.parse(
-      '$_filesApiBase/$fileId?fields=id,name,mimeType,modifiedTime',
-    );
-    final response = await http.get(
-      uri,
-      headers: <String, String>{
-        'Authorization': 'Bearer $accessToken',
-      },
-    );
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw GoogleDriveSyncException(
-        'Could not read Drive file metadata (${response.statusCode}).',
-      );
+    final driveApi = drive.DriveApi(authenticatedClient);
+    try {
+      final file = await driveApi.files.get(
+        fileId,
+        $fields: 'id,name,mimeType,modifiedTime',
+      ) as drive.File;
+      return _convertFile(file);
+    } catch (e) {
+      throw GoogleDriveSyncException('Could not read Drive file metadata: $e');
     }
-    return _parseMetadata(response.body);
   }
 
   Future<GoogleDriveFileMetadata> updateFileBytes({
-    required String accessToken,
+    required http.Client authenticatedClient,
     required String fileId,
     required Uint8List bytes,
     required String mimeType,
   }) async {
-    final uri = Uri.parse(
-      '$_uploadApiBase/$fileId?uploadType=media&fields=id,name,mimeType,modifiedTime',
-    );
-    final response = await http.patch(
-      uri,
-      headers: <String, String>{
-        'Authorization': 'Bearer $accessToken',
-        'Content-Type': mimeType,
-      },
-      body: bytes,
+    final driveApi = drive.DriveApi(authenticatedClient);
+    final media = drive.Media(
+      Stream.value(bytes),
+      bytes.length,
+      contentType: mimeType,
     );
 
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw GoogleDriveSyncException(
-        'Could not update Drive sync file (${response.statusCode}).',
+    try {
+      final file = await driveApi.files.update(
+        drive.File(),
+        fileId,
+        uploadMedia: media,
+        $fields: 'id,name,mimeType,modifiedTime',
       );
+      return _convertFile(file);
+    } catch (e) {
+      throw GoogleDriveSyncException('Could not update Drive sync file: $e');
     }
-    return _parseMetadata(response.body);
   }
 
-  GoogleDriveFileMetadata _parseMetadata(String body) {
-    final decoded = jsonDecode(body);
-    if (decoded is! Map<String, dynamic>) {
-      throw const GoogleDriveSyncException('Invalid Drive metadata response.');
-    }
-
-    final id = (decoded['id'] as String?)?.trim();
-    final name = (decoded['name'] as String?)?.trim();
-    final mimeType = (decoded['mimeType'] as String?)?.trim();
-    final modifiedTimeRaw = (decoded['modifiedTime'] as String?)?.trim();
-
-    if (id == null || id.isEmpty || name == null || name.isEmpty) {
+  GoogleDriveFileMetadata _convertFile(drive.File file) {
+    final id = file.id;
+    final name = file.name;
+    if (id == null || name == null) {
       throw const GoogleDriveSyncException('Drive metadata is incomplete.');
     }
-
-    DateTime? modifiedTime;
-    if (modifiedTimeRaw != null && modifiedTimeRaw.isNotEmpty) {
-      modifiedTime = DateTime.tryParse(modifiedTimeRaw)?.toUtc();
-    }
-
     return GoogleDriveFileMetadata(
       id: id,
       name: name,
-      mimeType: (mimeType == null || mimeType.isEmpty)
-          ? 'application/octet-stream'
-          : mimeType,
-      modifiedTime: modifiedTime,
+      mimeType: file.mimeType ?? 'application/octet-stream',
+      modifiedTime: file.modifiedTime,
     );
-  }
-
-  Uint8List _buildMultipartBody({
-    required String boundary,
-    required String metadataJson,
-    required Uint8List bytes,
-    required String mimeType,
-  }) {
-    final buffer = StringBuffer();
-    buffer.write('--$boundary\r\n');
-    buffer.write('Content-Type: application/json; charset=UTF-8\r\n\r\n');
-    buffer.write(metadataJson);
-    buffer.write('\r\n');
-    buffer.write('--$boundary\r\n');
-    buffer.write('Content-Type: $mimeType\r\n\r\n');
-
-    final prefix = utf8.encode(buffer.toString());
-    final suffix = utf8.encode('\r\n--$boundary--');
-
-    return Uint8List.fromList(<int>[
-      ...prefix,
-      ...bytes,
-      ...suffix,
-    ]);
   }
 }

@@ -1,4 +1,4 @@
-package de.lemarq.valrow
+package de.lemarq.calcrow
 
 import io.flutter.embedding.android.FlutterActivity
 

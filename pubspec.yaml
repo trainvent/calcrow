@@ -1,4 +1,4 @@
-name: valrow
+name: calcrow
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -34,6 +34,7 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  file_picker: ^10.3.10
   file_selector: ^1.0.3
   excel: ^4.0.6
   http: ^1.2.2
@@ -41,6 +42,8 @@ dependencies:
   firebase_core: ^4.4.0
   firebase_auth: ^6.1.1
   cloud_firestore: ^6.1.0
+  googleapis: ^13.1.0
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:

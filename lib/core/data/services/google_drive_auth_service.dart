@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http/http.dart' as http;
 
 class GoogleDriveAuthException implements Exception {
   const GoogleDriveAuthException(this.message);
@@ -15,6 +16,19 @@ class GoogleDriveLinkResult {
 
   final String email;
   final String accessToken;
+}
+
+class GoogleAuthClient extends http.BaseClient {
+  final Map<String, String> _headers;
+  final http.Client _client = http.Client();
+
+  GoogleAuthClient(this._headers);
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    request.headers.addAll(_headers);
+    return _client.send(request);
+  }
 }
 
 class GoogleDriveAuthService {
@@ -49,31 +63,21 @@ class GoogleDriveAuthService {
     }
   }
 
-  Future<String> getAccessToken({bool interactiveIfNeeded = false}) async {
+  Future<http.Client> getAuthenticatedClient() async {
     try {
       final signIn = _googleSignIn ??= _buildGoogleSignIn();
-      GoogleSignInAccount? account = signIn.currentUser;
+      var account = signIn.currentUser;
       account ??= await signIn.signInSilently();
-      if (account == null && interactiveIfNeeded) {
-        account = await signIn.signIn();
-      }
       if (account == null) {
         throw const GoogleDriveAuthException(
-          'Google account is not linked in this session. Re-link Google Drive.',
+          'Google account is not linked in this session.',
         );
       }
-
-      final auth = await account.authentication;
-      final token = auth.accessToken;
-      if (token == null || token.isEmpty) {
-        throw const GoogleDriveAuthException(
-          'Could not refresh Drive API access token.',
-        );
-      }
-      return token;
+      final headers = await account.authHeaders;
+      return GoogleAuthClient(headers);
     } catch (error) {
       if (error is GoogleDriveAuthException) rethrow;
-      throw GoogleDriveAuthException('Google token refresh failed: $error');
+      throw GoogleDriveAuthException('Failed to get authenticated client: $error');
     }
   }
 
@@ -88,14 +92,10 @@ class GoogleDriveAuthService {
   }
 
   GoogleSignIn _buildGoogleSignIn() {
-    const webClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
-    if (kIsWeb && webClientId.isEmpty) {
-      throw const GoogleDriveAuthException(
-        'Missing web OAuth client id. Set --dart-define=GOOGLE_WEB_CLIENT_ID=...',
-      );
-    }
+    const configuredWebClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
+    final webClientId = configuredWebClientId.trim();
     return GoogleSignIn(
-      clientId: kIsWeb ? webClientId : null,
+      clientId: kIsWeb && webClientId.isNotEmpty ? webClientId : null,
       scopes: const <String>[
         'email',
         'https://www.googleapis.com/auth/drive.file',

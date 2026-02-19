@@ -55,7 +55,7 @@ class SheetPreviewTab extends StatelessWidget {
   }
 
   static String _suggestedExportName(String? fileName) {
-    final fallback = 'valrow_export.csv';
+    final fallback = 'calcrow_export.csv';
     if (fileName == null || fileName.trim().isEmpty) return fallback;
     final trimmed = fileName.trim();
     if (trimmed.toLowerCase().endsWith('.csv')) return trimmed;
@@ -78,7 +78,9 @@ class SheetPreviewTab extends StatelessWidget {
   static String _escapeCsvCell(String value) {
     final escaped = value.replaceAll('"', '""');
     final mustQuote =
-        escaped.contains(',') || escaped.contains('"') || escaped.contains('\n');
+        escaped.contains(',') ||
+        escaped.contains('"') ||
+        escaped.contains('\n');
     return mustQuote ? '"$escaped"' : escaped;
   }
 
@@ -88,7 +90,9 @@ class SheetPreviewTab extends StatelessWidget {
     return ValueListenableBuilder<SheetPreviewData>(
       valueListenable: SheetPreviewStore.notifier,
       builder: (context, preview, _) {
-        final previewHeaders = preview.headers.take(_maxPreviewColumns).toList();
+        final previewHeaders = preview.headers
+            .take(_maxPreviewColumns)
+            .toList();
         final previewRows = preview.rows
             .take(_maxPreviewRows)
             .map(

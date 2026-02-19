@@ -1,4 +1,4 @@
-import 'package:valrow/app/app.dart';
+import 'package:calcrow/app/app.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
