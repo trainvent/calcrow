@@ -237,12 +237,12 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
           !kIsWeb &&
           defaultTargetPlatform == TargetPlatform.android &&
           sourcePath != null &&
-          sourcePath.startsWith('content://');
+          _sheetPersistenceService.canUseDirectSafUri(sourcePath);
       if (requireSafTarget && !hasSafTarget) {
         messenger.showSnackBar(
           const SnackBar(
             content: Text(
-              'SAF target not detected. Please select the file through SAF.',
+              'SAF target is not writable for direct save. Pick from a writable folder via SAF.',
             ),
           ),
         );
@@ -672,11 +672,11 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       }
       if (error is StateError &&
           error.message ==
-              'No SAF target selected. Open a SAF-backed file first, then save.') {
+              'No SAF target selected. Open a SAF-backed file first or configure SAF folder in Settings.') {
         messenger.showSnackBar(
           const SnackBar(
             content: Text(
-              'No SAF target selected. Open a SAF-backed file first, or use "Save as is" in Preview.',
+              'No SAF target selected. Open a SAF-backed file or configure SAF folder in Settings, or use "Save as is" in Preview.',
             ),
           ),
         );
@@ -699,6 +699,18 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
           const SnackBar(
             content: Text(
               'SAF stream write failed. Use "Save as is" in Preview.',
+            ),
+          ),
+        );
+        return;
+      }
+      if (error is StateError &&
+          error.message ==
+              'SAF target is incompatible for direct overwrite. Reopen from a writable folder via SAF.') {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'This SAF source cannot be overwritten directly. Reopen from a writable folder via SAF, or use "Save as is".',
             ),
           ),
         );
@@ -917,6 +929,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     required String confirmButtonText,
     required SimplePersistMode mode,
   }) async {
+    final preferredSafTreeUri = await _preferredSafTreeUri();
     final result = await _sheetPersistenceService.persistBytes(
       SimplePersistRequest(
         bytes: bytes,
@@ -925,12 +938,29 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
         mimeType: mimeType,
         confirmButtonText: confirmButtonText,
         existingPath: _simpleImportedPath,
+        preferredSafTreeUri: preferredSafTreeUri,
         mode: mode,
       ),
     );
     _simpleImportedPath = result.savedPath;
     _simpleImportedFileName = result.resolvedFileName;
     return result;
+  }
+
+  Future<String?> _preferredSafTreeUri() async {
+    if (!ServiceLocator.isSetup) {
+      return SimpleSheetPersistenceService.runtimeSafTreeUri;
+    }
+    final session = ServiceLocator.authService.currentSession;
+    if (session == null) {
+      return SimpleSheetPersistenceService.runtimeSafTreeUri;
+    }
+    final settings = await ServiceLocator.dbService.getUserSettings(session.uid);
+    final uri = (settings?['safTreeUri'] as String?)?.trim();
+    if (uri == null || uri.isEmpty) {
+      return SimpleSheetPersistenceService.runtimeSafTreeUri;
+    }
+    return uri;
   }
 
   String _simpleSuggestedFileName({String? defaultExtension}) {

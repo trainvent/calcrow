@@ -17,6 +17,7 @@ class SimplePersistRequest {
     required this.mimeType,
     required this.confirmButtonText,
     this.existingPath,
+    this.preferredSafTreeUri,
     this.mode = SimplePersistMode.safPreferred,
   });
 
@@ -26,6 +27,7 @@ class SimplePersistRequest {
   final String mimeType;
   final String confirmButtonText;
   final String? existingPath;
+  final String? preferredSafTreeUri;
   final SimplePersistMode mode;
 }
 
@@ -50,6 +52,15 @@ class SimpleSheetPersistenceService {
     : _safStream = safStream ?? SafStream();
 
   final SafStream _safStream;
+  static String? _runtimeSafTreeUri;
+
+  static String? get runtimeSafTreeUri => _runtimeSafTreeUri;
+
+  static void setRuntimeSafTreeUri(String? treeUri) {
+    final trimmed = treeUri?.trim();
+    _runtimeSafTreeUri =
+        (trimmed == null || trimmed.isEmpty) ? null : trimmed;
+  }
 
   static bool isTemporaryPath(String path) {
     final normalized = path.toLowerCase();
@@ -59,6 +70,66 @@ class SimpleSheetPersistenceService {
         normalized.contains('/tmp/') ||
         normalized.contains('/file_picker/') ||
         normalized.contains('/file_selector/');
+  }
+
+  bool canUseDirectSafUri(String path) {
+    if (!_isAndroidPlatform) return false;
+    return _isAndroidSafDocumentUri(path) &&
+        parentTreeUriFromDocumentUri(path) != null;
+  }
+
+  bool canUseSafTreeUri(String treeUri) {
+    if (!_isAndroidPlatform) return false;
+    final uri = Uri.tryParse(treeUri);
+    if (uri == null || uri.scheme != 'content') return false;
+    return uri.pathSegments.contains('tree');
+  }
+
+  static String? parentTreeUriFromDocumentUri(String documentUri) {
+    final uri = Uri.tryParse(documentUri);
+    if (uri == null || uri.scheme != 'content') {
+      return null;
+    }
+    final encodedSegments = uri.pathSegments;
+    final treeIndex = encodedSegments.indexOf('tree');
+    if (treeIndex >= 0 && treeIndex + 1 < encodedSegments.length) {
+      return uri.replace(
+        pathSegments: <String>[
+          'tree',
+          Uri.decodeComponent(encodedSegments[treeIndex + 1]),
+        ],
+      ).toString();
+    }
+    final documentIndex = encodedSegments.indexOf('document');
+    if (documentIndex < 0 || documentIndex + 1 >= encodedSegments.length) {
+      return null;
+    }
+    final docId = Uri.decodeComponent(encodedSegments[documentIndex + 1]);
+    final slashIndex = docId.lastIndexOf('/');
+    if (slashIndex > 0) {
+      final parentDocId = docId.substring(0, slashIndex).trim();
+      if (parentDocId.isEmpty) {
+        return null;
+      }
+      return uri.replace(
+        pathSegments: <String>['tree', parentDocId],
+      ).toString();
+    }
+
+    // Some providers return root-level document IDs without '/'.
+    // Example: "primary:myfile.xlsx" -> parent should be "primary:".
+    final colonIndex = docId.indexOf(':');
+    if (colonIndex > 0) {
+      final volume = docId.substring(0, colonIndex).trim();
+      final tail = docId.substring(colonIndex + 1).trim();
+      if (volume.isNotEmpty) {
+        final inferredParent = tail.contains('.') ? '$volume:' : docId;
+        return uri.replace(
+          pathSegments: <String>['tree', inferredParent],
+        ).toString();
+      }
+    }
+    return null;
   }
 
   Future<SimplePersistResult> persistBytes(SimplePersistRequest request) async {
@@ -99,14 +170,33 @@ class SimpleSheetPersistenceService {
       if (!_isAndroidPlatform) {
         throw StateError('SAF save is not supported on this platform.');
       }
+      final preferredTreeUri = request.preferredSafTreeUri?.trim();
+      if (preferredTreeUri != null &&
+          preferredTreeUri.isNotEmpty &&
+          canUseSafTreeUri(preferredTreeUri)) {
+        final savedToTree = await _writeViaSafTreeUri(
+          treeUri: preferredTreeUri,
+          bytes: request.bytes,
+          fileName: request.fileName,
+          mimeType: request.mimeType,
+        );
+        if (savedToTree != null) {
+          return savedToTree;
+        }
+      }
       if (!canOverwriteExisting) {
         throw StateError(
-          'No SAF target selected. Open a SAF-backed file first, then save.',
+          'No SAF target selected. Open a SAF-backed file first or configure SAF folder in Settings.',
         );
       }
       if (!_isAndroidSafDocumentUri(existingPath)) {
         throw StateError(
           'Current file is not SAF-backed. Use "Save as is" or reopen with SAF.',
+        );
+      }
+      if (parentTreeUriFromDocumentUri(existingPath) == null) {
+        throw StateError(
+          'SAF target is incompatible for direct overwrite. Reopen from a writable folder via SAF.',
         );
       }
       throw StateError('SAF stream write failed.');
@@ -259,46 +349,13 @@ class SimpleSheetPersistenceService {
     return null;
   }
 
-  String? _parentTreeUriFromDocumentUri(String documentUri) {
-    final uri = Uri.tryParse(documentUri);
-    if (uri == null || uri.scheme != 'content') {
-      return null;
-    }
-    final encodedSegments = uri.pathSegments;
-    final treeIndex = encodedSegments.indexOf('tree');
-    if (treeIndex >= 0 && treeIndex + 1 < encodedSegments.length) {
-      return uri.replace(
-        pathSegments: <String>[
-          'tree',
-          Uri.decodeComponent(encodedSegments[treeIndex + 1]),
-        ],
-      ).toString();
-    }
-    final documentIndex = encodedSegments.indexOf('document');
-    if (documentIndex < 0 || documentIndex + 1 >= encodedSegments.length) {
-      return null;
-    }
-    final docId = Uri.decodeComponent(encodedSegments[documentIndex + 1]);
-    final slashIndex = docId.lastIndexOf('/');
-    if (slashIndex <= 0) {
-      return null;
-    }
-    final parentDocId = docId.substring(0, slashIndex).trim();
-    if (parentDocId.isEmpty) {
-      return null;
-    }
-    return uri.replace(
-      pathSegments: <String>['tree', parentDocId],
-    ).toString();
-  }
-
   Future<_SafOverwriteResult?> _tryOverwriteWithSaf({
     required String existingPath,
     required Uint8List bytes,
     required String fileName,
     required String mimeType,
   }) async {
-    final treeUri = _parentTreeUriFromDocumentUri(existingPath);
+    final treeUri = parentTreeUriFromDocumentUri(existingPath);
     if (treeUri == null) {
       return null;
     }
@@ -316,6 +373,34 @@ class SimpleSheetPersistenceService {
       return _SafOverwriteResult(
         path: uriString.isEmpty ? existingPath : uriString,
         fileName: resolvedFileName.isEmpty ? targetFileName : resolvedFileName,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<SimplePersistResult?> _writeViaSafTreeUri({
+    required String treeUri,
+    required Uint8List bytes,
+    required String fileName,
+    required String mimeType,
+  }) async {
+    try {
+      final newFile = await _safStream.writeFileBytes(
+        treeUri,
+        fileName,
+        mimeType,
+        bytes,
+        overwrite: true,
+      );
+      final uriString = newFile.uri.toString();
+      final resolvedFileName = (newFile.fileName ?? fileName).trim();
+      return SimplePersistResult(
+        locationLabel: resolvedFileName.isEmpty ? fileName : resolvedFileName,
+        overwroteExistingFile: true,
+        usedAppDocumentsFallback: false,
+        savedPath: uriString.isEmpty ? treeUri : uriString,
+        resolvedFileName: resolvedFileName.isEmpty ? fileName : resolvedFileName,
       );
     } catch (_) {
       return null;

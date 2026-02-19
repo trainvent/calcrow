@@ -118,6 +118,29 @@ class DbService {
     }, SetOptions(merge: true));
   }
 
+  Future<void> setSafFolderUri({
+    required String uid,
+    required String treeUri,
+  }) {
+    return _firestore.collection(_usersCollection).doc(uid).set({
+      'settings': {
+        'safTreeUri': treeUri,
+        'safTreeUpdatedAt': FieldValue.serverTimestamp(),
+      },
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> clearSafFolderUri({required String uid}) {
+    return _firestore.collection(_usersCollection).doc(uid).set({
+      'settings': {
+        'safTreeUri': FieldValue.delete(),
+        'safTreeUpdatedAt': FieldValue.delete(),
+      },
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   Future<String> issueEmailVerificationCode({required String uid}) async {
     final code = _randomSixDigitCode();
     final expiresAt = DateTime.now().add(const Duration(minutes: 10));

@@ -1,12 +1,16 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:saf_stream/saf_stream.dart';
 
 import '../../../../core/data/di/service_locator.dart';
 import '../../../../core/data/services/auth_service.dart';
 import '../../../../core/data/services/google_drive_auth_service.dart';
 import '../../../../core/data/services/google_drive_sync_service.dart';
+import '../../../../core/data/services/simple_sheet_persistence_service.dart';
 import '../../../auth/presentation/sign_in_sheet.dart';
 
 class SettingsTab extends StatefulWidget {
@@ -18,6 +22,8 @@ class SettingsTab extends StatefulWidget {
 
 class _SettingsTabState extends State<SettingsTab> {
   bool _isLinkingGoogle = false;
+  bool _isUpdatingSafFolder = false;
+  static final SafStream _safStream = SafStream();
 
   @override
   Widget build(BuildContext context) {
@@ -51,6 +57,68 @@ class _SettingsTabState extends State<SettingsTab> {
                   ),
                 ),
               ),
+            if (session == null) ...[
+              const SizedBox(height: 12),
+              Card(
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.folder_special_outlined),
+                      title: const Text('Manage SAF folder'),
+                      subtitle: Text(_safFolderSubtitle(null)),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _isUpdatingSafFolder
+                                  ? null
+                                  : () => _setSafFolder(),
+                              child: const Text('Set'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _isUpdatingSafFolder
+                                  ? null
+                                  : () => _testSafFolder(settings: null),
+                              child: const Text('Test'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextButton(
+                              onPressed: _isUpdatingSafFolder
+                                  ? null
+                                  : () => _clearSafFolder(),
+                              child: const Text('Clear'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_isUpdatingSafFolder)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 12),
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: Text(
+                        'Guest mode stores SAF folder only for this app session.',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             if (session != null)
               StreamBuilder<Map<String, dynamic>?>(
                 stream: ServiceLocator.dbService.watchUserSettings(session.uid),
@@ -102,6 +170,56 @@ class _SettingsTabState extends State<SettingsTab> {
                                 ),
                         ),
                         const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.folder_special_outlined),
+                          title: const Text('Manage SAF folder'),
+                          subtitle: Text(_safFolderSubtitle(settings)),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: _isUpdatingSafFolder
+                                      ? null
+                                      : () => _setSafFolder(session: session),
+                                  child: const Text('Set'),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: _isUpdatingSafFolder
+                                      ? null
+                                      : () => _testSafFolder(
+                                          settings: settings,
+                                        ),
+                                  child: const Text('Test'),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextButton(
+                                  onPressed: _isUpdatingSafFolder
+                                      ? null
+                                      : () => _clearSafFolder(session: session),
+                                  child: const Text('Clear'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (_isUpdatingSafFolder)
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 12),
+                            child: SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        const Divider(height: 1),
                         const ListTile(
                           leading: Icon(Icons.lock_outline_rounded),
                           title: Text('Privacy policy'),
@@ -142,6 +260,19 @@ class _SettingsTabState extends State<SettingsTab> {
       return 'Linked as $email';
     }
     return 'Google Drive connected';
+  }
+
+  String _safFolderSubtitle(Map<String, dynamic>? settings) {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return 'Available on Android only.';
+    }
+    final uri = (settings?['safTreeUri'] as String?)?.trim();
+    final runtimeUri = SimpleSheetPersistenceService.runtimeSafTreeUri;
+    final effectiveUri = (uri == null || uri.isEmpty) ? runtimeUri : uri;
+    if (effectiveUri == null || effectiveUri.isEmpty) {
+      return 'No SAF folder configured.';
+    }
+    return effectiveUri;
   }
 
   Future<void> _toggleGoogleLink({
@@ -211,6 +342,152 @@ class _SettingsTabState extends State<SettingsTab> {
     } finally {
       if (mounted) {
         setState(() => _isLinkingGoogle = false);
+      }
+    }
+  }
+
+  Future<void> _setSafFolder({AuthSession? session}) async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('SAF folder setup is Android-only.')),
+      );
+      return;
+    }
+    setState(() => _isUpdatingSafFolder = true);
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+        withData: false,
+        allowMultiple: false,
+      );
+      if (result == null || result.files.isEmpty) {
+        if (!mounted) return;
+        messenger.showSnackBar(
+          const SnackBar(content: Text('SAF folder selection canceled.')),
+        );
+        return;
+      }
+      final identifier = result.files.single.identifier?.trim();
+      if (identifier == null || !identifier.startsWith('content://')) {
+        if (!mounted) return;
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Could not derive SAF URI from selection.'),
+          ),
+        );
+        return;
+      }
+      final treeUri = SimpleSheetPersistenceService.parentTreeUriFromDocumentUri(
+        identifier,
+      );
+      if (treeUri == null) {
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              'Selected source is not suitable for SAF folder setup (${identifier.length > 72 ? '${identifier.substring(0, 72)}...' : identifier}).',
+            ),
+          ),
+        );
+        return;
+      }
+      if (session != null) {
+        await ServiceLocator.dbService.setSafFolderUri(
+          uid: session.uid,
+          treeUri: treeUri,
+        );
+      }
+      SimpleSheetPersistenceService.setRuntimeSafTreeUri(treeUri);
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            session == null
+                ? 'SAF folder saved for this app session.'
+                : 'SAF folder saved in settings.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not set SAF folder: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingSafFolder = false);
+      }
+    }
+  }
+
+  Future<void> _testSafFolder({required Map<String, dynamic>? settings}) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final treeUri =
+        (settings?['safTreeUri'] as String?)?.trim() ??
+        SimpleSheetPersistenceService.runtimeSafTreeUri;
+    if (treeUri == null || treeUri.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('No SAF folder configured.')),
+      );
+      return;
+    }
+    setState(() => _isUpdatingSafFolder = true);
+    try {
+      final bytes = Uint8List.fromList(
+        utf8.encode('calcrow SAF test ${DateTime.now().toIso8601String()}\n'),
+      );
+      final created = await _safStream.writeFileBytes(
+        treeUri,
+        'calcrow_saf_test.txt',
+        'text/plain',
+        bytes,
+        overwrite: true,
+      );
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'SAF test write successful (${created.fileName ?? 'calcrow_saf_test.txt'}).',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'SAF test failed. Re-pick folder from a writable location: $error',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingSafFolder = false);
+      }
+    }
+  }
+
+  Future<void> _clearSafFolder({AuthSession? session}) async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isUpdatingSafFolder = true);
+    try {
+      if (session != null) {
+        await ServiceLocator.dbService.clearSafFolderUri(uid: session.uid);
+      }
+      SimpleSheetPersistenceService.setRuntimeSafTreeUri(null);
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('SAF folder cleared.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not clear SAF folder: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingSafFolder = false);
       }
     }
   }
