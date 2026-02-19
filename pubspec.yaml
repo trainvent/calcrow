@@ -44,6 +44,7 @@ dependencies:
   cloud_firestore: ^6.1.0
   googleapis: ^13.1.0
   path_provider: ^2.1.5
+  saf_stream: ^0.12.3
 
 dev_dependencies:
   flutter_test:

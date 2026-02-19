@@ -1,13 +1,13 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:excel/excel.dart' as excel_pkg;
 import 'package:file_picker/file_picker.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
+import 'package:saf_stream/saf_stream.dart';
 import 'package:calcrow/core/data/di/service_locator.dart';
 import 'package:calcrow/features/home/presentation/tabs/advanced/widgets/notes_widget.dart';
 import 'package:calcrow/features/home/presentation/tabs/advanced/widgets/row_definement_widget.dart';
@@ -16,6 +16,7 @@ import 'package:calcrow/features/home/presentation/tabs/advanced/widgets/wellbei
 import 'package:calcrow/features/home/presentation/tabs/advanced/widgets/workhours_widget.dart';
 import 'package:calcrow/core/data/services/google_drive_auth_service.dart';
 import 'package:calcrow/core/data/services/google_drive_sync_service.dart';
+import 'package:calcrow/core/data/services/simple_sheet_persistence_service.dart';
 import 'package:calcrow/core/sheet_type_logic/csv_logic.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/xlsx_logic.dart';
@@ -25,18 +26,6 @@ import 'package:calcrow/features/home/presentation/tabs/simple/widgets/timespan_
 import '../../sheet_preview_store.dart';
 
 enum _WidgetBlock { rowDefinement, workhours, smartData, wellbeing, notes }
-
-class _SimplePersistResult {
-  const _SimplePersistResult({
-    required this.locationLabel,
-    required this.overwroteExistingFile,
-    required this.usedAppDocumentsFallback,
-  });
-
-  final String locationLabel;
-  final bool overwroteExistingFile;
-  final bool usedAppDocumentsFallback;
-}
 
 class TodayTabSimple extends StatefulWidget {
   const TodayTabSimple({super.key});
@@ -67,6 +56,9 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
   static const double _defaultMoodLevel = 0.45;
   static const double _defaultEnergyLevel = 0.62;
   static const int _previewRowLimit = 100;
+  static final SafStream _safStreamReader = SafStream();
+  final SimpleSheetPersistenceService _sheetPersistenceService =
+      SimpleSheetPersistenceService();
 
   final TextEditingController _dateController = TextEditingController(
     text: _formatDate(DateTime.now()),
@@ -177,16 +169,63 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     }
   }
 
-  Future<void> _importXlsxForSimple() async {
+  Future<void> _importXlsxForSimple({bool requireSafTarget = false}) async {
     try {
       final messenger = ScaffoldMessenger.of(context);
-      final file = await openFile(
-        acceptedTypeGroups: <XTypeGroup>[_xlsxTypeGroup],
-        confirmButtonText: 'Open XLSX',
-      );
-      if (!mounted || file == null) return;
+      Uint8List bytes = Uint8List(0);
+      String fileName = 'imported.xlsx';
+      String? sourcePath;
 
-      final bytes = await file.readAsBytes();
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        final picked = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: const <String>['xlsx'],
+          withData: true,
+        );
+        if (!mounted || picked == null || picked.files.isEmpty) return;
+
+        final selected = picked.files.single;
+        fileName = selected.name;
+        final identifier = selected.identifier?.trim();
+        if (identifier != null && identifier.startsWith('content://')) {
+          sourcePath = identifier;
+          try {
+            bytes = await _safStreamReader.readFileBytes(identifier);
+          } catch (_) {
+            // Fall through to file picker cached bytes/path fallback.
+          }
+        }
+        if (bytes.isEmpty && selected.bytes != null) {
+          bytes = selected.bytes!;
+        }
+        if (bytes.isEmpty) {
+          final path = selected.path?.trim();
+          if (path != null && path.isNotEmpty) {
+            final xFile = XFile(path, name: selected.name);
+            bytes = await xFile.readAsBytes();
+            sourcePath = path;
+          }
+        }
+      } else {
+        if (requireSafTarget) {
+          if (!mounted) return;
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('Open via SAF is currently supported on Android only.'),
+            ),
+          );
+          return;
+        }
+        final file = await openFile(
+          acceptedTypeGroups: <XTypeGroup>[_xlsxTypeGroup],
+          confirmButtonText: 'Open XLSX',
+        );
+        if (!mounted || file == null) return;
+        fileName = file.name;
+        bytes = await file.readAsBytes();
+        sourcePath = _readXFilePath(file);
+      }
+
       if (!mounted) return;
       if (bytes.isEmpty) {
         messenger.showSnackBar(
@@ -194,17 +233,32 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
         );
         return;
       }
+      final hasSafTarget =
+          !kIsWeb &&
+          defaultTargetPlatform == TargetPlatform.android &&
+          sourcePath != null &&
+          sourcePath.startsWith('content://');
+      if (requireSafTarget && !hasSafTarget) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'SAF target not detected. Please select the file through SAF.',
+            ),
+          ),
+        );
+        return;
+      }
       final sheetData = XlsxSheetLogic.parse(
         bytes: bytes,
-        fileName: file.name,
-        path: _readXFilePath(file),
+        fileName: fileName,
+        path: sourcePath,
       );
       _loadSimpleProfileData(sheetData);
 
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            'Loaded ${file.name} (${sheetData.rows.length} entries) from tab ${sheetData.xlsxSheetName ?? 'default'}.',
+            'Loaded $fileName (${sheetData.rows.length} entries) from tab ${sheetData.xlsxSheetName ?? 'default'}.${hasSafTarget ? ' SAF target ready.' : ' SAF target not detected.'}',
           ),
         ),
       );
@@ -214,6 +268,10 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
         context,
       ).showSnackBar(SnackBar(content: Text('XLSX import failed: $error')));
     }
+  }
+
+  Future<void> _importXlsxViaSafForSimple() async {
+    await _importXlsxForSimple(requireSafTarget: true);
   }
 
   Future<void> _openXlsxViaLink() async {
@@ -401,21 +459,11 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     try {
       final path = file.path.trim();
       if (path.isEmpty) return null;
-      if (_isTemporaryPath(path)) return null;
+      if (SimpleSheetPersistenceService.isTemporaryPath(path)) return null;
       return path;
     } catch (_) {
       return null;
     }
-  }
-
-  bool _isTemporaryPath(String path) {
-    final normalized = path.toLowerCase();
-    if (normalized.isEmpty) return true;
-    if (kIsWeb) return true;
-    return normalized.contains('/cache/') ||
-        normalized.contains('/tmp/') ||
-        normalized.contains('/file_picker/') ||
-        normalized.contains('/file_selector/');
   }
 
   List<String> _normalizeRowToWidth(List<String> row, int width) {
@@ -509,7 +557,15 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     });
   }
 
-  Future<void> _saveSimpleRow() async {
+  Future<void> _saveSimpleRow() => _saveSimpleRowInternal(
+    mode: SimplePersistMode.safPreferred,
+  );
+
+  Future<void> _saveSimpleRowAsIs() => _saveSimpleRowInternal(
+    mode: SimplePersistMode.asIs,
+  );
+
+  Future<void> _saveSimpleRowInternal({required SimplePersistMode mode}) async {
     if (!_hasSimpleSchema ||
         _simpleControllers.length != _simpleHeaders.length) {
       return;
@@ -550,7 +606,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     _publishSimpleRowsToPreview();
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final saveResult = await _persistSimpleSheet();
+      final saveResult = await _persistSimpleSheet(mode: mode);
       if (!mounted) return;
       try {
         final syncFileName = await _syncSimpleSheetToGoogleDrive();
@@ -595,6 +651,59 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
         );
         return;
       }
+      if (error is StateError && error.message == 'SAF save canceled.') {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('SAF save canceled. Use "Save as is" in Preview.'),
+          ),
+        );
+        return;
+      }
+      if (error is StateError &&
+          error.message == 'SAF save is not supported on this platform.') {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'SAF save is not available here. Use "Save as is" in Preview.',
+            ),
+          ),
+        );
+        return;
+      }
+      if (error is StateError &&
+          error.message ==
+              'No SAF target selected. Open a SAF-backed file first, then save.') {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No SAF target selected. Open a SAF-backed file first, or use "Save as is" in Preview.',
+            ),
+          ),
+        );
+        return;
+      }
+      if (error is StateError &&
+          error.message ==
+              'Current file is not SAF-backed. Use "Save as is" or reopen with SAF.') {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Current file is not SAF-backed. Use "Save as is" in Preview, or reopen via SAF.',
+            ),
+          ),
+        );
+        return;
+      }
+      if (error is StateError && error.message == 'SAF stream write failed.') {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'SAF stream write failed. Use "Save as is" in Preview.',
+            ),
+          ),
+        );
+        return;
+      }
       messenger.showSnackBar(
         SnackBar(
           content: Text('Row saved in app, but file write failed: $error'),
@@ -603,7 +712,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     }
   }
 
-  String _saveMessage(_SimplePersistResult saveResult) {
+  String _saveMessage(SimplePersistResult saveResult) {
     if (kIsWeb) {
       return 'Row updated. Downloaded updated file as ${saveResult.locationLabel}.';
     }
@@ -673,15 +782,18 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
           rows: _simpleRows.take(_previewRowLimit).toList(),
           fileName: _simpleImportedFileName,
           rowCount: _simpleRows.length,
+          onSaveAsIs: _saveSimpleRowAsIs,
         );
   }
 
-  Future<_SimplePersistResult> _persistSimpleSheet() async {
+  Future<SimplePersistResult> _persistSimpleSheet({
+    required SimplePersistMode mode,
+  }) async {
     final format = _simpleImportedFormat;
     if (format == SimpleFileFormat.xlsx) {
-      return _persistSimpleXlsx();
+      return _persistSimpleXlsx(mode: mode);
     }
-    return _persistSimpleCsv();
+    return _persistSimpleCsv(mode: mode);
   }
 
   Future<String?> _syncSimpleSheetToGoogleDrive() async {
@@ -749,7 +861,9 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     return metadata.name;
   }
 
-  Future<_SimplePersistResult> _persistSimpleCsv() async {
+  Future<SimplePersistResult> _persistSimpleCsv({
+    required SimplePersistMode mode,
+  }) async {
     final bytes = CsvSheetLogic.buildBytes(_buildSimpleSheetDataForPersist());
     final fileName = _simpleSuggestedFileName();
     return _persistSimpleBytes(
@@ -758,10 +872,13 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       typeGroup: _csvTypeGroup,
       mimeType: 'text/csv',
       confirmButtonText: 'Save CSV',
+      mode: mode,
     );
   }
 
-  Future<_SimplePersistResult> _persistSimpleXlsx() async {
+  Future<SimplePersistResult> _persistSimpleXlsx({
+    required SimplePersistMode mode,
+  }) async {
     final bytes = XlsxSheetLogic.buildBytes(_buildSimpleSheetDataForPersist());
 
     final fileName = _simpleSuggestedFileName(defaultExtension: 'xlsx');
@@ -772,6 +889,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       mimeType:
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       confirmButtonText: 'Save XLSX',
+      mode: mode,
     );
   }
 
@@ -791,129 +909,28 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     );
   }
 
-  Future<_SimplePersistResult> _persistSimpleBytes({
+  Future<SimplePersistResult> _persistSimpleBytes({
     required Uint8List bytes,
     required String fileName,
     required XTypeGroup typeGroup,
     required String mimeType,
     required String confirmButtonText,
+    required SimplePersistMode mode,
   }) async {
-    final output = XFile.fromData(bytes, name: fileName, mimeType: mimeType);
-    final existingPath = _simpleImportedPath?.trim();
-    final canOverwriteExisting =
-        existingPath != null &&
-        existingPath.isNotEmpty &&
-        !_isTemporaryPath(existingPath);
-    if (canOverwriteExisting) {
-      try {
-        await output.saveTo(existingPath);
-        return _SimplePersistResult(
-          locationLabel: existingPath,
-          overwroteExistingFile: true,
-          usedAppDocumentsFallback: false,
-        );
-      } catch (_) {
-        // Fall through to save dialog.
-      }
-    }
-
-    if (_isAndroidPlatform) {
-      final savedPath = await _saveWithAndroidPicker(
+    final result = await _sheetPersistenceService.persistBytes(
+      SimplePersistRequest(
         bytes: bytes,
         fileName: fileName,
         typeGroup: typeGroup,
-      );
-      if (savedPath != null && savedPath.isNotEmpty) {
-        _simpleImportedPath = savedPath;
-        return _SimplePersistResult(
-          locationLabel: savedPath,
-          overwroteExistingFile: false,
-          usedAppDocumentsFallback: false,
-        );
-      }
-    }
-
-    FileSaveLocation? location;
-    try {
-      location = await getSaveLocation(
-        acceptedTypeGroups: <XTypeGroup>[typeGroup],
-        suggestedName: fileName,
+        mimeType: mimeType,
         confirmButtonText: confirmButtonText,
-      );
-    } catch (error) {
-      if (!_isSaveLocationUnimplementedError(error)) rethrow;
-      final fallbackPath = await _androidAppDocumentsFallbackPath(fileName);
-      if (fallbackPath == null) {
-        throw StateError('Save picker is unavailable on this platform.');
-      }
-      await output.saveTo(fallbackPath);
-      _simpleImportedPath = fallbackPath;
-      return _SimplePersistResult(
-        locationLabel: fallbackPath,
-        overwroteExistingFile: false,
-        usedAppDocumentsFallback: true,
-      );
-    }
-    if (location == null) {
-      throw StateError('Save canceled.');
-    }
-    await output.saveTo(location.path);
-    _simpleImportedPath = location.path;
-    return _SimplePersistResult(
-      locationLabel: kIsWeb ? fileName : location.path,
-      overwroteExistingFile: false,
-      usedAppDocumentsFallback: false,
+        existingPath: _simpleImportedPath,
+        mode: mode,
+      ),
     );
-  }
-
-  bool _isSaveLocationUnimplementedError(Object error) {
-    if (error is UnimplementedError || error is MissingPluginException) {
-      return true;
-    }
-    if (error is PlatformException) {
-      final message = '${error.code} ${error.message ?? ''}'.toLowerCase();
-      return message.contains('unimplemented') ||
-          message.contains('not been implemented');
-    }
-    return false;
-  }
-
-  Future<String?> _androidAppDocumentsFallbackPath(String fileName) async {
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
-      return null;
-    }
-    try {
-      final directory = await getApplicationDocumentsDirectory();
-      return '${directory.path}/$fileName';
-    } catch (_) {
-      return null;
-    }
-  }
-
-  bool get _isAndroidPlatform =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-
-  Future<String?> _saveWithAndroidPicker({
-    required Uint8List bytes,
-    required String fileName,
-    required XTypeGroup typeGroup,
-  }) async {
-    try {
-      return await FilePicker.platform.saveFile(
-        fileName: fileName,
-        bytes: bytes,
-        type: FileType.custom,
-        allowedExtensions: typeGroup.extensions,
-      );
-    } on UnimplementedError {
-      return null;
-    } on UnsupportedError {
-      return null;
-    } on MissingPluginException {
-      return null;
-    } on PlatformException {
-      return null;
-    }
+    _simpleImportedPath = result.savedPath;
+    _simpleImportedFileName = result.resolvedFileName;
+    return result;
   }
 
   String _simpleSuggestedFileName({String? defaultExtension}) {
@@ -1546,6 +1563,13 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
           ),
           const SizedBox(height: 10),
           _SetupCard(
+            title: 'Open via SAF',
+            subtitle: 'Pick with Android SAF for direct stream save',
+            icon: Icons.enhanced_encryption_rounded,
+            onTap: _importXlsxViaSafForSimple,
+          ),
+          const SizedBox(height: 10),
+          _SetupCard(
             title: 'Open with link',
             subtitle: _simpleXlsxLink ?? 'MVP: only XLSX document links',
             icon: Icons.link_rounded,
@@ -1972,6 +1996,8 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
         controller.dispose();
       }
     });
+    SheetPreviewStore.notifier.value = SheetPreviewStore.notifier.value
+        .copyWith(clearOnSaveAsIs: true);
   }
 }
 

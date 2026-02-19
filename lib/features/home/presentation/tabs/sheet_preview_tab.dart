@@ -103,6 +103,7 @@ class SheetPreviewTab extends StatelessWidget {
             )
             .toList();
         final hasRows = previewRows.isNotEmpty;
+        final canSaveAsIs = preview.onSaveAsIs != null;
         final tableHeight = (MediaQuery.sizeOf(context).height * 0.48).clamp(
           220.0,
           420.0,
@@ -182,13 +183,30 @@ class SheetPreviewTab extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => _exportCsv(context, preview),
-                icon: const Icon(Icons.download_rounded),
-                label: const Text('Export CSV'),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _exportCsv(context, preview),
+                    icon: const Icon(Icons.download_rounded),
+                    label: const Text('Export CSV'),
+                  ),
+                ),
+                if (canSaveAsIs) ...[
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: hasRows
+                          ? () async {
+                              await preview.onSaveAsIs?.call();
+                            }
+                          : null,
+                      icon: const Icon(Icons.save_outlined),
+                      label: const Text('Save as is'),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ],
         );
