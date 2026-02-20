@@ -45,6 +45,7 @@ dependencies:
   googleapis: ^13.1.0
   path_provider: ^2.1.5
   saf_stream: ^0.12.3
+  saf_util: ^0.11.0
 
 dev_dependencies:
   flutter_test:

@@ -211,7 +211,9 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
           if (!mounted) return;
           messenger.showSnackBar(
             const SnackBar(
-              content: Text('Open via SAF is currently supported on Android only.'),
+              content: Text(
+                'Open via SAF is currently supported on Android only.',
+              ),
             ),
           );
           return;
@@ -557,13 +559,11 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     });
   }
 
-  Future<void> _saveSimpleRow() => _saveSimpleRowInternal(
-    mode: SimplePersistMode.safPreferred,
-  );
+  Future<void> _saveSimpleRow() =>
+      _saveSimpleRowInternal(mode: SimplePersistMode.safPreferred);
 
-  Future<void> _saveSimpleRowAsIs() => _saveSimpleRowInternal(
-    mode: SimplePersistMode.asIs,
-  );
+  Future<void> _saveSimpleRowAsIs() =>
+      _saveSimpleRowInternal(mode: SimplePersistMode.asIs);
 
   Future<void> _saveSimpleRowInternal({required SimplePersistMode mode}) async {
     if (!_hasSimpleSchema ||
@@ -955,7 +955,9 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     if (session == null) {
       return SimpleSheetPersistenceService.runtimeSafTreeUri;
     }
-    final settings = await ServiceLocator.dbService.getUserSettings(session.uid);
+    final settings = await ServiceLocator.dbService.getUserSettings(
+      session.uid,
+    );
     final uri = (settings?['safTreeUri'] as String?)?.trim();
     if (uri == null || uri.isEmpty) {
       return SimpleSheetPersistenceService.runtimeSafTreeUri;

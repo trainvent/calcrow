@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:saf_stream/saf_stream.dart';
+import 'package:saf_util/saf_util.dart';
 
 import '../../../../core/data/di/service_locator.dart';
 import '../../../../core/data/services/auth_service.dart';
@@ -24,6 +24,9 @@ class _SettingsTabState extends State<SettingsTab> {
   bool _isLinkingGoogle = false;
   bool _isUpdatingSafFolder = false;
   static final SafStream _safStream = SafStream();
+  static final SafUtil _safUtil = SafUtil();
+  final SimpleSheetPersistenceService _sheetPersistenceService =
+      SimpleSheetPersistenceService();
 
   @override
   Widget build(BuildContext context) {
@@ -192,9 +195,8 @@ class _SettingsTabState extends State<SettingsTab> {
                                 child: OutlinedButton(
                                   onPressed: _isUpdatingSafFolder
                                       ? null
-                                      : () => _testSafFolder(
-                                          settings: settings,
-                                        ),
+                                      : () =>
+                                            _testSafFolder(settings: settings),
                                   child: const Text('Test'),
                                 ),
                               ),
@@ -356,38 +358,20 @@ class _SettingsTabState extends State<SettingsTab> {
     }
     setState(() => _isUpdatingSafFolder = true);
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.any,
-        withData: false,
-        allowMultiple: false,
-      );
-      if (result == null || result.files.isEmpty) {
+      final treeUri = await _safUtil.openDirectory();
+      if (treeUri == null || treeUri.trim().isEmpty) {
         if (!mounted) return;
         messenger.showSnackBar(
           const SnackBar(content: Text('SAF folder selection canceled.')),
         );
         return;
       }
-      final identifier = result.files.single.identifier?.trim();
-      if (identifier == null || !identifier.startsWith('content://')) {
+      final normalizedTreeUri = treeUri.trim();
+      if (!_sheetPersistenceService.canUseSafTreeUri(normalizedTreeUri)) {
         if (!mounted) return;
         messenger.showSnackBar(
           const SnackBar(
-            content: Text('Could not derive SAF URI from selection.'),
-          ),
-        );
-        return;
-      }
-      final treeUri = SimpleSheetPersistenceService.parentTreeUriFromDocumentUri(
-        identifier,
-      );
-      if (treeUri == null) {
-        if (!mounted) return;
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              'Selected source is not suitable for SAF folder setup (${identifier.length > 72 ? '${identifier.substring(0, 72)}...' : identifier}).',
-            ),
+            content: Text('Could not acquire a writable SAF folder URI.'),
           ),
         );
         return;
@@ -395,10 +379,10 @@ class _SettingsTabState extends State<SettingsTab> {
       if (session != null) {
         await ServiceLocator.dbService.setSafFolderUri(
           uid: session.uid,
-          treeUri: treeUri,
+          treeUri: normalizedTreeUri,
         );
       }
-      SimpleSheetPersistenceService.setRuntimeSafTreeUri(treeUri);
+      SimpleSheetPersistenceService.setRuntimeSafTreeUri(normalizedTreeUri);
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
