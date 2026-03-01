@@ -1,11 +1,10 @@
 import 'dart:convert';
-import 'dart:typed_data';
-
 import 'package:excel/excel.dart' as excel_pkg;
 import 'package:file_picker/file_picker.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:saf_stream/saf_stream.dart';
 import 'package:calcrow/core/data/di/service_locator.dart';
@@ -35,6 +34,17 @@ class TodayTabSimple extends StatefulWidget {
 }
 
 class _TodayTabSimpleState extends State<TodayTabSimple> {
+  static const String _internalSafTestCsvAsset =
+      'test_objects/raw/Arbeitszeiten_2026.csv';
+  static const List<String> _simpleTypeOptions = <String>[
+    'text',
+    'date',
+    'time',
+    'int',
+    'decimal',
+    'email',
+    'phone',
+  ];
   static const XTypeGroup _csvTypeGroup = XTypeGroup(
     label: 'CSV',
     extensions: <String>['csv'],
@@ -85,6 +95,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
   List<String> _simpleHeaders = const <String>[];
   List<String> _simpleValueTypes = const <String>[];
   List<bool> _simpleReadOnlyColumns = const <bool>[];
+  List<int> _simplePendingTypeSelectionColumns = const <int>[];
   List<List<String>> _simpleRows = const <List<String>>[];
   List<TextEditingController> _simpleControllers =
       const <TextEditingController>[];
@@ -449,12 +460,77 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       _simpleHeaders = sheetData.headers;
       _simpleValueTypes = sheetData.valueTypes;
       _simpleReadOnlyColumns = sheetData.readOnlyColumns;
+      _simplePendingTypeSelectionColumns =
+          sheetData.pendingTypeSelectionColumns;
       _simpleRows = sheetData.rows;
       _simpleImportedWorkbook = sheetData.workbook;
     });
 
     _selectSimpleEditorTargetRow();
     _publishSimpleRowsToPreview();
+  }
+
+  Future<void> _openInternalSafTestCsv() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final asset = await rootBundle.load(_internalSafTestCsvAsset);
+      if (!mounted) return;
+      final bytes = asset.buffer.asUint8List();
+      if (bytes.isEmpty) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('The bundled SAF test CSV is empty.')),
+        );
+        return;
+      }
+
+      var fileName = _internalSafTestCsvAsset.split('/').last;
+      String? path;
+      var createdSafCopy = false;
+
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        final saveResult = await _sheetPersistenceService.persistBytes(
+          SimplePersistRequest(
+            bytes: bytes,
+            fileName: fileName,
+            typeGroup: _csvTypeGroup,
+            mimeType: 'text/csv',
+            confirmButtonText: 'Create Test CSV',
+            mode: SimplePersistMode.asIs,
+          ),
+        );
+        if (!mounted) return;
+        fileName = saveResult.resolvedFileName;
+        path = saveResult.savedPath;
+        createdSafCopy = true;
+      }
+
+      final sheetData = CsvSheetLogic.parse(
+        bytes: bytes,
+        fileName: fileName,
+        path: path,
+      );
+      _loadSimpleProfileData(sheetData);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            createdSafCopy
+                ? 'Loaded SAF test copy $fileName. Confirm field formats, then save rows back to the same SAF file.'
+                : 'Loaded bundled test CSV $fileName.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      if (error is StateError && error.message == 'Save canceled.') {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('SAF test copy canceled.')),
+        );
+        return;
+      }
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not open SAF test CSV: $error')),
+      );
+    }
   }
 
   String? _readXFilePath(XFile file) {
@@ -785,6 +861,25 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       _simpleControllers[i].clear();
     }
     setState(() {});
+  }
+
+  void _updatePendingSimpleType(int columnIndex, String nextType) {
+    final nextTypes = List<String>.from(_simpleValueTypes);
+    if (columnIndex < 0 || columnIndex >= nextTypes.length) return;
+    nextTypes[columnIndex] = nextType;
+    setState(() {
+      _simpleValueTypes = nextTypes;
+    });
+  }
+
+  void _confirmPendingSimpleTypes() {
+    if (_simplePendingTypeSelectionColumns.isEmpty) return;
+    setState(() {
+      _simplePendingTypeSelectionColumns = const <int>[];
+    });
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Field formats confirmed.')));
   }
 
   void _publishSimpleRowsToPreview() {
@@ -1578,41 +1673,97 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
 
   Widget _buildSimpleView(ThemeData theme) {
     if (!_hasSimpleSchema) {
-      return Column(
-        children: [
-          _SetupCard(
-            title: 'Open Existing CSV',
-            subtitle: 'Line 1 = field names, line 2 = value types',
-            icon: Icons.folder_open_rounded,
-            onTap: _importCsvForSimple,
-          ),
-          const SizedBox(height: 10),
-          _SetupCard(
-            title: 'Open Existing XLSX',
-            subtitle: 'Use first sheet and first row as field profile',
-            icon: Icons.grid_on_rounded,
-            onTap: _importXlsxForSimple,
-          ),
-          const SizedBox(height: 10),
-          _SetupCard(
-            title: 'Open via SAF',
-            subtitle: 'Pick with Android SAF for direct stream save',
-            icon: Icons.enhanced_encryption_rounded,
-            onTap: _importXlsxViaSafForSimple,
-          ),
-          const SizedBox(height: 10),
-          _SetupCard(
-            title: 'Open with link',
-            subtitle: _simpleXlsxLink ?? 'MVP: only XLSX document links',
-            icon: Icons.link_rounded,
-            onTap: _openXlsxViaLink,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Simple mode will auto-jump to today\'s row if a date column exists, otherwise it opens a new row at the bottom.',
-            style: theme.textTheme.bodyMedium,
-          ),
-        ],
+      return DefaultTabController(
+        length: 2,
+        child: Column(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const TabBar(
+                tabs: [
+                  Tab(text: 'Open'),
+                  Tab(text: 'Test SAF Internal'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 420,
+              child: TabBarView(
+                children: [
+                  ListView(
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: [
+                      _SetupCard(
+                        title: 'Open Existing CSV',
+                        subtitle:
+                            'Line 1 = field names. If types are missing, Calcrow will ask once.',
+                        icon: Icons.folder_open_rounded,
+                        onTap: _importCsvForSimple,
+                      ),
+                      const SizedBox(height: 10),
+                      _SetupCard(
+                        title: 'Open Existing XLSX',
+                        subtitle:
+                            'Use first sheet and first row as field profile',
+                        icon: Icons.grid_on_rounded,
+                        onTap: _importXlsxForSimple,
+                      ),
+                      const SizedBox(height: 10),
+                      _SetupCard(
+                        title: 'Open via SAF',
+                        subtitle:
+                            'Pick with Android SAF for direct stream save',
+                        icon: Icons.enhanced_encryption_rounded,
+                        onTap: _importXlsxViaSafForSimple,
+                      ),
+                      const SizedBox(height: 10),
+                      _SetupCard(
+                        title: 'Open with link',
+                        subtitle:
+                            _simpleXlsxLink ?? 'MVP: only XLSX document links',
+                        icon: Icons.link_rounded,
+                        onTap: _openXlsxViaLink,
+                      ),
+                    ],
+                  ),
+                  ListView(
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: [
+                      _SetupCard(
+                        title: 'Open Arbeitszeiten_2026.csv',
+                        subtitle:
+                            !kIsWeb &&
+                                defaultTargetPlatform == TargetPlatform.android
+                            ? 'Creates a SAF-backed copy first, then opens it in Simple mode'
+                            : 'Loads the bundled raw test sheet into Simple mode',
+                        icon: Icons.science_rounded,
+                        onTap: _openInternalSafTestCsv,
+                      ),
+                      const SizedBox(height: 10),
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(
+                            'This test sheet has headers, empty input cells, and calculated columns. Calcrow will ask you to confirm editable field formats before the first save.',
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              'Simple mode will auto-jump to today\'s row if a date column exists, otherwise it opens a new row at the bottom.',
+              style: theme.textTheme.bodyMedium,
+            ),
+          ],
+        ),
       );
     }
 
@@ -1637,6 +1788,8 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
 
     final dateColumn = _simpleDateColumnIndex();
     final isEditingExisting = _simpleEditingRowIndex < _simpleRows.length;
+    final hasPendingTypeSelection =
+        _simplePendingTypeSelectionColumns.isNotEmpty;
     final targetLabel = isEditingExisting
         ? 'Editing row ${_simpleEditingRowIndex + 1} of ${_simpleRows.length}'
         : 'Editing new row at bottom';
@@ -1686,6 +1839,64 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
           ),
         ),
         const SizedBox(height: 10),
+        if (hasPendingTypeSelection) ...[
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Confirm field formats',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'This file has no usable type row yet. Pick the editable field formats once before saving.',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  ..._simplePendingTypeSelectionColumns.map((index) {
+                    final header = _simpleHeaders[index];
+                    final currentType = _simpleValueTypes[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: DropdownButtonFormField<String>(
+                        initialValue: _simpleTypeOptions.contains(currentType)
+                            ? currentType
+                            : 'text',
+                        decoration: InputDecoration(
+                          labelText: header,
+                          helperText: 'Calculated columns are skipped.',
+                        ),
+                        items: _simpleTypeOptions
+                            .map(
+                              (type) => DropdownMenuItem<String>(
+                                value: type,
+                                child: Text(type),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          _updatePendingSimpleType(index, value);
+                        },
+                      ),
+                    );
+                  }),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton(
+                      onPressed: _confirmPendingSimpleTypes,
+                      child: const Text('Use these formats'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -1757,7 +1968,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
               children: [
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: _saveSimpleRow,
+                    onPressed: hasPendingTypeSelection ? null : _saveSimpleRow,
                     child: const Text('Save Row'),
                   ),
                 ),

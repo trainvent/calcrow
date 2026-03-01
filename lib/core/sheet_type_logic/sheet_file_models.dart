@@ -11,6 +11,7 @@ class SimpleSheetData {
     required this.valueTypes,
     required this.readOnlyColumns,
     required this.rows,
+    this.pendingTypeSelectionColumns = const <int>[],
     this.csvDelimiter = ',',
     this.hasTypeRow = false,
     this.xlsxSheetName,
@@ -24,6 +25,7 @@ class SimpleSheetData {
   final List<String> valueTypes;
   final List<bool> readOnlyColumns;
   final List<List<String>> rows;
+  final List<int> pendingTypeSelectionColumns;
   final String csvDelimiter;
   final bool hasTypeRow;
   final String? xlsxSheetName;

@@ -23,47 +23,62 @@ class CsvSheetLogic {
     }
 
     final delimiter = _detectDelimiter(lines[0]);
-    final headers = _splitCsvLine(lines[0], delimiter: delimiter);
-    if (headers.isEmpty) {
+    final rawHeaders = _splitCsvLine(lines[0], delimiter: delimiter);
+    final firstEmptyHeaderIndex = rawHeaders.indexWhere(
+      (value) => value.trim().isEmpty,
+    );
+    final headerCount = firstEmptyHeaderIndex >= 0
+        ? firstEmptyHeaderIndex
+        : rawHeaders.length;
+    if (headerCount == 0) {
       throw const FormatException('CSV header row is empty.');
     }
+    final headers = rawHeaders
+        .take(headerCount)
+        .map((value) => value.trim())
+        .toList();
 
     final secondLineValues = _splitCsvLine(lines[1], delimiter: delimiter);
     final hasTypeRow = _looksLikeTypeRow(secondLineValues);
-    final valueTypes = hasTypeRow
-        ? List<String>.generate(
-            headers.length,
-            (index) => index < secondLineValues.length
-                ? _normalizeTypeLabel(secondLineValues[index])
-                : 'text',
-          )
-        : _inferSimpleTypes(
-            headers.length,
-            lines
-                .skip(1)
-                .map((line) => _splitCsvLine(line, delimiter: delimiter))
-                .take(20)
-                .toList(),
-          );
-
     final rows = lines
         .skip(hasTypeRow ? 2 : 1)
         .map(
           (line) => _normalizeRowToWidth(
-            _splitCsvLine(line, delimiter: delimiter),
-            headers.length,
+            _splitCsvLine(
+              line,
+              delimiter: delimiter,
+            ).take(headerCount).toList(),
+            headerCount,
           ),
         )
         .toList();
+    final readOnlyColumns = _detectReadOnlyColumns(headerCount, rows);
+    final typeInference = hasTypeRow
+        ? _buildTypeInferenceFromTypeRow(
+            headerCount: headerCount,
+            secondLineValues: secondLineValues,
+          )
+        : _inferSimpleTypes(
+            headers: headers,
+            rows: rows.take(20).toList(),
+            readOnlyColumns: readOnlyColumns,
+          );
+    final pendingTypeSelectionColumns = hasTypeRow
+        ? const <int>[]
+        : List<int>.generate(headerCount, (index) => index).where((index) {
+            if (readOnlyColumns[index]) return false;
+            return !typeInference[index].confirmedFromData;
+          }).toList();
 
     return SimpleSheetData(
       fileName: fileName,
       path: path,
       format: SimpleFileFormat.csv,
       headers: headers,
-      valueTypes: valueTypes,
-      readOnlyColumns: List<bool>.filled(headers.length, false),
+      valueTypes: typeInference.map((item) => item.type).toList(),
+      readOnlyColumns: readOnlyColumns,
       rows: rows,
+      pendingTypeSelectionColumns: pendingTypeSelectionColumns,
       csvDelimiter: delimiter,
       hasTypeRow: hasTypeRow,
     );
@@ -187,22 +202,60 @@ class CsvSheetLogic {
     return false;
   }
 
-  static List<String> _inferSimpleTypes(
-    int width,
-    List<List<String>> sampleRows,
-  ) {
-    return List<String>.generate(width, (index) {
+  static List<_CsvTypeInference> _buildTypeInferenceFromTypeRow({
+    required int headerCount,
+    required List<String> secondLineValues,
+  }) {
+    return List<_CsvTypeInference>.generate(
+      headerCount,
+      (index) => _CsvTypeInference(
+        type: index < secondLineValues.length
+            ? _normalizeTypeLabel(secondLineValues[index])
+            : 'text',
+        confirmedFromData: true,
+      ),
+    );
+  }
+
+  static List<_CsvTypeInference> _inferSimpleTypes({
+    required List<String> headers,
+    required List<List<String>> rows,
+    required List<bool> readOnlyColumns,
+  }) {
+    final width = headers.length;
+    final sampleRows = rows;
+    return List<_CsvTypeInference>.generate(width, (index) {
+      if (readOnlyColumns[index]) {
+        final headerGuess = _typeFromHeader(headers[index]);
+        return _CsvTypeInference(
+          type: headerGuess ?? 'decimal',
+          confirmedFromData: true,
+        );
+      }
       for (final row in sampleRows) {
         if (index >= row.length) continue;
         final value = row[index].trim();
         if (value.isEmpty) continue;
-        if (_looksLikeDateValue(value)) return 'date';
-        if (_looksLikeTimeValue(value)) return 'time';
-        if (_looksLikeDecimalValue(value)) return 'decimal';
-        if (_looksLikeIntegerValue(value)) return 'int';
-        return 'text';
+        if (_looksLikeFormulaExpression(value)) continue;
+        if (_looksLikeDateValue(value)) {
+          return const _CsvTypeInference(type: 'date', confirmedFromData: true);
+        }
+        if (_looksLikeTimeValue(value)) {
+          return const _CsvTypeInference(type: 'time', confirmedFromData: true);
+        }
+        if (_looksLikeDecimalValue(value)) {
+          return const _CsvTypeInference(
+            type: 'decimal',
+            confirmedFromData: true,
+          );
+        }
+        if (_looksLikeIntegerValue(value)) {
+          return const _CsvTypeInference(type: 'int', confirmedFromData: true);
+        }
+        return const _CsvTypeInference(type: 'text', confirmedFromData: true);
       }
-      return 'text';
+      final headerGuess = _typeFromHeader(headers[index]) ?? 'text';
+      return _CsvTypeInference(type: headerGuess, confirmedFromData: false);
     });
   }
 
@@ -247,6 +300,59 @@ class CsvSheetLogic {
     return RegExp(r'^[+-]?\d+[.,]\d+$').hasMatch(value.trim());
   }
 
+  static List<bool> _detectReadOnlyColumns(int width, List<List<String>> rows) {
+    final readOnly = List<bool>.filled(width, false);
+    for (final row in rows) {
+      for (var index = 0; index < width && index < row.length; index++) {
+        if (_looksLikeFormulaExpression(row[index])) {
+          readOnly[index] = true;
+        }
+      }
+    }
+    return readOnly;
+  }
+
+  static bool _looksLikeFormulaExpression(String value) {
+    final trimmed = value.trim();
+    return trimmed.startsWith('=') && trimmed.length > 1;
+  }
+
+  static String? _typeFromHeader(String header) {
+    final value = header.trim().toLowerCase();
+    if (value.isEmpty) return null;
+    if (value == 'date' || value == 'datum' || value.contains('fecha')) {
+      return 'date';
+    }
+    if (value.contains('start') ||
+        value.contains('beginn') ||
+        value.contains('begin') ||
+        value.contains('end') ||
+        value.contains('ende') ||
+        value.contains('time') ||
+        value.contains('uhr')) {
+      return 'time';
+    }
+    if (value.contains('pause') ||
+        value.contains('break') ||
+        value.contains('minutes') ||
+        value.contains('minuten')) {
+      return 'int';
+    }
+    if (value.contains('hour') ||
+        value.contains('stunden') ||
+        value.contains('decimal') ||
+        value.contains('wage') ||
+        value.contains('lohn') ||
+        value.contains('verdienst') ||
+        value.contains('amount') ||
+        value.contains('price')) {
+      return 'decimal';
+    }
+    if (value.contains('mail')) return 'email';
+    if (value.contains('phone') || value.contains('telefon')) return 'phone';
+    return null;
+  }
+
   static String _escapeCsvCell(String value, String delimiter) {
     final escaped = value.replaceAll('"', '""');
     final mustQuote =
@@ -255,4 +361,14 @@ class CsvSheetLogic {
         escaped.contains('\n');
     return mustQuote ? '"$escaped"' : escaped;
   }
+}
+
+class _CsvTypeInference {
+  const _CsvTypeInference({
+    required this.type,
+    required this.confirmedFromData,
+  });
+
+  final String type;
+  final bool confirmedFromData;
 }
