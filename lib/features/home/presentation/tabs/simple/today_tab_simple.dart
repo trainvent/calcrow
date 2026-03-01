@@ -146,13 +146,38 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
   Future<void> _importCsvForSimple() async {
     try {
       final messenger = ScaffoldMessenger.of(context);
-      final file = await openFile(
-        acceptedTypeGroups: <XTypeGroup>[_csvTypeGroup],
-        confirmButtonText: 'Open CSV',
-      );
-      if (!mounted || file == null) return;
+      Uint8List bytes = Uint8List(0);
+      String fileName = 'imported.csv';
+      String? sourcePath;
 
-      final bytes = await file.readAsBytes();
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        final pickedFile = await _safUtil.pickFile(
+          mimeTypes: const <String>[
+            'text/csv',
+            'text/comma-separated-values',
+            'application/csv',
+            'text/*',
+          ],
+        );
+        if (!mounted || pickedFile == null) return;
+        fileName = pickedFile.name.trim().isEmpty ? fileName : pickedFile.name;
+        sourcePath = pickedFile.uri.trim().isEmpty
+            ? null
+            : pickedFile.uri.trim();
+        if (sourcePath != null) {
+          bytes = await _safStreamReader.readFileBytes(sourcePath);
+        }
+      } else {
+        final file = await openFile(
+          acceptedTypeGroups: <XTypeGroup>[_csvTypeGroup],
+          confirmButtonText: 'Open CSV',
+        );
+        if (!mounted || file == null) return;
+        fileName = file.name;
+        bytes = await file.readAsBytes();
+        sourcePath = _readXFilePath(file);
+      }
+
       if (!mounted) return;
       if (bytes.isEmpty) {
         messenger.showSnackBar(
@@ -162,16 +187,14 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       }
       final sheetData = CsvSheetLogic.parse(
         bytes: bytes,
-        fileName: file.name,
-        path: _readXFilePath(file),
+        fileName: fileName,
+        path: sourcePath,
       );
       _loadSimpleProfileData(sheetData);
 
       messenger.showSnackBar(
         SnackBar(
-          content: Text(
-            'Loaded ${file.name} (${sheetData.rows.length} entries).',
-          ),
+          content: Text('Loaded $fileName (${sheetData.rows.length} entries).'),
         ),
       );
     } catch (error) {
@@ -1778,7 +1801,10 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
                       _SetupCard(
                         title: 'Open Existing CSV',
                         subtitle:
-                            'Line 1 = field names. If types are missing, Calcrow will ask once.',
+                            !kIsWeb &&
+                                defaultTargetPlatform == TargetPlatform.android
+                            ? 'Open a CSV via Android SAF for direct save-back'
+                            : 'Line 1 = field names. If types are missing, Calcrow will ask once.',
                         icon: Icons.folder_open_rounded,
                         onTap: _importCsvForSimple,
                       ),
