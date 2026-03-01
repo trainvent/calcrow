@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:saf_stream/saf_stream.dart';
+import 'package:saf_util/saf_util.dart';
 import 'package:calcrow/core/data/di/service_locator.dart';
 import 'package:calcrow/features/home/presentation/tabs/advanced/widgets/notes_widget.dart';
 import 'package:calcrow/features/home/presentation/tabs/advanced/widgets/row_definement_widget.dart';
@@ -67,6 +68,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
   static const double _defaultEnergyLevel = 0.62;
   static const int _previewRowLimit = 100;
   static final SafStream _safStreamReader = SafStream();
+  static final SafUtil _safUtil = SafUtil();
   final SimpleSheetPersistenceService _sheetPersistenceService =
       SimpleSheetPersistenceService();
 
@@ -488,15 +490,9 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       var createdSafCopy = false;
 
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-        final saveResult = await _sheetPersistenceService.persistBytes(
-          SimplePersistRequest(
-            bytes: bytes,
-            fileName: fileName,
-            typeGroup: _csvTypeGroup,
-            mimeType: 'text/csv',
-            confirmButtonText: 'Create Test CSV',
-            mode: SimplePersistMode.asIs,
-          ),
+        final saveResult = await _createInternalSafTestCopy(
+          bytes: bytes,
+          fileName: fileName,
         );
         if (!mounted) return;
         fileName = saveResult.resolvedFileName;
@@ -527,10 +523,92 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
         );
         return;
       }
+      if (error is StateError &&
+          error.message == 'SAF folder selection canceled.') {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('SAF folder selection canceled.')),
+        );
+        return;
+      }
+      if (error is StateError &&
+          error.message == 'Could not acquire a writable SAF folder URI.') {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Could not acquire a writable SAF folder URI.'),
+          ),
+        );
+        return;
+      }
       messenger.showSnackBar(
         SnackBar(content: Text('Could not open SAF test CSV: $error')),
       );
     }
+  }
+
+  Future<SimplePersistResult> _createInternalSafTestCopy({
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    final preferredTreeUri = await _preferredSafTreeUri();
+    if (preferredTreeUri != null &&
+        preferredTreeUri.isNotEmpty &&
+        _sheetPersistenceService.canUseSafTreeUri(preferredTreeUri)) {
+      try {
+        return await _sheetPersistenceService.persistBytes(
+          SimplePersistRequest(
+            bytes: bytes,
+            fileName: fileName,
+            typeGroup: _csvTypeGroup,
+            mimeType: 'text/csv',
+            confirmButtonText: 'Create Test CSV',
+            preferredSafTreeUri: preferredTreeUri,
+            mode: SimplePersistMode.safPreferred,
+          ),
+        );
+      } on StateError catch (error) {
+        if (!_shouldRetryInternalSafPicker(error)) rethrow;
+      }
+    }
+
+    final pickedTreeUri = await _pickWritableSafTreeUri();
+    if (pickedTreeUri == null) {
+      throw StateError('SAF folder selection canceled.');
+    }
+
+    return _sheetPersistenceService.persistBytes(
+      SimplePersistRequest(
+        bytes: bytes,
+        fileName: fileName,
+        typeGroup: _csvTypeGroup,
+        mimeType: 'text/csv',
+        confirmButtonText: 'Create Test CSV',
+        preferredSafTreeUri: pickedTreeUri,
+        mode: SimplePersistMode.safPreferred,
+      ),
+    );
+  }
+
+  bool _shouldRetryInternalSafPicker(StateError error) {
+    return error.message ==
+            'No SAF target selected. Open a SAF-backed file first or configure SAF folder in Settings.' ||
+        error.message == 'SAF stream write failed.';
+  }
+
+  Future<String?> _pickWritableSafTreeUri() async {
+    final pickedDirectory = await _safUtil.pickDirectory(
+      writePermission: true,
+      persistablePermission: true,
+    );
+    if (!mounted) return null;
+    final pickedTreeUri = pickedDirectory?.uri.trim();
+    if (pickedTreeUri == null || pickedTreeUri.isEmpty) {
+      return null;
+    }
+    if (!_sheetPersistenceService.canUseSafTreeUri(pickedTreeUri)) {
+      throw StateError('Could not acquire a writable SAF folder URI.');
+    }
+    SimpleSheetPersistenceService.setRuntimeSafTreeUri(pickedTreeUri);
+    return pickedTreeUri;
   }
 
   String? _readXFilePath(XFile file) {
