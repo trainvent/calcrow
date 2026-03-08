@@ -202,7 +202,7 @@ class SheetPreviewTab extends StatelessWidget {
                             }
                           : null,
                       icon: const Icon(Icons.save_outlined),
-                      label: const Text('Save as is'),
+                      label: const Text('Save Copy'),
                     ),
                   ),
                 ],

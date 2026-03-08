@@ -78,6 +78,10 @@ class XlsxSheetLogic {
         }
       }
     }
+    final pendingTypeSelectionColumns = List<int>.generate(
+      headerCount,
+      (index) => index,
+    ).where((index) => !readOnlyColumns[index]).toList();
 
     return SimpleSheetData(
       fileName: fileName,
@@ -87,6 +91,7 @@ class XlsxSheetLogic {
       valueTypes: valueTypes,
       readOnlyColumns: readOnlyColumns,
       rows: rows,
+      pendingTypeSelectionColumns: pendingTypeSelectionColumns,
       xlsxSheetName: sheetName,
       workbook: excel,
     );

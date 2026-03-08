@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:excel/excel.dart' as excel_pkg;
-import 'package:file_picker/file_picker.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -37,6 +36,8 @@ class TodayTabSimple extends StatefulWidget {
 class _TodayTabSimpleState extends State<TodayTabSimple> {
   static const String _internalSafTestCsvAsset =
       'test_objects/raw/Arbeitszeiten_2026.csv';
+  static const String _internalSafTestXlsxAsset =
+      'test_objects/raw/Arbeitszeiten_2026.xlsx';
   static const List<String> _simpleTypeOptions = <String>[
     'text',
     'date',
@@ -213,34 +214,20 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       String? sourcePath;
 
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-        final picked = await FilePicker.platform.pickFiles(
-          type: FileType.custom,
-          allowedExtensions: const <String>['xlsx'],
-          withData: true,
+        final pickedFile = await _safUtil.pickFile(
+          mimeTypes: const <String>[
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-excel',
+            'application/octet-stream',
+          ],
         );
-        if (!mounted || picked == null || picked.files.isEmpty) return;
-
-        final selected = picked.files.single;
-        fileName = selected.name;
-        final identifier = selected.identifier?.trim();
-        if (identifier != null && identifier.startsWith('content://')) {
-          sourcePath = identifier;
-          try {
-            bytes = await _safStreamReader.readFileBytes(identifier);
-          } catch (_) {
-            // Fall through to file picker cached bytes/path fallback.
-          }
-        }
-        if (bytes.isEmpty && selected.bytes != null) {
-          bytes = selected.bytes!;
-        }
-        if (bytes.isEmpty) {
-          final path = selected.path?.trim();
-          if (path != null && path.isNotEmpty) {
-            final xFile = XFile(path, name: selected.name);
-            bytes = await xFile.readAsBytes();
-            sourcePath = path;
-          }
+        if (!mounted || pickedFile == null) return;
+        fileName = pickedFile.name.trim().isEmpty ? fileName : pickedFile.name;
+        sourcePath = pickedFile.uri.trim().isEmpty
+            ? null
+            : pickedFile.uri.trim();
+        if (sourcePath != null) {
+          bytes = await _safStreamReader.readFileBytes(sourcePath);
         }
       } else {
         if (requireSafTarget) {
@@ -516,6 +503,9 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
         final saveResult = await _createInternalSafTestCopy(
           bytes: bytes,
           fileName: fileName,
+          typeGroup: _csvTypeGroup,
+          mimeType: 'text/csv',
+          confirmButtonText: 'Create Test CSV',
         );
         if (!mounted) return;
         fileName = saveResult.resolvedFileName;
@@ -568,9 +558,89 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     }
   }
 
+  Future<void> _openInternalSafTestXlsx() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final asset = await rootBundle.load(_internalSafTestXlsxAsset);
+      if (!mounted) return;
+      final bytes = asset.buffer.asUint8List();
+      if (bytes.isEmpty) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('The bundled SAF test XLSX is empty.')),
+        );
+        return;
+      }
+
+      var fileName = _internalSafTestXlsxAsset.split('/').last;
+      String? path;
+      var createdSafCopy = false;
+
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        final saveResult = await _createInternalSafTestCopy(
+          bytes: bytes,
+          fileName: fileName,
+          typeGroup: _xlsxTypeGroup,
+          mimeType:
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          confirmButtonText: 'Create Test XLSX',
+        );
+        if (!mounted) return;
+        fileName = saveResult.resolvedFileName;
+        path = saveResult.savedPath;
+        createdSafCopy = true;
+      }
+
+      final sheetData = XlsxSheetLogic.parse(
+        bytes: bytes,
+        fileName: fileName,
+        path: path,
+      );
+      _loadSimpleProfileData(sheetData);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            createdSafCopy
+                ? 'Loaded SAF test copy $fileName. Save rows back to the same SAF Excel file.'
+                : 'Loaded bundled test XLSX $fileName.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      if (error is StateError && error.message == 'Save canceled.') {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('SAF test copy canceled.')),
+        );
+        return;
+      }
+      if (error is StateError &&
+          error.message == 'SAF folder selection canceled.') {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('SAF folder selection canceled.')),
+        );
+        return;
+      }
+      if (error is StateError &&
+          error.message == 'Could not acquire a writable SAF folder URI.') {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Could not acquire a writable SAF folder URI.'),
+          ),
+        );
+        return;
+      }
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not open SAF test XLSX: $error')),
+      );
+    }
+  }
+
   Future<SimplePersistResult> _createInternalSafTestCopy({
     required Uint8List bytes,
     required String fileName,
+    required XTypeGroup typeGroup,
+    required String mimeType,
+    required String confirmButtonText,
   }) async {
     final preferredTreeUri = await _preferredSafTreeUri();
     if (preferredTreeUri != null &&
@@ -581,9 +651,9 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
           SimplePersistRequest(
             bytes: bytes,
             fileName: fileName,
-            typeGroup: _csvTypeGroup,
-            mimeType: 'text/csv',
-            confirmButtonText: 'Create Test CSV',
+            typeGroup: typeGroup,
+            mimeType: mimeType,
+            confirmButtonText: confirmButtonText,
             preferredSafTreeUri: preferredTreeUri,
             mode: SimplePersistMode.safPreferred,
           ),
@@ -602,9 +672,9 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       SimplePersistRequest(
         bytes: bytes,
         fileName: fileName,
-        typeGroup: _csvTypeGroup,
-        mimeType: 'text/csv',
-        confirmButtonText: 'Create Test CSV',
+        typeGroup: typeGroup,
+        mimeType: mimeType,
+        confirmButtonText: confirmButtonText,
         preferredSafTreeUri: pickedTreeUri,
         mode: SimplePersistMode.safPreferred,
       ),
@@ -1812,15 +1882,17 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
                       _SetupCard(
                         title: 'Open Existing XLSX',
                         subtitle:
-                            'Use first sheet and first row as field profile',
+                            !kIsWeb &&
+                                defaultTargetPlatform == TargetPlatform.android
+                            ? 'Open an Excel file via Android SAF for direct save-back'
+                            : 'Use first sheet and first row as field profile',
                         icon: Icons.grid_on_rounded,
                         onTap: _importXlsxForSimple,
                       ),
                       const SizedBox(height: 10),
                       _SetupCard(
                         title: 'Open via SAF',
-                        subtitle:
-                            'Pick with Android SAF for direct stream save',
+                        subtitle: 'Android-only direct-save XLSX open',
                         icon: Icons.enhanced_encryption_rounded,
                         onTap: _importXlsxViaSafForSimple,
                       ),
@@ -1848,11 +1920,22 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
                         onTap: _openInternalSafTestCsv,
                       ),
                       const SizedBox(height: 10),
+                      _SetupCard(
+                        title: 'Open Arbeitszeiten_2026.xlsx',
+                        subtitle:
+                            !kIsWeb &&
+                                defaultTargetPlatform == TargetPlatform.android
+                            ? 'Creates a SAF-backed Excel copy first, then opens it in Simple mode'
+                            : 'Loads the bundled raw Excel test sheet into Simple mode',
+                        icon: Icons.table_view_rounded,
+                        onTap: _openInternalSafTestXlsx,
+                      ),
+                      const SizedBox(height: 10),
                       Card(
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Text(
-                            'This test sheet has headers, empty input cells, and calculated columns. Calcrow will ask you to confirm editable field formats before the first save.',
+                            'These test sheets have headers, empty input cells, and calculated columns. CSV asks for missing editable formats once. XLSX keeps formula columns read-only and saves back to the same workbook.',
                             style: theme.textTheme.bodyMedium,
                           ),
                         ),
@@ -1902,6 +1985,9 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     final activeSheetLabel = isXlsxSource
         ? ((sheetName == null || sheetName.isEmpty) ? 'default' : sheetName)
         : null;
+    final pendingTypeSelectionMessage = isXlsxSource
+        ? 'Review the detected field formats before editing or saving this Excel file.'
+        : 'This file has no usable type row yet. Pick the editable field formats once before saving.';
 
     return Column(
       children: [
@@ -1956,7 +2042,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'This file has no usable type row yet. Pick the editable field formats once before saving.',
+                    pendingTypeSelectionMessage,
                     style: theme.textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 12),

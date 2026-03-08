@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +20,7 @@ class SettingsTab extends StatefulWidget {
 }
 
 class _SettingsTabState extends State<SettingsTab> {
+  static const String _safTestFileName = 'calcrow_saf_test.txt';
   bool _isLinkingGoogle = false;
   bool _isUpdatingSafFolder = false;
   static final SafStream _safStream = SafStream();
@@ -89,6 +89,15 @@ class _SettingsTabState extends State<SettingsTab> {
                                   ? null
                                   : () => _testSafFolder(settings: null),
                               child: const Text('Test'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _isUpdatingSafFolder
+                                  ? null
+                                  : () => _revertSafTest(settings: null),
+                              child: const Text('Untest'),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -198,6 +207,16 @@ class _SettingsTabState extends State<SettingsTab> {
                                       : () =>
                                             _testSafFolder(settings: settings),
                                   child: const Text('Test'),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: _isUpdatingSafFolder
+                                      ? null
+                                      : () =>
+                                            _revertSafTest(settings: settings),
+                                  child: const Text('Test Revert'),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -358,8 +377,12 @@ class _SettingsTabState extends State<SettingsTab> {
     }
     setState(() => _isUpdatingSafFolder = true);
     try {
-      final treeUri = await _safUtil.openDirectory();
-      if (treeUri == null || treeUri.trim().isEmpty) {
+      final pickedDirectory = await _safUtil.pickDirectory(
+        writePermission: true,
+        persistablePermission: true,
+      );
+      final treeUri = pickedDirectory?.uri.trim();
+      if (treeUri == null || treeUri.isEmpty) {
         if (!mounted) return;
         messenger.showSnackBar(
           const SnackBar(content: Text('SAF folder selection canceled.')),
@@ -423,7 +446,7 @@ class _SettingsTabState extends State<SettingsTab> {
       );
       final created = await _safStream.writeFileBytes(
         treeUri,
-        'calcrow_saf_test.txt',
+        _safTestFileName,
         'text/plain',
         bytes,
         overwrite: true,
@@ -432,7 +455,7 @@ class _SettingsTabState extends State<SettingsTab> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            'SAF test write successful (${created.fileName ?? 'calcrow_saf_test.txt'}).',
+            'SAF test write successful (${created.fileName ?? _safTestFileName}).',
           ),
         ),
       );
@@ -444,6 +467,46 @@ class _SettingsTabState extends State<SettingsTab> {
             'SAF test failed. Re-pick folder from a writable location: $error',
           ),
         ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingSafFolder = false);
+      }
+    }
+  }
+
+  Future<void> _revertSafTest({required Map<String, dynamic>? settings}) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final treeUri =
+        (settings?['safTreeUri'] as String?)?.trim() ??
+        SimpleSheetPersistenceService.runtimeSafTreeUri;
+    if (treeUri == null || treeUri.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('No SAF folder configured.')),
+      );
+      return;
+    }
+    setState(() => _isUpdatingSafFolder = true);
+    try {
+      final existing = await _safUtil.child(treeUri, <String>[
+        _safTestFileName,
+      ]);
+      if (existing == null) {
+        if (!mounted) return;
+        messenger.showSnackBar(
+          const SnackBar(content: Text('No SAF test file to delete.')),
+        );
+        return;
+      }
+      await _safUtil.delete(existing.uri, false);
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('SAF test file deleted.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not delete SAF test file: $error')),
       );
     } finally {
       if (mounted) {
