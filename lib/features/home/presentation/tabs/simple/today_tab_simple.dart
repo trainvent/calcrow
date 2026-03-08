@@ -42,6 +42,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     'text',
     'date',
     'time',
+    'duration',
     'int',
     'decimal',
     'email',
@@ -1986,7 +1987,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
         ? ((sheetName == null || sheetName.isEmpty) ? 'default' : sheetName)
         : null;
     final pendingTypeSelectionMessage = isXlsxSource
-        ? 'Review the detected field formats before editing or saving this Excel file.'
+        ? 'Set Datatypes and bear in mind that calculated fields are read-only.'
         : 'This file has no usable type row yet. Pick the editable field formats once before saving.';
 
     return Column(
@@ -2055,10 +2056,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
                         initialValue: _simpleTypeOptions.contains(currentType)
                             ? currentType
                             : 'text',
-                        decoration: InputDecoration(
-                          labelText: header,
-                          helperText: 'Calculated columns are skipped.',
-                        ),
+                        decoration: InputDecoration(labelText: header),
                         items: _simpleTypeOptions
                             .map(
                               (type) => DropdownMenuItem<String>(
@@ -2096,20 +2094,21 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
                 final type = _simpleValueTypes[index];
                 final isDateField = index == dateColumn;
                 final isFormulaField = _simpleReadOnlyColumns[index];
-                final isReadOnly = isDateField || isFormulaField;
-                final isTimespanField = _isSimpleTimespanField(header);
+                if (isFormulaField) {
+                  return const SizedBox.shrink();
+                }
+                final isReadOnly = isDateField;
+                final isDurationField =
+                    _isSimpleDurationType(type) ||
+                    _isSimpleTimespanField(header);
                 final keyboardType = _keyboardForSimpleType(type);
                 final helperText =
-                    'Type: $type${isDateField
-                        ? ' (fixed)'
-                        : isFormulaField
-                        ? ' (calculated)'
-                        : ''}';
+                    'Type: $type${isDateField ? ' (fixed)' : ''}';
                 return Padding(
                   padding: EdgeInsets.only(
                     bottom: index == _simpleHeaders.length - 1 ? 0 : 10,
                   ),
-                  child: !isReadOnly && isTimespanField
+                  child: !isReadOnly && isDurationField
                       ? TimespanWidget(
                           controller: _simpleControllers[index],
                           labelText: header,
@@ -2146,7 +2145,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
                               : 1,
                         ),
                 );
-              }),
+              }).where((widget) => widget is! SizedBox).toList(),
             ),
           ),
         ),
@@ -2197,6 +2196,9 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     if (type.contains('phone')) {
       return TextInputType.phone;
     }
+    if (type.contains('duration')) {
+      return const TextInputType.numberWithOptions(decimal: true);
+    }
     if (type.contains('date') || type.contains('time')) {
       return TextInputType.datetime;
     }
@@ -2205,6 +2207,11 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
 
   bool _isSimpleTimeType(String rawType) {
     return rawType.trim().toLowerCase().contains('time');
+  }
+
+  bool _isSimpleDurationType(String rawType) {
+    final type = rawType.trim().toLowerCase();
+    return type.contains('duration') || type.contains('timespan');
   }
 
   bool _isSimpleTimespanField(String header) {
@@ -2218,6 +2225,9 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     }
 
     final type = rawType.trim().toLowerCase();
+    if (type.contains('duration')) {
+      return 'Minutes or HH:MM:SS';
+    }
     if (type.contains('time')) {
       return 'HH:MM:SS';
     }

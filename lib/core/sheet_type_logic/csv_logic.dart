@@ -187,6 +187,8 @@ class CsvSheetLogic {
   static bool _isKnownTypeToken(String type) {
     if (type.contains('date')) return true;
     if (type.contains('time')) return true;
+    if (type.contains('duration')) return true;
+    if (type.contains('timespan')) return true;
     if (type.contains('int')) return true;
     if (type.contains('double')) return true;
     if (type.contains('decimal')) return true;
@@ -225,8 +227,13 @@ class CsvSheetLogic {
     final width = headers.length;
     final sampleRows = rows;
     return List<_CsvTypeInference>.generate(width, (index) {
+      final headerGuess = _typeFromHeader(headers[index]);
+      if (headerGuess == 'date' ||
+          headerGuess == 'time' ||
+          headerGuess == 'duration') {
+        return _CsvTypeInference(type: headerGuess!, confirmedFromData: true);
+      }
       if (readOnlyColumns[index]) {
-        final headerGuess = _typeFromHeader(headers[index]);
         return _CsvTypeInference(
           type: headerGuess ?? 'decimal',
           confirmedFromData: true,
@@ -254,14 +261,19 @@ class CsvSheetLogic {
         }
         return const _CsvTypeInference(type: 'text', confirmedFromData: true);
       }
-      final headerGuess = _typeFromHeader(headers[index]) ?? 'text';
-      return _CsvTypeInference(type: headerGuess, confirmedFromData: false);
+      return _CsvTypeInference(
+        type: headerGuess ?? 'text',
+        confirmedFromData: false,
+      );
     });
   }
 
   static String _normalizeTypeLabel(String raw) {
     final type = raw.trim().toLowerCase();
     if (type.contains('date')) return 'date';
+    if (type.contains('duration') || type.contains('timespan')) {
+      return 'duration';
+    }
     if (type.contains('time')) return 'time';
     if (type.contains('int')) return 'int';
     if (type.contains('double') ||
@@ -336,7 +348,7 @@ class CsvSheetLogic {
         value.contains('break') ||
         value.contains('minutes') ||
         value.contains('minuten')) {
-      return 'int';
+      return 'duration';
     }
     if (value.contains('hour') ||
         value.contains('stunden') ||

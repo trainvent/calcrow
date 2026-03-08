@@ -113,7 +113,9 @@ class XlsxSheetLogic {
           .cell(
             excel_pkg.CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 0),
           )
-          .value = excel_pkg.TextCellValue(data.headers[col]);
+          .value = excel_pkg.TextCellValue(
+        data.headers[col],
+      );
     }
 
     for (var rowIndex = 0; rowIndex < data.rows.length; rowIndex++) {
@@ -127,7 +129,10 @@ class XlsxSheetLogic {
             rowIndex: rowIndex + 1,
           ),
         );
-        cell.value = _xlsxCellValueFromSimple(type: data.valueTypes[col], raw: value);
+        cell.value = _xlsxCellValueFromSimple(
+          type: data.valueTypes[col],
+          raw: value,
+        );
       }
     }
 
@@ -350,6 +355,9 @@ class XlsxSheetLogic {
         return excel_pkg.DateCellValue.fromDateTime(parsedDate);
       }
     }
+    if (normalizedType.contains('duration')) {
+      return excel_pkg.TextCellValue(value);
+    }
     if (normalizedType.contains('time')) {
       final parsedTime = _parseTime(value);
       if (parsedTime != null) {
@@ -379,8 +387,9 @@ class XlsxSheetLogic {
       return DateTime(iso.year, iso.month, iso.day);
     }
 
-    final ymd = RegExp(r'^(\d{4})[./-](\d{1,2})[./-](\d{1,2})$')
-        .firstMatch(trimmed);
+    final ymd = RegExp(
+      r'^(\d{4})[./-](\d{1,2})[./-](\d{1,2})$',
+    ).firstMatch(trimmed);
     if (ymd != null) {
       final year = int.parse(ymd.group(1)!);
       final month = int.parse(ymd.group(2)!);
@@ -388,8 +397,9 @@ class XlsxSheetLogic {
       return _safeDate(year: year, month: month, day: day);
     }
 
-    final dmy = RegExp(r'^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$')
-        .firstMatch(trimmed);
+    final dmy = RegExp(
+      r'^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$',
+    ).firstMatch(trimmed);
     if (dmy != null) {
       final day = int.parse(dmy.group(1)!);
       final month = int.parse(dmy.group(2)!);
@@ -461,10 +471,13 @@ class XlsxSheetLogic {
     List<String>? headers,
   }) {
     return List<String>.generate(width, (index) {
-      if (headers != null &&
-          index < headers.length &&
-          _isDateHeaderName(headers[index])) {
-        return 'date';
+      final headerGuess = headers != null && index < headers.length
+          ? _typeFromHeader(headers[index])
+          : null;
+      if (headerGuess == 'date' ||
+          headerGuess == 'time' ||
+          headerGuess == 'duration') {
+        return headerGuess!;
       }
       for (final row in sampleRows) {
         if (index >= row.length) continue;
@@ -476,7 +489,7 @@ class XlsxSheetLogic {
         if (_looksLikeIntegerValue(value)) return 'int';
         return 'text';
       }
-      return 'text';
+      return headerGuess ?? 'text';
     });
   }
 
@@ -507,6 +520,30 @@ class XlsxSheetLogic {
         value == 'tag' ||
         value == 'data' ||
         value == 'fecha';
+  }
+
+  static String? _typeFromHeader(String header) {
+    final value = header.trim().toLowerCase();
+    if (value.isEmpty) return null;
+    if (_isDateHeaderName(header)) {
+      return 'date';
+    }
+    if (value.contains('pause') ||
+        value.contains('break') ||
+        value.contains('minutes') ||
+        value.contains('minuten')) {
+      return 'duration';
+    }
+    if (value.contains('start') ||
+        value.contains('beginn') ||
+        value.contains('begin') ||
+        value.contains('end') ||
+        value.contains('ende') ||
+        value.contains('time') ||
+        value.contains('uhr')) {
+      return 'time';
+    }
+    return null;
   }
 
   static bool _looksLikeFormulaExpression(String value) {
