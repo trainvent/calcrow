@@ -307,23 +307,10 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
         );
       }
 
-      final client = await ServiceLocator.googleDriveAuthService
-          .getAuthenticatedClient();
-      late final List<GoogleDriveFileMetadata> candidates;
-      try {
-        candidates = await ServiceLocator.googleDriveSyncService.listSyncFiles(
-          authenticatedClient: client,
-        );
-      } finally {
-        client.close();
-      }
-
       if (!mounted) return;
-
       final selection = await showDialog<_GoogleDriveFileSelection>(
         context: context,
         builder: (context) => _GoogleDriveFilePickerDialog(
-          files: candidates,
           selectedFileId:
               (settings?['googleDriveSyncFileId'] as String?)?.trim(),
         ),
@@ -343,6 +330,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
                   utf8.encode('Date,Start,End,Break (min),Notes\n'),
                 ),
                 mimeType: 'text/csv',
+                parentFolderId: selection.folderId,
               );
         } finally {
           createClient.close();
@@ -2651,57 +2639,197 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
 }
 
 class _GoogleDriveFileSelection {
-  const _GoogleDriveFileSelection._({this.file, this.createNew = false});
+  const _GoogleDriveFileSelection._({
+    this.file,
+    this.createNew = false,
+    this.folderId,
+  });
 
   const _GoogleDriveFileSelection.pick(GoogleDriveFileMetadata file)
     : this._(file: file);
 
   const _GoogleDriveFileSelection.clear() : this._();
 
-  const _GoogleDriveFileSelection.createNew() : this._(createNew: true);
+  const _GoogleDriveFileSelection.createNew({String? folderId})
+    : this._(createNew: true, folderId: folderId);
 
   final GoogleDriveFileMetadata? file;
   final bool createNew;
+  final String? folderId;
 }
 
-class _GoogleDriveFilePickerDialog extends StatelessWidget {
+class _GoogleDriveFolderNode {
+  const _GoogleDriveFolderNode({
+    required this.id,
+    required this.name,
+  });
+
+  final String? id;
+  final String name;
+}
+
+class _GoogleDriveFilePickerDialog extends StatefulWidget {
   const _GoogleDriveFilePickerDialog({
-    required this.files,
     required this.selectedFileId,
   });
 
-  final List<GoogleDriveFileMetadata> files;
   final String? selectedFileId;
 
   @override
+  State<_GoogleDriveFilePickerDialog> createState() =>
+      _GoogleDriveFilePickerDialogState();
+}
+
+class _GoogleDriveFilePickerDialogState extends State<_GoogleDriveFilePickerDialog> {
+  List<GoogleDriveBrowserEntry> _entries = const <GoogleDriveBrowserEntry>[];
+  List<_GoogleDriveFolderNode> _folderStack = const <_GoogleDriveFolderNode>[
+    _GoogleDriveFolderNode(id: null, name: 'My Drive'),
+  ];
+  bool _isLoading = true;
+  String? _errorText;
+
+  String? get _currentFolderId => _folderStack.last.id;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFolder();
+  }
+
+  Future<void> _loadFolder() async {
+    setState(() {
+      _isLoading = true;
+      _errorText = null;
+    });
+    try {
+      final client = await ServiceLocator.googleDriveAuthService
+          .getAuthenticatedClient();
+      try {
+        final entries = await ServiceLocator.googleDriveSyncService
+            .listFolderEntries(
+              authenticatedClient: client,
+              folderId: _currentFolderId,
+            );
+        if (!mounted) return;
+        setState(() {
+          _entries = entries;
+        });
+      } finally {
+        client.close();
+      }
+    } on GoogleDriveAuthException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorText = error.message;
+      });
+    } on GoogleDriveSyncException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorText = error.message;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _openFolder(GoogleDriveBrowserEntry entry) {
+    setState(() {
+      _folderStack = <_GoogleDriveFolderNode>[
+        ..._folderStack,
+        _GoogleDriveFolderNode(id: entry.id, name: entry.name),
+      ];
+    });
+    _loadFolder();
+  }
+
+  void _goUp() {
+    if (_folderStack.length <= 1) return;
+    setState(() {
+      _folderStack = _folderStack.sublist(0, _folderStack.length - 1);
+    });
+    _loadFolder();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final folderLabel = _folderStack.map((node) => node.name).join(' / ');
     return AlertDialog(
       title: const Text('Choose sync file'),
       content: SizedBox(
         width: double.maxFinite,
-        child: files.isEmpty
-            ? const Text(
-                'No supported CSV, XLSX, or ODS files are visible yet. You can create a new sync file instead.',
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  onPressed: _folderStack.length > 1 ? _goUp : null,
+                  icon: const Icon(Icons.arrow_upward_rounded),
+                  tooltip: 'Up one folder',
+                ),
+                Expanded(
+                  child: Text(
+                    folderLabel,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_isLoading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: CircularProgressIndicator(),
               )
-            : ListView(
-                shrinkWrap: true,
-                children: files
-                    .map(
-                      (file) => ListTile(
-                        leading: Icon(
-                          file.id == selectedFileId
-                              ? Icons.check_circle_rounded
-                              : Icons.insert_drive_file_outlined,
+            else if (_errorText != null)
+              Text(_errorText!)
+            else if (_entries.isEmpty)
+              const Text(
+                'This folder has no supported CSV, XLSX, or ODS files yet. Open another folder or create a new sync file here.',
+              )
+            else
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: _entries
+                      .map(
+                        (entry) => ListTile(
+                          leading: Icon(
+                            entry.isFolder
+                                ? Icons.folder_outlined
+                                : entry.id == widget.selectedFileId
+                                ? Icons.check_circle_rounded
+                                : Icons.insert_drive_file_outlined,
+                          ),
+                          title: Text(entry.name),
+                          subtitle: Text(
+                            entry.isFolder
+                                ? 'Folder'
+                                : _mimeLabel(entry.mimeType),
+                          ),
+                          onTap: () {
+                            if (entry.isFolder) {
+                              _openFolder(entry);
+                              return;
+                            }
+                            Navigator.of(context).pop(
+                              _GoogleDriveFileSelection.pick(
+                                entry.asFileMetadata(),
+                              ),
+                            );
+                          },
                         ),
-                        title: Text(file.name),
-                        subtitle: Text(_mimeLabel(file.mimeType)),
-                        onTap: () => Navigator.of(
-                          context,
-                        ).pop(_GoogleDriveFileSelection.pick(file)),
-                      ),
-                    )
-                    .toList(),
+                      )
+                      .toList(),
+                ),
               ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
@@ -2712,7 +2840,7 @@ class _GoogleDriveFilePickerDialog extends StatelessWidget {
         TextButton(
           onPressed: () => Navigator.of(
             context,
-          ).pop(const _GoogleDriveFileSelection.createNew()),
+          ).pop(_GoogleDriveFileSelection.createNew(folderId: _currentFolderId)),
           child: const Text('Create new'),
         ),
         TextButton(

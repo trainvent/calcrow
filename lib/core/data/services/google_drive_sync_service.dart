@@ -26,7 +26,33 @@ class GoogleDriveFileMetadata {
   final DateTime? modifiedTime;
 }
 
+class GoogleDriveBrowserEntry {
+  const GoogleDriveBrowserEntry({
+    required this.id,
+    required this.name,
+    required this.mimeType,
+    this.modifiedTime,
+  });
+
+  final String id;
+  final String name;
+  final String mimeType;
+  final DateTime? modifiedTime;
+
+  bool get isFolder => mimeType == GoogleDriveSyncService.folderMimeType;
+
+  GoogleDriveFileMetadata asFileMetadata() {
+    return GoogleDriveFileMetadata(
+      id: id,
+      name: name,
+      mimeType: mimeType,
+      modifiedTime: modifiedTime,
+    );
+  }
+}
+
 class GoogleDriveSyncService {
+  static const String folderMimeType = 'application/vnd.google-apps.folder';
   static const List<String> supportedMimeTypes = <String>[
     'text/csv',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -38,9 +64,14 @@ class GoogleDriveSyncService {
     required String fileName,
     required Uint8List bytes,
     required String mimeType,
+    String? parentFolderId,
   }) async {
     final driveApi = drive.DriveApi(authenticatedClient);
     final fileToUpload = drive.File()..name = fileName;
+    final normalizedParentFolderId = parentFolderId?.trim();
+    if (normalizedParentFolderId != null && normalizedParentFolderId.isNotEmpty) {
+      fileToUpload.parents = <String>[normalizedParentFolderId];
+    }
     final media = drive.Media(
       Stream.value(bytes),
       bytes.length,
@@ -104,22 +135,40 @@ class GoogleDriveSyncService {
   Future<List<GoogleDriveFileMetadata>> listSyncFiles({
     required http.Client authenticatedClient,
   }) async {
+    final entries = await listFolderEntries(
+      authenticatedClient: authenticatedClient,
+    );
+    return entries
+        .where((entry) => !entry.isFolder)
+        .map((entry) => entry.asFileMetadata())
+        .toList();
+  }
+
+  Future<List<GoogleDriveBrowserEntry>> listFolderEntries({
+    required http.Client authenticatedClient,
+    String? folderId,
+  }) async {
     final driveApi = drive.DriveApi(authenticatedClient);
     final mimeQuery = supportedMimeTypes
         .map((mimeType) => "mimeType='${mimeType.replaceAll("'", r"\'")}'")
         .join(' or ');
+    final normalizedFolderId = folderId?.trim();
+    final parentId = normalizedFolderId == null || normalizedFolderId.isEmpty
+        ? 'root'
+        : normalizedFolderId;
     try {
       final response = await driveApi.files.list(
-        q: "trashed = false and ($mimeQuery)",
-        orderBy: 'modifiedTime desc,name',
+        q:
+            "trashed = false and '$parentId' in parents and (mimeType='$folderMimeType' or ($mimeQuery))",
+        orderBy: 'folder,name_natural',
         pageSize: 50,
         $fields: 'files(id,name,mimeType,modifiedTime)',
       );
       final files = response.files;
       if (files == null || files.isEmpty) {
-        return const <GoogleDriveFileMetadata>[];
+        return const <GoogleDriveBrowserEntry>[];
       }
-      return files.map(_convertFile).toList();
+      return files.map(_convertBrowserEntry).toList();
     } catch (e) {
       throw GoogleDriveSyncException('Could not list Drive sync files: $e');
     }
@@ -132,6 +181,20 @@ class GoogleDriveSyncService {
       throw const GoogleDriveSyncException('Drive metadata is incomplete.');
     }
     return GoogleDriveFileMetadata(
+      id: id,
+      name: name,
+      mimeType: file.mimeType ?? 'application/octet-stream',
+      modifiedTime: file.modifiedTime,
+    );
+  }
+
+  GoogleDriveBrowserEntry _convertBrowserEntry(drive.File file) {
+    final id = file.id;
+    final name = file.name;
+    if (id == null || name == null) {
+      throw const GoogleDriveSyncException('Drive metadata is incomplete.');
+    }
+    return GoogleDriveBrowserEntry(
       id: id,
       name: name,
       mimeType: file.mimeType ?? 'application/octet-stream',
