@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:isolate';
+import 'package:archive/archive.dart';
 import 'package:excel/excel.dart' as excel_pkg;
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
@@ -65,6 +66,11 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     label: 'ODS',
     extensions: <String>['ods'],
   );
+  static const List<XTypeGroup> _localDocumentTypeGroups = <XTypeGroup>[
+    _csvTypeGroup,
+    _xlsxTypeGroup,
+    _odsTypeGroup,
+  ];
   static const List<_WidgetBlock> _widgetBlocks = <_WidgetBlock>[
     _WidgetBlock.rowDefinement,
     _WidgetBlock.workhours,
@@ -174,12 +180,12 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     }
   }
 
-  Future<void> _importCsvForSimple() async {
+  Future<void> _importLocalDocumentForSimple() async {
     await _runWithDocumentOpeningIndicator(() async {
       try {
         final messenger = ScaffoldMessenger.of(context);
         Uint8List bytes = Uint8List(0);
-        String fileName = 'imported.csv';
+        String fileName = 'imported_document';
         String? sourcePath;
 
         if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
@@ -189,22 +195,22 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
               'text/comma-separated-values',
               'application/csv',
               'text/*',
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              'application/vnd.ms-excel',
+              'application/vnd.oasis.opendocument.spreadsheet',
+              'application/octet-stream',
             ],
           );
           if (!mounted || pickedFile == null) return;
-          fileName = pickedFile.name.trim().isEmpty
-              ? fileName
-              : pickedFile.name;
-          sourcePath = pickedFile.uri.trim().isEmpty
-              ? null
-              : pickedFile.uri.trim();
+          fileName = pickedFile.name.trim().isEmpty ? fileName : pickedFile.name;
+          sourcePath = pickedFile.uri.trim().isEmpty ? null : pickedFile.uri.trim();
           if (sourcePath != null) {
             bytes = await _safStreamReader.readFileBytes(sourcePath);
           }
         } else {
           final file = await openFile(
-            acceptedTypeGroups: <XTypeGroup>[_csvTypeGroup],
-            confirmButtonText: 'Open CSV',
+            acceptedTypeGroups: _localDocumentTypeGroups,
+            confirmButtonText: 'Open document',
           );
           if (!mounted || file == null) return;
           fileName = file.name;
@@ -215,180 +221,64 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
         if (!mounted) return;
         if (bytes.isEmpty) {
           messenger.showSnackBar(
-            const SnackBar(content: Text('Could not read CSV file content.')),
+            const SnackBar(content: Text('Could not read document content.')),
           );
           return;
         }
-        final sheetData = CsvSheetLogic.parse(
-          bytes: bytes,
+
+        final format = _detectSimpleFileFormat(
           fileName: fileName,
           path: sourcePath,
+          bytes: bytes,
         );
+        late final SimpleSheetData sheetData;
+        switch (format) {
+          case SimpleFileFormat.csv:
+            sheetData = CsvSheetLogic.parse(
+              bytes: bytes,
+              fileName: fileName,
+              path: sourcePath,
+            );
+          case SimpleFileFormat.xlsx:
+            sheetData = XlsxSheetLogic.parse(
+              bytes: bytes,
+              fileName: fileName,
+              path: sourcePath,
+            );
+          case SimpleFileFormat.ods:
+            sheetData = await _parseOdsSheetData(
+              bytes: bytes,
+              fileName: fileName,
+              path: sourcePath,
+            );
+        }
+        if (!mounted) return;
+
+        final hasSafTarget =
+            !kIsWeb &&
+            defaultTargetPlatform == TargetPlatform.android &&
+            sourcePath != null &&
+            _sheetPersistenceService.canUseDirectSafUri(sourcePath);
         _loadSimpleProfileData(sheetData);
 
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              'Loaded $fileName (${sheetData.rows.length} entries).',
-            ),
-          ),
-        );
+        final sourceLabel = switch (sheetData.format) {
+          SimpleFileFormat.csv => 'Loaded $fileName (${sheetData.rows.length} entries).',
+          SimpleFileFormat.xlsx =>
+            'Loaded $fileName (${sheetData.rows.length} entries) from tab ${sheetData.xlsxSheetName ?? 'default'}.${hasSafTarget ? ' SAF target ready.' : ' SAF target not detected.'}',
+          SimpleFileFormat.ods =>
+            'Loaded $fileName (${sheetData.rows.length} entries) from sheet ${sheetData.xlsxSheetName ?? 'default'}.${hasSafTarget ? ' SAF target ready.' : ' SAF target not detected.'}',
+        };
+        messenger.showSnackBar(SnackBar(content: Text(sourceLabel)));
+      } on UnsupportedError catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message ?? '$error')));
       } catch (error) {
         if (!mounted) return;
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Import failed: $error')));
-      }
-    });
-  }
-
-  Future<void> _importXlsxForSimple({bool requireSafTarget = false}) async {
-    await _runWithDocumentOpeningIndicator(() async {
-      try {
-        final messenger = ScaffoldMessenger.of(context);
-        Uint8List bytes = Uint8List(0);
-        String fileName = 'imported.xlsx';
-        String? sourcePath;
-
-        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-          final pickedFile = await _safUtil.pickFile(
-            mimeTypes: const <String>[
-              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-              'application/vnd.ms-excel',
-              'application/octet-stream',
-            ],
-          );
-          if (!mounted || pickedFile == null) return;
-          fileName = pickedFile.name.trim().isEmpty
-              ? fileName
-              : pickedFile.name;
-          sourcePath = pickedFile.uri.trim().isEmpty
-              ? null
-              : pickedFile.uri.trim();
-          if (sourcePath != null) {
-            bytes = await _safStreamReader.readFileBytes(sourcePath);
-          }
-        } else {
-          if (requireSafTarget) {
-            if (!mounted) return;
-            messenger.showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Open via SAF is currently supported on Android only.',
-                ),
-              ),
-            );
-            return;
-          }
-          final file = await openFile(
-            acceptedTypeGroups: <XTypeGroup>[_xlsxTypeGroup],
-            confirmButtonText: 'Open XLSX',
-          );
-          if (!mounted || file == null) return;
-          fileName = file.name;
-          bytes = await file.readAsBytes();
-          sourcePath = _readXFilePath(file);
-        }
-
-        if (!mounted) return;
-        if (bytes.isEmpty) {
-          messenger.showSnackBar(
-            const SnackBar(content: Text('Could not read XLSX file content.')),
-          );
-          return;
-        }
-        final hasSafTarget =
-            !kIsWeb &&
-            defaultTargetPlatform == TargetPlatform.android &&
-            sourcePath != null &&
-            _sheetPersistenceService.canUseDirectSafUri(sourcePath);
-        if (requireSafTarget && !hasSafTarget) {
-          messenger.showSnackBar(
-            const SnackBar(
-              content: Text(
-                'SAF target is not writable for direct save. Pick from a writable folder via SAF.',
-              ),
-            ),
-          );
-          return;
-        }
-        final sheetData = XlsxSheetLogic.parse(
-          bytes: bytes,
-          fileName: fileName,
-          path: sourcePath,
-        );
-        _loadSimpleProfileData(sheetData);
-
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              'Loaded $fileName (${sheetData.rows.length} entries) from tab ${sheetData.xlsxSheetName ?? 'default'}.${hasSafTarget ? ' SAF target ready.' : ' SAF target not detected.'}',
-            ),
-          ),
-        );
-      } catch (error) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('XLSX import failed: $error')));
-      }
-    });
-  }
-
-  Future<void> _importXlsxViaSafForSimple() async {
-    await _importXlsxForSimple(requireSafTarget: true);
-  }
-
-  Future<void> _importOdsForSimple() async {
-    await _runWithDocumentOpeningIndicator(() async {
-      try {
-        final messenger = ScaffoldMessenger.of(context);
-        Uint8List bytes = Uint8List(0);
-        String fileName = 'imported.ods';
-        String? sourcePath;
-
-        final file = await openFile(
-          acceptedTypeGroups: <XTypeGroup>[_odsTypeGroup],
-          confirmButtonText: 'Open ODS',
-        );
-        if (!mounted || file == null) return;
-        fileName = file.name;
-        bytes = await file.readAsBytes();
-        sourcePath = _readXFilePath(file);
-
-        if (!mounted) return;
-        if (bytes.isEmpty) {
-          messenger.showSnackBar(
-            const SnackBar(content: Text('Could not read ODS file content.')),
-          );
-          return;
-        }
-
-        final hasSafTarget =
-            !kIsWeb &&
-            defaultTargetPlatform == TargetPlatform.android &&
-            sourcePath != null &&
-            _sheetPersistenceService.canUseDirectSafUri(sourcePath);
-        final sheetData = await _parseOdsSheetData(
-          bytes: bytes,
-          fileName: fileName,
-          path: sourcePath,
-        );
-        if (!mounted) return;
-        _loadSimpleProfileData(sheetData);
-
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              'Loaded $fileName (${sheetData.rows.length} entries) from sheet ${sheetData.xlsxSheetName ?? 'default'}.${hasSafTarget ? ' SAF target ready.' : ' SAF target not detected.'}',
-            ),
-          ),
-        );
-      } catch (error) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('ODS import failed: $error')));
       }
     });
   }
@@ -573,6 +463,62 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       return maybeName.trim();
     }
     return null;
+  }
+
+  SimpleFileFormat _detectSimpleFileFormat({
+    required String fileName,
+    required String? path,
+    required Uint8List bytes,
+  }) {
+    final normalizedName = fileName.trim().toLowerCase();
+    final normalizedPath = path?.trim().toLowerCase();
+    final extensionSource =
+        normalizedName.isNotEmpty ? normalizedName : (normalizedPath ?? '');
+    if (extensionSource.endsWith('.csv')) return SimpleFileFormat.csv;
+    if (extensionSource.endsWith('.xlsx')) return SimpleFileFormat.xlsx;
+    if (extensionSource.endsWith('.ods')) return SimpleFileFormat.ods;
+    if (extensionSource.endsWith('.xls')) {
+      throw UnsupportedError(
+        'Legacy .xls files are not supported yet. Use .xlsx, .ods, or .csv.',
+      );
+    }
+
+    if (_looksLikeZipArchive(bytes)) {
+      try {
+        final archive = ZipDecoder().decodeBytes(bytes, verify: false);
+        if (archive.findFile('xl/workbook.xml') != null ||
+            archive.files.any((file) => file.name.startsWith('xl/'))) {
+          return SimpleFileFormat.xlsx;
+        }
+        final mimetypeFile = archive.findFile('mimetype');
+        final mimetype = mimetypeFile == null
+            ? null
+            : utf8.decode(mimetypeFile.content as List<int>, allowMalformed: true)
+                .trim()
+                .toLowerCase();
+        if (mimetype == 'application/vnd.oasis.opendocument.spreadsheet' ||
+            archive.findFile('content.xml') != null) {
+          return SimpleFileFormat.ods;
+        }
+      } catch (_) {
+        throw UnsupportedError(
+          'Could not detect this document type. Use .xlsx, .ods, or .csv.',
+        );
+      }
+      throw UnsupportedError(
+        'This archive format is not supported. Use .xlsx, .ods, or .csv.',
+      );
+    }
+
+    return SimpleFileFormat.csv;
+  }
+
+  bool _looksLikeZipArchive(Uint8List bytes) {
+    if (bytes.length < 4) return false;
+    return bytes[0] == 0x50 &&
+        bytes[1] == 0x4B &&
+        (bytes[2] == 0x03 || bytes[2] == 0x05 || bytes[2] == 0x07) &&
+        (bytes[3] == 0x04 || bytes[3] == 0x06 || bytes[3] == 0x08);
   }
 
   void _loadSimpleProfileData(SimpleSheetData sheetData) {
@@ -2134,7 +2080,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
               ),
               child: const TabBar(
                 tabs: [
-                  Tab(text: 'Open'),
+                  Tab(text: 'Edit Local Document'),
                   Tab(text: 'Test SAF Internal'),
                 ],
               ),
@@ -2148,43 +2094,14 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
                     physics: const NeverScrollableScrollPhysics(),
                     children: [
                       _SetupCard(
-                        title: 'Open Existing CSV',
+                        title: 'Edit Local Document',
                         subtitle:
                             !kIsWeb &&
                                 defaultTargetPlatform == TargetPlatform.android
-                            ? 'Open a CSV via Android SAF for direct save-back'
-                            : 'Line 1 = field names. If types are missing, Calcrow will ask once.',
+                            ? 'Open a CSV, XLSX, or ODS document via Android SAF for direct save-back when available'
+                            : 'Open CSV, XLSX, or ODS. Calcrow detects the file type automatically.',
                         icon: Icons.folder_open_rounded,
-                        onTap: _importCsvForSimple,
-                      ),
-                      const SizedBox(height: 10),
-                      _SetupCard(
-                        title: 'Open Existing XLSX',
-                        subtitle:
-                            !kIsWeb &&
-                                defaultTargetPlatform == TargetPlatform.android
-                            ? 'Open an Excel file via Android SAF for direct save-back'
-                            : 'Use first sheet and first row as field profile',
-                        icon: Icons.grid_on_rounded,
-                        onTap: _importXlsxForSimple,
-                      ),
-                      const SizedBox(height: 10),
-                      _SetupCard(
-                        title: 'Open Document Sheet',
-                        subtitle:
-                            !kIsWeb &&
-                                defaultTargetPlatform == TargetPlatform.android
-                            ? 'Open an ODS document with the standard picker'
-                            : 'Use the current month sheet and first row as field profile',
-                        icon: Icons.table_chart_rounded,
-                        onTap: _importOdsForSimple,
-                      ),
-                      const SizedBox(height: 10),
-                      _SetupCard(
-                        title: 'Open via SAF',
-                        subtitle: 'Android-only direct-save XLSX open',
-                        icon: Icons.enhanced_encryption_rounded,
-                        onTap: _importXlsxViaSafForSimple,
+                        onTap: _importLocalDocumentForSimple,
                       ),
                       const SizedBox(height: 10),
                       _SetupCard(
@@ -2322,12 +2239,8 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
                   ),
                 ),
                 TextButton(
-                  onPressed: switch (_simpleImportedFormat) {
-                    SimpleFileFormat.xlsx => _importXlsxForSimple,
-                    SimpleFileFormat.ods => _importOdsForSimple,
-                    _ => _importCsvForSimple,
-                  },
-                  child: const Text('Open Another'),
+                  onPressed: _importLocalDocumentForSimple,
+                  child: const Text('Open Document'),
                 ),
               ],
             ),
