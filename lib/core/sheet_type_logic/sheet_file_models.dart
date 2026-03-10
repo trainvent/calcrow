@@ -1,6 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:excel/excel.dart' as excel_pkg;
 
-enum SimpleFileFormat { csv, xlsx }
+enum SimpleFileFormat { csv, xlsx, ods }
 
 class SimpleSheetData {
   const SimpleSheetData({
@@ -16,6 +18,7 @@ class SimpleSheetData {
     this.hasTypeRow = false,
     this.xlsxSheetName,
     this.workbook,
+    this.sourceBytes,
   });
 
   final String fileName;
@@ -30,4 +33,5 @@ class SimpleSheetData {
   final bool hasTypeRow;
   final String? xlsxSheetName;
   final excel_pkg.Excel? workbook;
+  final Uint8List? sourceBytes;
 }

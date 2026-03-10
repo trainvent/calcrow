@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:isolate';
 import 'package:excel/excel.dart' as excel_pkg;
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
@@ -7,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
+import 'package:calcrow/app/widgets/triangle_loading_indicator.dart';
 import 'package:calcrow/core/data/di/service_locator.dart';
 import 'package:calcrow/features/home/presentation/tabs/advanced/widgets/notes_widget.dart';
 import 'package:calcrow/features/home/presentation/tabs/advanced/widgets/row_definement_widget.dart';
@@ -17,6 +19,7 @@ import 'package:calcrow/core/data/services/google_drive_auth_service.dart';
 import 'package:calcrow/core/data/services/google_drive_sync_service.dart';
 import 'package:calcrow/core/data/services/simple_sheet_persistence_service.dart';
 import 'package:calcrow/core/sheet_type_logic/csv_logic.dart';
+import 'package:calcrow/core/sheet_type_logic/ods_logic.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/xlsx_logic.dart';
 import 'package:calcrow/features/home/presentation/tabs/simple/widgets/select_time_widget.dart';
@@ -38,6 +41,8 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       'test_objects/raw/Arbeitszeiten_2026.csv';
   static const String _internalSafTestXlsxAsset =
       'test_objects/raw/Arbeitszeiten_2026.xlsx';
+  static const String _internalSafTestOdsAsset =
+      'test_objects/raw/Arbeitszeiten_2026_Randnotiz.ods';
   static const List<String> _simpleTypeOptions = <String>[
     'text',
     'date',
@@ -55,6 +60,10 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
   static const XTypeGroup _xlsxTypeGroup = XTypeGroup(
     label: 'XLSX',
     extensions: <String>['xlsx'],
+  );
+  static const XTypeGroup _odsTypeGroup = XTypeGroup(
+    label: 'ODS',
+    extensions: <String>['ods'],
   );
   static const List<_WidgetBlock> _widgetBlocks = <_WidgetBlock>[
     _WidgetBlock.rowDefinement,
@@ -104,6 +113,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
   List<TextEditingController> _simpleControllers =
       const <TextEditingController>[];
   excel_pkg.Excel? _simpleImportedWorkbook;
+  Uint8List? _simpleImportedSourceBytes;
   int _simpleEditingRowIndex = 0;
   String? _importedFileName;
   String? _simpleXlsxLink;
@@ -116,6 +126,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
   bool _showSmartData = true;
   bool _showWellbeing = true;
   bool _showNotes = true;
+  bool _isOpeningDocument = false;
 
   @override
   void initState() {
@@ -145,159 +156,257 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       _simpleControllers.length == _simpleHeaders.length &&
       _simpleReadOnlyColumns.length == _simpleHeaders.length;
 
-  Future<void> _importCsvForSimple() async {
+  Future<void> _runWithDocumentOpeningIndicator(
+    Future<void> Function() action,
+  ) async {
+    if (_isOpeningDocument) return;
+    setState(() {
+      _isOpeningDocument = true;
+    });
     try {
-      final messenger = ScaffoldMessenger.of(context);
-      Uint8List bytes = Uint8List(0);
-      String fileName = 'imported.csv';
-      String? sourcePath;
-
-      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-        final pickedFile = await _safUtil.pickFile(
-          mimeTypes: const <String>[
-            'text/csv',
-            'text/comma-separated-values',
-            'application/csv',
-            'text/*',
-          ],
-        );
-        if (!mounted || pickedFile == null) return;
-        fileName = pickedFile.name.trim().isEmpty ? fileName : pickedFile.name;
-        sourcePath = pickedFile.uri.trim().isEmpty
-            ? null
-            : pickedFile.uri.trim();
-        if (sourcePath != null) {
-          bytes = await _safStreamReader.readFileBytes(sourcePath);
-        }
-      } else {
-        final file = await openFile(
-          acceptedTypeGroups: <XTypeGroup>[_csvTypeGroup],
-          confirmButtonText: 'Open CSV',
-        );
-        if (!mounted || file == null) return;
-        fileName = file.name;
-        bytes = await file.readAsBytes();
-        sourcePath = _readXFilePath(file);
+      await action();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isOpeningDocument = false;
+        });
       }
-
-      if (!mounted) return;
-      if (bytes.isEmpty) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Could not read CSV file content.')),
-        );
-        return;
-      }
-      final sheetData = CsvSheetLogic.parse(
-        bytes: bytes,
-        fileName: fileName,
-        path: sourcePath,
-      );
-      _loadSimpleProfileData(sheetData);
-
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Loaded $fileName (${sheetData.rows.length} entries).'),
-        ),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Import failed: $error')));
     }
   }
 
-  Future<void> _importXlsxForSimple({bool requireSafTarget = false}) async {
-    try {
-      final messenger = ScaffoldMessenger.of(context);
-      Uint8List bytes = Uint8List(0);
-      String fileName = 'imported.xlsx';
-      String? sourcePath;
+  Future<void> _importCsvForSimple() async {
+    await _runWithDocumentOpeningIndicator(() async {
+      try {
+        final messenger = ScaffoldMessenger.of(context);
+        Uint8List bytes = Uint8List(0);
+        String fileName = 'imported.csv';
+        String? sourcePath;
 
-      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-        final pickedFile = await _safUtil.pickFile(
-          mimeTypes: const <String>[
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'application/vnd.ms-excel',
-            'application/octet-stream',
-          ],
-        );
-        if (!mounted || pickedFile == null) return;
-        fileName = pickedFile.name.trim().isEmpty ? fileName : pickedFile.name;
-        sourcePath = pickedFile.uri.trim().isEmpty
-            ? null
-            : pickedFile.uri.trim();
-        if (sourcePath != null) {
-          bytes = await _safStreamReader.readFileBytes(sourcePath);
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+          final pickedFile = await _safUtil.pickFile(
+            mimeTypes: const <String>[
+              'text/csv',
+              'text/comma-separated-values',
+              'application/csv',
+              'text/*',
+            ],
+          );
+          if (!mounted || pickedFile == null) return;
+          fileName = pickedFile.name.trim().isEmpty
+              ? fileName
+              : pickedFile.name;
+          sourcePath = pickedFile.uri.trim().isEmpty
+              ? null
+              : pickedFile.uri.trim();
+          if (sourcePath != null) {
+            bytes = await _safStreamReader.readFileBytes(sourcePath);
+          }
+        } else {
+          final file = await openFile(
+            acceptedTypeGroups: <XTypeGroup>[_csvTypeGroup],
+            confirmButtonText: 'Open CSV',
+          );
+          if (!mounted || file == null) return;
+          fileName = file.name;
+          bytes = await file.readAsBytes();
+          sourcePath = _readXFilePath(file);
         }
-      } else {
-        if (requireSafTarget) {
-          if (!mounted) return;
+
+        if (!mounted) return;
+        if (bytes.isEmpty) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Could not read CSV file content.')),
+          );
+          return;
+        }
+        final sheetData = CsvSheetLogic.parse(
+          bytes: bytes,
+          fileName: fileName,
+          path: sourcePath,
+        );
+        _loadSimpleProfileData(sheetData);
+
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              'Loaded $fileName (${sheetData.rows.length} entries).',
+            ),
+          ),
+        );
+      } catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Import failed: $error')));
+      }
+    });
+  }
+
+  Future<void> _importXlsxForSimple({bool requireSafTarget = false}) async {
+    await _runWithDocumentOpeningIndicator(() async {
+      try {
+        final messenger = ScaffoldMessenger.of(context);
+        Uint8List bytes = Uint8List(0);
+        String fileName = 'imported.xlsx';
+        String? sourcePath;
+
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+          final pickedFile = await _safUtil.pickFile(
+            mimeTypes: const <String>[
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              'application/vnd.ms-excel',
+              'application/octet-stream',
+            ],
+          );
+          if (!mounted || pickedFile == null) return;
+          fileName = pickedFile.name.trim().isEmpty
+              ? fileName
+              : pickedFile.name;
+          sourcePath = pickedFile.uri.trim().isEmpty
+              ? null
+              : pickedFile.uri.trim();
+          if (sourcePath != null) {
+            bytes = await _safStreamReader.readFileBytes(sourcePath);
+          }
+        } else {
+          if (requireSafTarget) {
+            if (!mounted) return;
+            messenger.showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Open via SAF is currently supported on Android only.',
+                ),
+              ),
+            );
+            return;
+          }
+          final file = await openFile(
+            acceptedTypeGroups: <XTypeGroup>[_xlsxTypeGroup],
+            confirmButtonText: 'Open XLSX',
+          );
+          if (!mounted || file == null) return;
+          fileName = file.name;
+          bytes = await file.readAsBytes();
+          sourcePath = _readXFilePath(file);
+        }
+
+        if (!mounted) return;
+        if (bytes.isEmpty) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Could not read XLSX file content.')),
+          );
+          return;
+        }
+        final hasSafTarget =
+            !kIsWeb &&
+            defaultTargetPlatform == TargetPlatform.android &&
+            sourcePath != null &&
+            _sheetPersistenceService.canUseDirectSafUri(sourcePath);
+        if (requireSafTarget && !hasSafTarget) {
           messenger.showSnackBar(
             const SnackBar(
               content: Text(
-                'Open via SAF is currently supported on Android only.',
+                'SAF target is not writable for direct save. Pick from a writable folder via SAF.',
               ),
             ),
           );
           return;
         }
+        final sheetData = XlsxSheetLogic.parse(
+          bytes: bytes,
+          fileName: fileName,
+          path: sourcePath,
+        );
+        _loadSimpleProfileData(sheetData);
+
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              'Loaded $fileName (${sheetData.rows.length} entries) from tab ${sheetData.xlsxSheetName ?? 'default'}.${hasSafTarget ? ' SAF target ready.' : ' SAF target not detected.'}',
+            ),
+          ),
+        );
+      } catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('XLSX import failed: $error')));
+      }
+    });
+  }
+
+  Future<void> _importXlsxViaSafForSimple() async {
+    await _importXlsxForSimple(requireSafTarget: true);
+  }
+
+  Future<void> _importOdsForSimple() async {
+    await _runWithDocumentOpeningIndicator(() async {
+      try {
+        final messenger = ScaffoldMessenger.of(context);
+        Uint8List bytes = Uint8List(0);
+        String fileName = 'imported.ods';
+        String? sourcePath;
+
         final file = await openFile(
-          acceptedTypeGroups: <XTypeGroup>[_xlsxTypeGroup],
-          confirmButtonText: 'Open XLSX',
+          acceptedTypeGroups: <XTypeGroup>[_odsTypeGroup],
+          confirmButtonText: 'Open ODS',
         );
         if (!mounted || file == null) return;
         fileName = file.name;
         bytes = await file.readAsBytes();
         sourcePath = _readXFilePath(file);
-      }
 
-      if (!mounted) return;
-      if (bytes.isEmpty) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Could not read XLSX file content.')),
+        if (!mounted) return;
+        if (bytes.isEmpty) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Could not read ODS file content.')),
+          );
+          return;
+        }
+
+        final hasSafTarget =
+            !kIsWeb &&
+            defaultTargetPlatform == TargetPlatform.android &&
+            sourcePath != null &&
+            _sheetPersistenceService.canUseDirectSafUri(sourcePath);
+        final sheetData = await _parseOdsSheetData(
+          bytes: bytes,
+          fileName: fileName,
+          path: sourcePath,
         );
-        return;
-      }
-      final hasSafTarget =
-          !kIsWeb &&
-          defaultTargetPlatform == TargetPlatform.android &&
-          sourcePath != null &&
-          _sheetPersistenceService.canUseDirectSafUri(sourcePath);
-      if (requireSafTarget && !hasSafTarget) {
+        if (!mounted) return;
+        _loadSimpleProfileData(sheetData);
+
         messenger.showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-              'SAF target is not writable for direct save. Pick from a writable folder via SAF.',
+              'Loaded $fileName (${sheetData.rows.length} entries) from sheet ${sheetData.xlsxSheetName ?? 'default'}.${hasSafTarget ? ' SAF target ready.' : ' SAF target not detected.'}',
             ),
           ),
         );
-        return;
+      } catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('ODS import failed: $error')));
       }
-      final sheetData = XlsxSheetLogic.parse(
-        bytes: bytes,
-        fileName: fileName,
-        path: sourcePath,
-      );
-      _loadSimpleProfileData(sheetData);
-
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            'Loaded $fileName (${sheetData.rows.length} entries) from tab ${sheetData.xlsxSheetName ?? 'default'}.${hasSafTarget ? ' SAF target ready.' : ' SAF target not detected.'}',
-          ),
-        ),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('XLSX import failed: $error')));
-    }
+    });
   }
 
-  Future<void> _importXlsxViaSafForSimple() async {
-    await _importXlsxForSimple(requireSafTarget: true);
+  Future<SimpleSheetData> _parseOdsSheetData({
+    required Uint8List bytes,
+    required String fileName,
+    required String? path,
+  }) async {
+    final transfer = await Isolate.run<Map<String, Object?>>(
+      () => parseOdsSheetDataTransfer(<String, Object?>{
+        'bytes': bytes,
+        'fileName': fileName,
+        'path': path,
+        'nowMillisecondsSinceEpoch': DateTime.now().millisecondsSinceEpoch,
+      }),
+    );
+    return simpleSheetDataFromTransfer(transfer);
   }
 
   Future<void> _openXlsxViaLink() async {
@@ -356,55 +465,59 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
   }
 
   Future<void> _importXlsxFromLink(String sourceLink) async {
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      final downloadUrl = _xlsxDownloadUrlFromShareLink(sourceLink);
-      final uri = Uri.tryParse(downloadUrl);
-      if (uri == null) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('The link is not a valid URL.')),
+    await _runWithDocumentOpeningIndicator(() async {
+      final messenger = ScaffoldMessenger.of(context);
+      try {
+        final downloadUrl = _xlsxDownloadUrlFromShareLink(sourceLink);
+        final uri = Uri.tryParse(downloadUrl);
+        if (uri == null) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('The link is not a valid URL.')),
+          );
+          return;
+        }
+        final response = await http.get(uri);
+        if (!mounted) return;
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(
+                'Could not open link (HTTP ${response.statusCode}).',
+              ),
+            ),
+          );
+          return;
+        }
+        final bytes = response.bodyBytes;
+        if (bytes.isEmpty) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('The link returned an empty file.')),
+          );
+          return;
+        }
+
+        final fileName = _fileNameFromUrl(uri) ?? 'linked_file.xlsx';
+        final sheetData = XlsxSheetLogic.parse(
+          bytes: bytes,
+          fileName: fileName,
+          path: null,
         );
-        return;
-      }
-      final response = await http.get(uri);
-      if (!mounted) return;
-      if (response.statusCode < 200 || response.statusCode >= 300) {
+        _loadSimpleProfileData(sheetData);
+
         messenger.showSnackBar(
           SnackBar(
-            content: Text('Could not open link (HTTP ${response.statusCode}).'),
+            content: Text(
+              'Loaded $fileName (${sheetData.rows.length} entries) from link.',
+            ),
           ),
         );
-        return;
+      } catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Open via link failed: $error')));
       }
-      final bytes = response.bodyBytes;
-      if (bytes.isEmpty) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('The link returned an empty file.')),
-        );
-        return;
-      }
-
-      final fileName = _fileNameFromUrl(uri) ?? 'linked_file.xlsx';
-      final sheetData = XlsxSheetLogic.parse(
-        bytes: bytes,
-        fileName: fileName,
-        path: null,
-      );
-      _loadSimpleProfileData(sheetData);
-
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            'Loaded $fileName (${sheetData.rows.length} entries) from link.',
-          ),
-        ),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Open via link failed: $error')));
-    }
+    });
   }
 
   bool _looksLikeXlsxDocLink(String value) {
@@ -477,6 +590,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
           sheetData.pendingTypeSelectionColumns;
       _simpleRows = sheetData.rows;
       _simpleImportedWorkbook = sheetData.workbook;
+      _simpleImportedSourceBytes = sheetData.sourceBytes;
     });
 
     _selectSimpleEditorTargetRow();
@@ -484,156 +598,241 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
   }
 
   Future<void> _openInternalSafTestCsv() async {
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      final asset = await rootBundle.load(_internalSafTestCsvAsset);
-      if (!mounted) return;
-      final bytes = asset.buffer.asUint8List();
-      if (bytes.isEmpty) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('The bundled SAF test CSV is empty.')),
-        );
-        return;
-      }
+    await _runWithDocumentOpeningIndicator(() async {
+      final messenger = ScaffoldMessenger.of(context);
+      try {
+        final asset = await rootBundle.load(_internalSafTestCsvAsset);
+        if (!mounted) return;
+        final bytes = asset.buffer.asUint8List();
+        if (bytes.isEmpty) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('The bundled SAF test CSV is empty.')),
+          );
+          return;
+        }
 
-      var fileName = _internalSafTestCsvAsset.split('/').last;
-      String? path;
-      var createdSafCopy = false;
+        var fileName = _internalSafTestCsvAsset.split('/').last;
+        String? path;
+        var createdSafCopy = false;
 
-      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-        final saveResult = await _createInternalSafTestCopy(
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+          final saveResult = await _createInternalSafTestCopy(
+            bytes: bytes,
+            fileName: fileName,
+            typeGroup: _csvTypeGroup,
+            mimeType: 'text/csv',
+            confirmButtonText: 'Create Test CSV',
+          );
+          if (!mounted) return;
+          fileName = saveResult.resolvedFileName;
+          path = saveResult.savedPath;
+          createdSafCopy = true;
+        }
+
+        final sheetData = CsvSheetLogic.parse(
           bytes: bytes,
           fileName: fileName,
-          typeGroup: _csvTypeGroup,
-          mimeType: 'text/csv',
-          confirmButtonText: 'Create Test CSV',
+          path: path,
         );
+        _loadSimpleProfileData(sheetData);
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              createdSafCopy
+                  ? 'Loaded SAF test copy $fileName. Confirm field formats, then save rows back to the same SAF file.'
+                  : 'Loaded bundled test CSV $fileName.',
+            ),
+          ),
+        );
+      } catch (error) {
         if (!mounted) return;
-        fileName = saveResult.resolvedFileName;
-        path = saveResult.savedPath;
-        createdSafCopy = true;
-      }
-
-      final sheetData = CsvSheetLogic.parse(
-        bytes: bytes,
-        fileName: fileName,
-        path: path,
-      );
-      _loadSimpleProfileData(sheetData);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            createdSafCopy
-                ? 'Loaded SAF test copy $fileName. Confirm field formats, then save rows back to the same SAF file.'
-                : 'Loaded bundled test CSV $fileName.',
-          ),
-        ),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      if (error is StateError && error.message == 'Save canceled.') {
+        if (error is StateError && error.message == 'Save canceled.') {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('SAF test copy canceled.')),
+          );
+          return;
+        }
+        if (error is StateError &&
+            error.message == 'SAF folder selection canceled.') {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('SAF folder selection canceled.')),
+          );
+          return;
+        }
+        if (error is StateError &&
+            error.message == 'Could not acquire a writable SAF folder URI.') {
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('Could not acquire a writable SAF folder URI.'),
+            ),
+          );
+          return;
+        }
         messenger.showSnackBar(
-          const SnackBar(content: Text('SAF test copy canceled.')),
+          SnackBar(content: Text('Could not open SAF test CSV: $error')),
         );
-        return;
       }
-      if (error is StateError &&
-          error.message == 'SAF folder selection canceled.') {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('SAF folder selection canceled.')),
-        );
-        return;
-      }
-      if (error is StateError &&
-          error.message == 'Could not acquire a writable SAF folder URI.') {
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Could not acquire a writable SAF folder URI.'),
-          ),
-        );
-        return;
-      }
-      messenger.showSnackBar(
-        SnackBar(content: Text('Could not open SAF test CSV: $error')),
-      );
-    }
+    });
   }
 
   Future<void> _openInternalSafTestXlsx() async {
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      final asset = await rootBundle.load(_internalSafTestXlsxAsset);
-      if (!mounted) return;
-      final bytes = asset.buffer.asUint8List();
-      if (bytes.isEmpty) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('The bundled SAF test XLSX is empty.')),
-        );
-        return;
-      }
+    await _runWithDocumentOpeningIndicator(() async {
+      final messenger = ScaffoldMessenger.of(context);
+      try {
+        final asset = await rootBundle.load(_internalSafTestXlsxAsset);
+        if (!mounted) return;
+        final bytes = asset.buffer.asUint8List();
+        if (bytes.isEmpty) {
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('The bundled SAF test XLSX is empty.'),
+            ),
+          );
+          return;
+        }
 
-      var fileName = _internalSafTestXlsxAsset.split('/').last;
-      String? path;
-      var createdSafCopy = false;
+        var fileName = _internalSafTestXlsxAsset.split('/').last;
+        String? path;
+        var createdSafCopy = false;
 
-      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-        final saveResult = await _createInternalSafTestCopy(
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+          final saveResult = await _createInternalSafTestCopy(
+            bytes: bytes,
+            fileName: fileName,
+            typeGroup: _xlsxTypeGroup,
+            mimeType:
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            confirmButtonText: 'Create Test XLSX',
+          );
+          if (!mounted) return;
+          fileName = saveResult.resolvedFileName;
+          path = saveResult.savedPath;
+          createdSafCopy = true;
+        }
+
+        final sheetData = XlsxSheetLogic.parse(
           bytes: bytes,
           fileName: fileName,
-          typeGroup: _xlsxTypeGroup,
-          mimeType:
-              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          confirmButtonText: 'Create Test XLSX',
+          path: path,
+        );
+        _loadSimpleProfileData(sheetData);
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              createdSafCopy
+                  ? 'Loaded SAF test copy $fileName. Save rows back to the same SAF Excel file.'
+                  : 'Loaded bundled test XLSX $fileName.',
+            ),
+          ),
+        );
+      } catch (error) {
+        if (!mounted) return;
+        if (error is StateError && error.message == 'Save canceled.') {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('SAF test copy canceled.')),
+          );
+          return;
+        }
+        if (error is StateError &&
+            error.message == 'SAF folder selection canceled.') {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('SAF folder selection canceled.')),
+          );
+          return;
+        }
+        if (error is StateError &&
+            error.message == 'Could not acquire a writable SAF folder URI.') {
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('Could not acquire a writable SAF folder URI.'),
+            ),
+          );
+          return;
+        }
+        messenger.showSnackBar(
+          SnackBar(content: Text('Could not open SAF test XLSX: $error')),
+        );
+      }
+    });
+  }
+
+  Future<void> _openInternalSafTestOds() async {
+    await _runWithDocumentOpeningIndicator(() async {
+      final messenger = ScaffoldMessenger.of(context);
+      try {
+        final asset = await rootBundle.load(_internalSafTestOdsAsset);
+        if (!mounted) return;
+        final bytes = asset.buffer.asUint8List();
+        if (bytes.isEmpty) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('The bundled SAF test ODS is empty.')),
+          );
+          return;
+        }
+
+        var fileName = _internalSafTestOdsAsset.split('/').last;
+        String? path;
+        var createdSafCopy = false;
+
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+          final saveResult = await _createInternalSafTestCopy(
+            bytes: bytes,
+            fileName: fileName,
+            typeGroup: _odsTypeGroup,
+            mimeType: 'application/vnd.oasis.opendocument.spreadsheet',
+            confirmButtonText: 'Create Test ODS',
+          );
+          if (!mounted) return;
+          fileName = saveResult.resolvedFileName;
+          path = saveResult.savedPath;
+          createdSafCopy = true;
+        }
+
+        final sheetData = await _parseOdsSheetData(
+          bytes: bytes,
+          fileName: fileName,
+          path: path,
         );
         if (!mounted) return;
-        fileName = saveResult.resolvedFileName;
-        path = saveResult.savedPath;
-        createdSafCopy = true;
-      }
-
-      final sheetData = XlsxSheetLogic.parse(
-        bytes: bytes,
-        fileName: fileName,
-        path: path,
-      );
-      _loadSimpleProfileData(sheetData);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            createdSafCopy
-                ? 'Loaded SAF test copy $fileName. Save rows back to the same SAF Excel file.'
-                : 'Loaded bundled test XLSX $fileName.',
-          ),
-        ),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      if (error is StateError && error.message == 'Save canceled.') {
+        _loadSimpleProfileData(sheetData);
         messenger.showSnackBar(
-          const SnackBar(content: Text('SAF test copy canceled.')),
-        );
-        return;
-      }
-      if (error is StateError &&
-          error.message == 'SAF folder selection canceled.') {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('SAF folder selection canceled.')),
-        );
-        return;
-      }
-      if (error is StateError &&
-          error.message == 'Could not acquire a writable SAF folder URI.') {
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Could not acquire a writable SAF folder URI.'),
+          SnackBar(
+            content: Text(
+              createdSafCopy
+                  ? 'Loaded SAF test copy $fileName. Save rows back to the same SAF ODS file.'
+                  : 'Loaded bundled test ODS $fileName.',
+            ),
           ),
         );
-        return;
+      } catch (error) {
+        if (!mounted) return;
+        if (error is StateError && error.message == 'Save canceled.') {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('SAF test copy canceled.')),
+          );
+          return;
+        }
+        if (error is StateError &&
+            error.message == 'SAF folder selection canceled.') {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('SAF folder selection canceled.')),
+          );
+          return;
+        }
+        if (error is StateError &&
+            error.message == 'Could not acquire a writable SAF folder URI.') {
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('Could not acquire a writable SAF folder URI.'),
+            ),
+          );
+          return;
+        }
+        messenger.showSnackBar(
+          SnackBar(content: Text('Could not open SAF test ODS: $error')),
+        );
       }
-      messenger.showSnackBar(
-        SnackBar(content: Text('Could not open SAF test XLSX: $error')),
-      );
-    }
+    });
   }
 
   Future<SimplePersistResult> _createInternalSafTestCopy({
@@ -1072,6 +1271,9 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     if (format == SimpleFileFormat.xlsx) {
       return _persistSimpleXlsx(mode: mode);
     }
+    if (format == SimpleFileFormat.ods) {
+      return _persistSimpleOds(mode: mode);
+    }
     return _persistSimpleCsv(mode: mode);
   }
 
@@ -1094,12 +1296,20 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     final simpleData = _buildSimpleSheetDataForPersist();
     final bytes = format == SimpleFileFormat.xlsx
         ? XlsxSheetLogic.buildBytes(simpleData)
+        : format == SimpleFileFormat.ods
+        ? OdsSheetLogic.buildBytes(simpleData)
         : CsvSheetLogic.buildBytes(simpleData);
     final mimeType = format == SimpleFileFormat.xlsx
         ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        : format == SimpleFileFormat.ods
+        ? 'application/vnd.oasis.opendocument.spreadsheet'
         : 'text/csv';
     final fileName = _simpleSuggestedFileName(
-      defaultExtension: format == SimpleFileFormat.xlsx ? 'xlsx' : 'csv',
+      defaultExtension: format == SimpleFileFormat.xlsx
+          ? 'xlsx'
+          : format == SimpleFileFormat.ods
+          ? 'ods'
+          : 'csv',
     );
 
     final existingFileId = (settings?['googleDriveSyncFileId'] as String?)
@@ -1172,6 +1382,22 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     );
   }
 
+  Future<SimplePersistResult> _persistSimpleOds({
+    required SimplePersistMode mode,
+  }) async {
+    final bytes = OdsSheetLogic.buildBytes(_buildSimpleSheetDataForPersist());
+
+    final fileName = _simpleSuggestedFileName(defaultExtension: 'ods');
+    return _persistSimpleBytes(
+      bytes: bytes,
+      fileName: fileName,
+      typeGroup: _odsTypeGroup,
+      mimeType: 'application/vnd.oasis.opendocument.spreadsheet',
+      confirmButtonText: 'Save ODS',
+      mode: mode,
+    );
+  }
+
   SimpleSheetData _buildSimpleSheetDataForPersist() {
     return SimpleSheetData(
       fileName: _simpleImportedFileName ?? 'calcrow_simple',
@@ -1185,6 +1411,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       hasTypeRow: _simpleHasTypeRow,
       xlsxSheetName: _simpleImportedSheetName,
       workbook: _simpleImportedWorkbook,
+      sourceBytes: _simpleImportedSourceBytes,
     );
   }
 
@@ -1236,7 +1463,11 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     final current = _simpleImportedFileName?.trim();
     final extension =
         defaultExtension ??
-        (_simpleImportedFormat == SimpleFileFormat.xlsx ? 'xlsx' : 'csv');
+        (_simpleImportedFormat == SimpleFileFormat.xlsx
+            ? 'xlsx'
+            : _simpleImportedFormat == SimpleFileFormat.ods
+            ? 'ods'
+            : 'csv');
     if (current == null || current.isEmpty) {
       return 'calcrow_simple.$extension';
     }
@@ -1817,28 +2048,75 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
+    return Stack(
       children: [
-        _TopHeader(
-          isAdvancedMode: _isAdvancedMode,
-          showModeSwitch: false,
-          headerTitle: _headerTitle,
-          setupDone: _setupDone,
-          widgetOptions: _widgetBlocks,
-          visibleWidgets: _visibleWidgets,
-          onBack: _handleBack,
-          onToggleMode: _toggleMode,
-          onToggleWidget: _setupDone ? _toggleWidget : null,
+        ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
+          children: [
+            _TopHeader(
+              isAdvancedMode: _isAdvancedMode,
+              showModeSwitch: false,
+              headerTitle: _headerTitle,
+              setupDone: _setupDone,
+              widgetOptions: _widgetBlocks,
+              visibleWidgets: _visibleWidgets,
+              onBack: _handleBack,
+              onToggleMode: _toggleMode,
+              onToggleWidget: _setupDone ? _toggleWidget : null,
+            ),
+            const SizedBox(height: 14),
+            if (!_isAdvancedMode) ...[
+              _buildSimpleView(theme),
+            ] else if (!_setupDone) ...[
+              _buildSetupView(theme),
+            ] else ...[
+              _buildEditorView(theme),
+            ],
+          ],
         ),
-        const SizedBox(height: 14),
-        if (!_isAdvancedMode) ...[
-          _buildSimpleView(theme),
-        ] else if (!_setupDone) ...[
-          _buildSetupView(theme),
-        ] else ...[
-          _buildEditorView(theme),
-        ],
+        if (_isOpeningDocument)
+          Positioned.fill(
+            child: AbsorbPointer(
+              absorbing: true,
+              child: ColoredBox(
+                color: theme.colorScheme.surface.withValues(alpha: 0.82),
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 20,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: const <BoxShadow>[
+                        BoxShadow(
+                          color: Color(0x26000000),
+                          blurRadius: 24,
+                          offset: Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TriangleLoadingIndicator(
+                          size: 72,
+                          baseColor: theme.colorScheme.primary,
+                          strokeColor: theme.colorScheme.onSurface,
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          'Opening document...',
+                          style: theme.textTheme.titleMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -1892,6 +2170,17 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
                       ),
                       const SizedBox(height: 10),
                       _SetupCard(
+                        title: 'Open Document Sheet',
+                        subtitle:
+                            !kIsWeb &&
+                                defaultTargetPlatform == TargetPlatform.android
+                            ? 'Open an ODS document with the standard picker'
+                            : 'Use the current month sheet and first row as field profile',
+                        icon: Icons.table_chart_rounded,
+                        onTap: _importOdsForSimple,
+                      ),
+                      const SizedBox(height: 10),
+                      _SetupCard(
                         title: 'Open via SAF',
                         subtitle: 'Android-only direct-save XLSX open',
                         icon: Icons.enhanced_encryption_rounded,
@@ -1932,11 +2221,22 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
                         onTap: _openInternalSafTestXlsx,
                       ),
                       const SizedBox(height: 10),
+                      _SetupCard(
+                        title: 'Open Arbeitszeiten_2026_Randnotiz.ods',
+                        subtitle:
+                            !kIsWeb &&
+                                defaultTargetPlatform == TargetPlatform.android
+                            ? 'Creates a SAF-backed ODS copy first, then opens it in Simple mode'
+                            : 'Loads the bundled raw ODS test sheet into Simple mode',
+                        icon: Icons.table_chart_rounded,
+                        onTap: _openInternalSafTestOds,
+                      ),
+                      const SizedBox(height: 10),
                       Card(
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Text(
-                            'These test sheets have headers, empty input cells, and calculated columns. CSV asks for missing editable formats once. XLSX keeps formula columns read-only and saves back to the same workbook.',
+                            'These test sheets have headers, empty input cells, and calculated columns. CSV asks for missing editable formats once. XLSX and ODS keep formula columns read-only and save back to the same workbook.',
                             style: theme.textTheme.bodyMedium,
                           ),
                         ),
@@ -1981,12 +2281,14 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     final targetLabel = isEditingExisting
         ? 'Editing row ${_simpleEditingRowIndex + 1} of ${_simpleRows.length}'
         : 'Editing new row at bottom';
-    final isXlsxSource = _simpleImportedFormat == SimpleFileFormat.xlsx;
+    final isSheetDocumentSource =
+        _simpleImportedFormat == SimpleFileFormat.xlsx ||
+        _simpleImportedFormat == SimpleFileFormat.ods;
     final sheetName = _simpleImportedSheetName?.trim();
-    final activeSheetLabel = isXlsxSource
+    final activeSheetLabel = isSheetDocumentSource
         ? ((sheetName == null || sheetName.isEmpty) ? 'default' : sheetName)
         : null;
-    final pendingTypeSelectionMessage = isXlsxSource
+    final pendingTypeSelectionMessage = isSheetDocumentSource
         ? 'Set Datatypes and bear in mind that calculated fields are read-only.'
         : 'This file has no usable type row yet. Pick the editable field formats once before saving.';
 
@@ -2020,9 +2322,11 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
                   ),
                 ),
                 TextButton(
-                  onPressed: _simpleImportedFormat == SimpleFileFormat.xlsx
-                      ? _importXlsxForSimple
-                      : _importCsvForSimple,
+                  onPressed: switch (_simpleImportedFormat) {
+                    SimpleFileFormat.xlsx => _importXlsxForSimple,
+                    SimpleFileFormat.ods => _importOdsForSimple,
+                    _ => _importCsvForSimple,
+                  },
                   child: const Text('Open Another'),
                 ),
               ],
@@ -2432,6 +2736,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       _simpleControllers = const <TextEditingController>[];
       _simpleEditingRowIndex = 0;
       _simpleImportedWorkbook = null;
+      _simpleImportedSourceBytes = null;
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
