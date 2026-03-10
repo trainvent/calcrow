@@ -38,12 +38,6 @@ class TodayTabSimple extends StatefulWidget {
 
 class _TodayTabSimpleState extends State<TodayTabSimple> {
   static const String _googleDriveLogTag = 'CalcrowGoogleDrive';
-  static const String _internalSafTestCsvAsset =
-      'test_objects/raw/Arbeitszeiten_2026.csv';
-  static const String _internalSafTestXlsxAsset =
-      'test_objects/raw/Arbeitszeiten_2026.xlsx';
-  static const String _internalSafTestOdsAsset =
-      'test_objects/raw/Arbeitszeiten_2026_Randnotiz.ods';
   static const List<String> _simpleTypeOptions = <String>[
     'text',
     'date',
@@ -496,313 +490,6 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
 
     _selectSimpleEditorTargetRow();
     _publishSimpleRowsToPreview();
-  }
-
-  Future<void> _openInternalSafTestCsv() async {
-    await _runWithDocumentOpeningIndicator(() async {
-      final messenger = ScaffoldMessenger.of(context);
-      try {
-        final asset = await rootBundle.load(_internalSafTestCsvAsset);
-        if (!mounted) return;
-        final bytes = asset.buffer.asUint8List();
-        if (bytes.isEmpty) {
-          messenger.showSnackBar(
-            const SnackBar(content: Text('The bundled SAF test CSV is empty.')),
-          );
-          return;
-        }
-
-        var fileName = _internalSafTestCsvAsset.split('/').last;
-        String? path;
-        var createdSafCopy = false;
-
-        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-          final saveResult = await _createInternalSafTestCopy(
-            bytes: bytes,
-            fileName: fileName,
-            typeGroup: _csvTypeGroup,
-            mimeType: 'text/csv',
-            confirmButtonText: 'Create Test CSV',
-          );
-          if (!mounted) return;
-          fileName = saveResult.resolvedFileName;
-          path = saveResult.savedPath;
-          createdSafCopy = true;
-        }
-
-        final sheetData = CsvSheetLogic.parse(
-          bytes: bytes,
-          fileName: fileName,
-          path: path,
-        );
-        _loadSimpleProfileData(sheetData);
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              createdSafCopy
-                  ? 'Loaded SAF test copy $fileName. Confirm field formats, then save rows back to the same SAF file.'
-                  : 'Loaded bundled test CSV $fileName.',
-            ),
-          ),
-        );
-      } catch (error) {
-        if (!mounted) return;
-        if (error is StateError && error.message == 'Save canceled.') {
-          messenger.showSnackBar(
-            const SnackBar(content: Text('SAF test copy canceled.')),
-          );
-          return;
-        }
-        if (error is StateError &&
-            error.message == 'SAF folder selection canceled.') {
-          messenger.showSnackBar(
-            const SnackBar(content: Text('SAF folder selection canceled.')),
-          );
-          return;
-        }
-        if (error is StateError &&
-            error.message == 'Could not acquire a writable SAF folder URI.') {
-          messenger.showSnackBar(
-            const SnackBar(
-              content: Text('Could not acquire a writable SAF folder URI.'),
-            ),
-          );
-          return;
-        }
-        messenger.showSnackBar(
-          SnackBar(content: Text('Could not open SAF test CSV: $error')),
-        );
-      }
-    });
-  }
-
-  Future<void> _openInternalSafTestXlsx() async {
-    await _runWithDocumentOpeningIndicator(() async {
-      final messenger = ScaffoldMessenger.of(context);
-      try {
-        final asset = await rootBundle.load(_internalSafTestXlsxAsset);
-        if (!mounted) return;
-        final bytes = asset.buffer.asUint8List();
-        if (bytes.isEmpty) {
-          messenger.showSnackBar(
-            const SnackBar(
-              content: Text('The bundled SAF test XLSX is empty.'),
-            ),
-          );
-          return;
-        }
-
-        var fileName = _internalSafTestXlsxAsset.split('/').last;
-        String? path;
-        var createdSafCopy = false;
-
-        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-          final saveResult = await _createInternalSafTestCopy(
-            bytes: bytes,
-            fileName: fileName,
-            typeGroup: _xlsxTypeGroup,
-            mimeType:
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            confirmButtonText: 'Create Test XLSX',
-          );
-          if (!mounted) return;
-          fileName = saveResult.resolvedFileName;
-          path = saveResult.savedPath;
-          createdSafCopy = true;
-        }
-
-        final sheetData = XlsxSheetLogic.parse(
-          bytes: bytes,
-          fileName: fileName,
-          path: path,
-        );
-        _loadSimpleProfileData(sheetData);
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              createdSafCopy
-                  ? 'Loaded SAF test copy $fileName. Save rows back to the same SAF Excel file.'
-                  : 'Loaded bundled test XLSX $fileName.',
-            ),
-          ),
-        );
-      } catch (error) {
-        if (!mounted) return;
-        if (error is StateError && error.message == 'Save canceled.') {
-          messenger.showSnackBar(
-            const SnackBar(content: Text('SAF test copy canceled.')),
-          );
-          return;
-        }
-        if (error is StateError &&
-            error.message == 'SAF folder selection canceled.') {
-          messenger.showSnackBar(
-            const SnackBar(content: Text('SAF folder selection canceled.')),
-          );
-          return;
-        }
-        if (error is StateError &&
-            error.message == 'Could not acquire a writable SAF folder URI.') {
-          messenger.showSnackBar(
-            const SnackBar(
-              content: Text('Could not acquire a writable SAF folder URI.'),
-            ),
-          );
-          return;
-        }
-        messenger.showSnackBar(
-          SnackBar(content: Text('Could not open SAF test XLSX: $error')),
-        );
-      }
-    });
-  }
-
-  Future<void> _openInternalSafTestOds() async {
-    await _runWithDocumentOpeningIndicator(() async {
-      final messenger = ScaffoldMessenger.of(context);
-      try {
-        final asset = await rootBundle.load(_internalSafTestOdsAsset);
-        if (!mounted) return;
-        final bytes = asset.buffer.asUint8List();
-        if (bytes.isEmpty) {
-          messenger.showSnackBar(
-            const SnackBar(content: Text('The bundled SAF test ODS is empty.')),
-          );
-          return;
-        }
-
-        var fileName = _internalSafTestOdsAsset.split('/').last;
-        String? path;
-        var createdSafCopy = false;
-
-        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-          final saveResult = await _createInternalSafTestCopy(
-            bytes: bytes,
-            fileName: fileName,
-            typeGroup: _odsTypeGroup,
-            mimeType: 'application/vnd.oasis.opendocument.spreadsheet',
-            confirmButtonText: 'Create Test ODS',
-          );
-          if (!mounted) return;
-          fileName = saveResult.resolvedFileName;
-          path = saveResult.savedPath;
-          createdSafCopy = true;
-        }
-
-        final sheetData = await _parseOdsSheetData(
-          bytes: bytes,
-          fileName: fileName,
-          path: path,
-        );
-        if (!mounted) return;
-        _loadSimpleProfileData(sheetData);
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              createdSafCopy
-                  ? 'Loaded SAF test copy $fileName. Save rows back to the same SAF ODS file.'
-                  : 'Loaded bundled test ODS $fileName.',
-            ),
-          ),
-        );
-      } catch (error) {
-        if (!mounted) return;
-        if (error is StateError && error.message == 'Save canceled.') {
-          messenger.showSnackBar(
-            const SnackBar(content: Text('SAF test copy canceled.')),
-          );
-          return;
-        }
-        if (error is StateError &&
-            error.message == 'SAF folder selection canceled.') {
-          messenger.showSnackBar(
-            const SnackBar(content: Text('SAF folder selection canceled.')),
-          );
-          return;
-        }
-        if (error is StateError &&
-            error.message == 'Could not acquire a writable SAF folder URI.') {
-          messenger.showSnackBar(
-            const SnackBar(
-              content: Text('Could not acquire a writable SAF folder URI.'),
-            ),
-          );
-          return;
-        }
-        messenger.showSnackBar(
-          SnackBar(content: Text('Could not open SAF test ODS: $error')),
-        );
-      }
-    });
-  }
-
-  Future<SimplePersistResult> _createInternalSafTestCopy({
-    required Uint8List bytes,
-    required String fileName,
-    required XTypeGroup typeGroup,
-    required String mimeType,
-    required String confirmButtonText,
-  }) async {
-    final preferredTreeUri = await _preferredSafTreeUri();
-    if (preferredTreeUri != null &&
-        preferredTreeUri.isNotEmpty &&
-        _sheetPersistenceService.canUseSafTreeUri(preferredTreeUri)) {
-      try {
-        return await _sheetPersistenceService.persistBytes(
-          SimplePersistRequest(
-            bytes: bytes,
-            fileName: fileName,
-            typeGroup: typeGroup,
-            mimeType: mimeType,
-            confirmButtonText: confirmButtonText,
-            preferredSafTreeUri: preferredTreeUri,
-            mode: SimplePersistMode.safPreferred,
-          ),
-        );
-      } on StateError catch (error) {
-        if (!_shouldRetryInternalSafPicker(error)) rethrow;
-      }
-    }
-
-    final pickedTreeUri = await _pickWritableSafTreeUri();
-    if (pickedTreeUri == null) {
-      throw StateError('SAF folder selection canceled.');
-    }
-
-    return _sheetPersistenceService.persistBytes(
-      SimplePersistRequest(
-        bytes: bytes,
-        fileName: fileName,
-        typeGroup: typeGroup,
-        mimeType: mimeType,
-        confirmButtonText: confirmButtonText,
-        preferredSafTreeUri: pickedTreeUri,
-        mode: SimplePersistMode.safPreferred,
-      ),
-    );
-  }
-
-  bool _shouldRetryInternalSafPicker(StateError error) {
-    return error.message ==
-            'No SAF target selected. Open a SAF-backed file first or configure SAF folder in Settings.' ||
-        error.message == 'SAF stream write failed.';
-  }
-
-  Future<String?> _pickWritableSafTreeUri() async {
-    final pickedDirectory = await _safUtil.pickDirectory(
-      writePermission: true,
-      persistablePermission: true,
-    );
-    if (!mounted) return null;
-    final pickedTreeUri = pickedDirectory?.uri.trim();
-    if (pickedTreeUri == null || pickedTreeUri.isEmpty) {
-      return null;
-    }
-    if (!_sheetPersistenceService.canUseSafTreeUri(pickedTreeUri)) {
-      throw StateError('Could not acquire a writable SAF folder URI.');
-    }
-    SimpleSheetPersistenceService.setRuntimeSafTreeUri(pickedTreeUri);
-    return pickedTreeUri;
   }
 
   String? _readXFilePath(XFile file) {
@@ -2034,124 +1721,47 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
 
   Widget _buildSimpleView(ThemeData theme) {
     if (!_hasSimpleSchema) {
-      return DefaultTabController(
-        length: 2,
-        child: Column(
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const TabBar(
-                tabs: [
-                  Tab(text: 'Edit Local Document'),
-                  Tab(text: 'Test SAF Internal'),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 420,
-              child: TabBarView(
-                children: [
-                  ListView(
-                    physics: const NeverScrollableScrollPhysics(),
-                    children: [
-                      _SetupCard(
-                        title: 'Edit Local Document',
-                        subtitle:
-                            !kIsWeb &&
-                                defaultTargetPlatform == TargetPlatform.android
-                            ? 'Open a CSV, XLSX, or ODS document via Android SAF for direct save-back when available'
-                            : 'Open CSV, XLSX, or ODS. Calcrow detects the file type automatically.',
-                        icon: Icons.folder_open_rounded,
-                        onTap: _importLocalDocumentForSimple,
-                      ),
-                      const SizedBox(height: 14),
-                      FutureBuilder<String>(
-                        future: _cloudDocumentSubtitle(),
-                        builder: (context, snapshot) {
-                          final subtitle =
-                              snapshot.data ??
-                              'Choose or create the Google Drive file used for sync.';
-                          return _SetupCard(
-                            title: 'Edit Cloud Document',
-                            subtitle: subtitle,
-                            icon: Icons.cloud_outlined,
-                            trailing: _isChoosingGoogleDriveFile
-                                ? const SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : null,
-                            onTap: _isChoosingGoogleDriveFile
-                                ? null
-                                : _chooseGoogleDriveSyncFile,
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                  ListView(
-                    physics: const NeverScrollableScrollPhysics(),
-                    children: [
-                      _SetupCard(
-                        title: 'Open Arbeitszeiten_2026.csv',
-                        subtitle:
-                            !kIsWeb &&
-                                defaultTargetPlatform == TargetPlatform.android
-                            ? 'Creates a SAF-backed copy first, then opens it in Simple mode'
-                            : 'Loads the bundled raw test sheet into Simple mode',
-                        icon: Icons.science_rounded,
-                        onTap: _openInternalSafTestCsv,
-                      ),
-                      const SizedBox(height: 10),
-                      _SetupCard(
-                        title: 'Open Arbeitszeiten_2026.xlsx',
-                        subtitle:
-                            !kIsWeb &&
-                                defaultTargetPlatform == TargetPlatform.android
-                            ? 'Creates a SAF-backed Excel copy first, then opens it in Simple mode'
-                            : 'Loads the bundled raw Excel test sheet into Simple mode',
-                        icon: Icons.table_view_rounded,
-                        onTap: _openInternalSafTestXlsx,
-                      ),
-                      const SizedBox(height: 10),
-                      _SetupCard(
-                        title: 'Open Arbeitszeiten_2026_Randnotiz.ods',
-                        subtitle:
-                            !kIsWeb &&
-                                defaultTargetPlatform == TargetPlatform.android
-                            ? 'Creates a SAF-backed ODS copy first, then opens it in Simple mode'
-                            : 'Loads the bundled raw ODS test sheet into Simple mode',
-                        icon: Icons.table_chart_rounded,
-                        onTap: _openInternalSafTestOds,
-                      ),
-                      const SizedBox(height: 10),
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Text(
-                            'These test sheets have headers, empty input cells, and calculated columns. CSV asks for missing editable formats once. XLSX and ODS keep formula columns read-only and save back to the same workbook.',
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            Text(
-              'Simple mode will auto-jump to today\'s row if a date column exists, otherwise it opens a new row at the bottom.',
-              style: theme.textTheme.bodyMedium,
-            ),
-          ],
-        ),
+      return Column(
+        children: [
+          _SetupCard(
+            title: 'Edit Local Document',
+            subtitle:
+                !kIsWeb && defaultTargetPlatform == TargetPlatform.android
+                ? 'Open a CSV, XLSX, or ODS document via Android SAF for direct save-back when available'
+                : 'Open CSV, XLSX, or ODS. Calcrow detects the file type automatically.',
+            icon: Icons.folder_open_rounded,
+            onTap: _importLocalDocumentForSimple,
+          ),
+          const SizedBox(height: 14),
+          FutureBuilder<String>(
+            future: _cloudDocumentSubtitle(),
+            builder: (context, snapshot) {
+              final subtitle =
+                  snapshot.data ??
+                  'Choose or create the Google Drive file used for sync.';
+              return _SetupCard(
+                title: 'Edit Cloud Document',
+                subtitle: subtitle,
+                icon: Icons.cloud_outlined,
+                trailing: _isChoosingGoogleDriveFile
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : null,
+                onTap: _isChoosingGoogleDriveFile
+                    ? null
+                    : _chooseGoogleDriveSyncFile,
+              );
+            },
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Simple mode will auto-jump to today\'s row if a date column exists, otherwise it opens a new row at the bottom.',
+            style: theme.textTheme.bodyMedium,
+          ),
+        ],
       );
     }
 
