@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
 
@@ -21,6 +22,7 @@ class SettingsTab extends StatefulWidget {
 
 class _SettingsTabState extends State<SettingsTab> {
   static const String _safTestFileName = 'calcrow_saf_test.txt';
+  static const String _googleDriveLogTag = 'CalcrowGoogleDrive';
   bool _isLinkingGoogle = false;
   bool _isUpdatingSafFolder = false;
   static final SafStream _safStream = SafStream();
@@ -272,10 +274,6 @@ class _SettingsTabState extends State<SettingsTab> {
     if (!linked) {
       return 'Sign in with Google and grant Drive read/write permissions.';
     }
-    final syncFile = (settings?['googleDriveSyncFileName'] as String?)?.trim();
-    if (syncFile != null && syncFile.isNotEmpty) {
-      return 'Syncing with $syncFile';
-    }
     final email = (settings?['googleDriveEmail'] as String?)?.trim();
     if (email != null && email.isNotEmpty) {
       return 'Linked as $email';
@@ -315,20 +313,20 @@ class _SettingsTabState extends State<SettingsTab> {
           const SnackBar(content: Text('Google account unlinked.')),
         );
       } else {
-        final linkResult = await ServiceLocator.googleDriveAuthService
-            .linkAccount();
-        final client = await ServiceLocator.googleDriveAuthService
-            .getAuthenticatedClient();
-        final initialBytes = Uint8List.fromList(
-          utf8.encode('Date,Start,End,Break (min),Notes\n'),
-        );
-        late final GoogleDriveFileMetadata syncFile;
+        late final GoogleDriveLinkResult linkResult;
         try {
-          syncFile = await ServiceLocator.googleDriveSyncService.createSyncFile(
-            authenticatedClient: client,
-            fileName: 'calcrow_sync.csv',
-            bytes: initialBytes,
-            mimeType: 'text/csv',
+          linkResult = await ServiceLocator.googleDriveAuthService.linkAccount();
+        } on GoogleDriveAuthException catch (error) {
+          throw GoogleDriveAuthException('Sign-in step failed: ${error.message}');
+        }
+
+        late final http.Client client;
+        try {
+          client = await ServiceLocator.googleDriveAuthService
+              .getAuthenticatedClient();
+        } on GoogleDriveAuthException catch (error) {
+          throw GoogleDriveAuthException(
+            'Authenticated client step failed: ${error.message}',
           );
         } finally {
           client.close();
@@ -337,25 +335,25 @@ class _SettingsTabState extends State<SettingsTab> {
           uid: uid,
           email: linkResult.email,
         );
-        await ServiceLocator.dbService.setGoogleDriveSyncFile(
-          uid: uid,
-          fileId: syncFile.id,
-          fileName: syncFile.name,
-          mimeType: syncFile.mimeType,
-        );
         if (!mounted) return;
         messenger.showSnackBar(
           SnackBar(
             content: Text(
-              'Google linked: ${linkResult.email}. Sync file: ${syncFile.name}',
+              'Google linked: ${linkResult.email}. Choose a Drive file next.',
             ),
           ),
         );
       }
     } on GoogleDriveAuthException catch (error) {
+      debugPrint('$_googleDriveLogTag settings link auth error: ${error.message}');
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    } on GoogleDriveSyncException catch (error) {
+      debugPrint('$_googleDriveLogTag settings link sync error: ${error.message}');
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(content: Text(error.message)));
     } catch (error) {
+      debugPrint('$_googleDriveLogTag settings link unexpected error: $error');
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(content: Text('Google link failed: $error')),
@@ -366,6 +364,7 @@ class _SettingsTabState extends State<SettingsTab> {
       }
     }
   }
+
 
   Future<void> _setSafFolder({AuthSession? session}) async {
     final messenger = ScaffoldMessenger.of(context);

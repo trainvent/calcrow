@@ -6,7 +6,6 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
 import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
 import 'package:calcrow/app/widgets/triangle_loading_indicator.dart';
@@ -38,6 +37,7 @@ class TodayTabSimple extends StatefulWidget {
 }
 
 class _TodayTabSimpleState extends State<TodayTabSimple> {
+  static const String _googleDriveLogTag = 'CalcrowGoogleDrive';
   static const String _internalSafTestCsvAsset =
       'test_objects/raw/Arbeitszeiten_2026.csv';
   static const String _internalSafTestXlsxAsset =
@@ -122,7 +122,6 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
   Uint8List? _simpleImportedSourceBytes;
   int _simpleEditingRowIndex = 0;
   String? _importedFileName;
-  String? _simpleXlsxLink;
   List<List<String>> _allRows = const <List<String>>[];
   int? _selectedExistingRowIndex;
   double _moodLevel = 0.45;
@@ -133,6 +132,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
   bool _showWellbeing = true;
   bool _showNotes = true;
   bool _isOpeningDocument = false;
+  bool _isChoosingGoogleDriveFile = false;
 
   @override
   void initState() {
@@ -283,6 +283,139 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     });
   }
 
+  Future<void> _chooseGoogleDriveSyncFile() async {
+    if (_isChoosingGoogleDriveFile) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    final session = ServiceLocator.authService.currentSession;
+    if (session == null) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Connect your Google account in Settings first.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isChoosingGoogleDriveFile = true);
+    try {
+      final settings = await ServiceLocator.dbService.getUserSettings(session.uid);
+      final linked = settings?['googleDriveLinked'];
+      if (linked is! bool || !linked) {
+        throw const GoogleDriveAuthException(
+          'Google account is not linked. Connect it in Settings first.',
+        );
+      }
+
+      final client = await ServiceLocator.googleDriveAuthService
+          .getAuthenticatedClient();
+      late final List<GoogleDriveFileMetadata> candidates;
+      try {
+        candidates = await ServiceLocator.googleDriveSyncService.listSyncFiles(
+          authenticatedClient: client,
+        );
+      } finally {
+        client.close();
+      }
+
+      if (!mounted) return;
+
+      final selection = await showDialog<_GoogleDriveFileSelection>(
+        context: context,
+        builder: (context) => _GoogleDriveFilePickerDialog(
+          files: candidates,
+          selectedFileId:
+              (settings?['googleDriveSyncFileId'] as String?)?.trim(),
+        ),
+      );
+      if (selection == null) return;
+
+      if (selection.createNew) {
+        final createClient = await ServiceLocator.googleDriveAuthService
+            .getAuthenticatedClient();
+        late final GoogleDriveFileMetadata createdFile;
+        try {
+          createdFile = await ServiceLocator.googleDriveSyncService
+              .createSyncFile(
+                authenticatedClient: createClient,
+                fileName: 'calcrow_sync.csv',
+                bytes: Uint8List.fromList(
+                  utf8.encode('Date,Start,End,Break (min),Notes\n'),
+                ),
+                mimeType: 'text/csv',
+              );
+        } finally {
+          createClient.close();
+        }
+        await ServiceLocator.dbService.setGoogleDriveSyncFile(
+          uid: session.uid,
+          fileId: createdFile.id,
+          fileName: createdFile.name,
+          mimeType: createdFile.mimeType,
+        );
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(content: Text('Cloud sync file set to ${createdFile.name}.')),
+        );
+        return;
+      }
+
+      final selectedFile = selection.file;
+      if (selectedFile == null) {
+        await ServiceLocator.dbService.clearGoogleDriveSyncFile(uid: session.uid);
+        if (!mounted) return;
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Google Drive sync file cleared.')),
+        );
+        return;
+      }
+
+      await ServiceLocator.dbService.setGoogleDriveSyncFile(
+        uid: session.uid,
+        fileId: selectedFile.id,
+        fileName: selectedFile.name,
+        mimeType: selectedFile.mimeType,
+      );
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Cloud sync file set to ${selectedFile.name}.')),
+      );
+    } on GoogleDriveAuthException catch (error) {
+      debugPrint(
+        '$_googleDriveLogTag simple choose file auth error: ${error.message}',
+      );
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    } on GoogleDriveSyncException catch (error) {
+      debugPrint(
+        '$_googleDriveLogTag simple choose file sync error: ${error.message}',
+      );
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) {
+        setState(() => _isChoosingGoogleDriveFile = false);
+      }
+    }
+  }
+
+  Future<String> _cloudDocumentSubtitle() async {
+    final session = ServiceLocator.authService.currentSession;
+    if (session == null) {
+      return 'Connect your Google account in Settings first.';
+    }
+    final settings = await ServiceLocator.dbService.getUserSettings(session.uid);
+    final linked = settings?['googleDriveLinked'];
+    if (linked is! bool || !linked) {
+      return 'Connect your Google account in Settings first.';
+    }
+    final fileName = (settings?['googleDriveSyncFileName'] as String?)?.trim();
+    if (fileName != null && fileName.isNotEmpty) {
+      return 'Manage Google Drive sync file: $fileName';
+    }
+    return 'Choose or create the Google Drive file used for sync.';
+  }
+
   Future<SimpleSheetData> _parseOdsSheetData({
     required Uint8List bytes,
     required String fileName,
@@ -297,172 +430,6 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       }),
     );
     return simpleSheetDataFromTransfer(transfer);
-  }
-
-  Future<void> _openXlsxViaLink() async {
-    final controller = TextEditingController(text: _simpleXlsxLink ?? '');
-    try {
-      final submitted = await showDialog<String>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Open with link'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            keyboardType: TextInputType.url,
-            decoration: const InputDecoration(
-              labelText: 'XLSX link',
-              hintText: 'https://...xlsx or Google Sheets URL',
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () =>
-                  Navigator.of(dialogContext).pop(controller.text.trim()),
-              child: const Text('Open link'),
-            ),
-          ],
-        ),
-      );
-      if (!mounted || submitted == null) return;
-      if (submitted.isEmpty) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('No link entered.')));
-        return;
-      }
-      if (!_looksLikeXlsxDocLink(submitted)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'MVP accepts only XLSX document links (.xlsx or Google Sheets URL).',
-            ),
-          ),
-        );
-        return;
-      }
-      setState(() {
-        _simpleXlsxLink = submitted;
-      });
-      await _importXlsxFromLink(submitted);
-    } finally {
-      controller.dispose();
-    }
-  }
-
-  Future<void> _importXlsxFromLink(String sourceLink) async {
-    await _runWithDocumentOpeningIndicator(() async {
-      final messenger = ScaffoldMessenger.of(context);
-      try {
-        final downloadUrl = _xlsxDownloadUrlFromShareLink(sourceLink);
-        final uri = Uri.tryParse(downloadUrl);
-        if (uri == null) {
-          messenger.showSnackBar(
-            const SnackBar(content: Text('The link is not a valid URL.')),
-          );
-          return;
-        }
-        final response = await http.get(uri);
-        if (!mounted) return;
-        if (response.statusCode < 200 || response.statusCode >= 300) {
-          messenger.showSnackBar(
-            SnackBar(
-              content: Text(
-                'Could not open link (HTTP ${response.statusCode}).',
-              ),
-            ),
-          );
-          return;
-        }
-        final bytes = response.bodyBytes;
-        if (bytes.isEmpty) {
-          messenger.showSnackBar(
-            const SnackBar(content: Text('The link returned an empty file.')),
-          );
-          return;
-        }
-
-        final fileName = _fileNameFromUrl(uri) ?? 'linked_file.xlsx';
-        final sheetData = XlsxSheetLogic.parse(
-          bytes: bytes,
-          fileName: fileName,
-          path: null,
-        );
-        _loadSimpleProfileData(sheetData);
-
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              'Loaded $fileName (${sheetData.rows.length} entries) from link.',
-            ),
-          ),
-        );
-      } catch (error) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Open via link failed: $error')));
-      }
-    });
-  }
-
-  bool _looksLikeXlsxDocLink(String value) {
-    final uri = Uri.tryParse(value.trim());
-    if (uri == null) return false;
-    if (!(uri.scheme == 'https' || uri.scheme == 'http')) return false;
-    final lowered = value.trim().toLowerCase();
-    return lowered.endsWith('.xlsx') ||
-        lowered.contains('.xlsx?') ||
-        lowered.contains('docs.google.com/spreadsheets/');
-  }
-
-  String _xlsxDownloadUrlFromShareLink(String source) {
-    final trimmed = source.trim();
-    final uri = Uri.tryParse(trimmed);
-    if (uri == null) return trimmed;
-
-    final host = uri.host.toLowerCase();
-    final segments = uri.pathSegments;
-    if (host.contains('docs.google.com') &&
-        segments.length >= 3 &&
-        segments.first == 'spreadsheets' &&
-        segments[1] == 'd') {
-      final fileId = segments[2];
-      return 'https://docs.google.com/spreadsheets/d/$fileId/export?format=xlsx';
-    }
-
-    if (host.contains('drive.google.com')) {
-      if (segments.length >= 3 &&
-          segments.first == 'file' &&
-          segments[1] == 'd') {
-        final fileId = segments[2];
-        return 'https://drive.google.com/uc?export=download&id=$fileId';
-      }
-      final fileId = uri.queryParameters['id'];
-      if (fileId != null && fileId.isNotEmpty) {
-        return 'https://drive.google.com/uc?export=download&id=$fileId';
-      }
-    }
-
-    return trimmed;
-  }
-
-  String? _fileNameFromUrl(Uri uri) {
-    final xlsxSegment = uri.pathSegments.lastWhere(
-      (segment) => segment.toLowerCase().endsWith('.xlsx'),
-      orElse: () => '',
-    );
-    if (xlsxSegment.isNotEmpty) return xlsxSegment;
-    final maybeName =
-        uri.queryParameters['filename'] ?? uri.queryParameters['name'];
-    if (maybeName != null && maybeName.trim().isNotEmpty) {
-      return maybeName.trim();
-    }
-    return null;
   }
 
   SimpleFileFormat _detectSimpleFileFormat({
@@ -1015,6 +982,9 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
           return;
         }
       } on GoogleDriveAuthException catch (error) {
+        debugPrint(
+          '$_googleDriveLogTag simple sync auth error: ${error.message}',
+        );
         if (!mounted) return;
         messenger.showSnackBar(
           SnackBar(
@@ -1025,6 +995,9 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
         );
         return;
       } on GoogleDriveSyncException catch (error) {
+        debugPrint(
+          '$_googleDriveLogTag simple sync error: ${error.message}',
+        );
         if (!mounted) return;
         messenger.showSnackBar(
           SnackBar(
@@ -1262,14 +1235,18 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
         ?.trim();
     final existingMimeType = (settings?['googleDriveSyncMimeType'] as String?)
         ?.trim();
+    if (existingFileId == null ||
+        existingFileId.isEmpty ||
+        existingMimeType == null ||
+        existingMimeType.isEmpty) {
+      throw const GoogleDriveSyncException(
+        'No Google Drive sync file selected. Choose one in Settings.',
+      );
+    }
 
     final GoogleDriveFileMetadata metadata;
     try {
-      if (existingFileId == null ||
-          existingFileId.isEmpty ||
-          existingMimeType == null ||
-          existingMimeType.isEmpty ||
-          existingMimeType != mimeType) {
+      if (existingMimeType != mimeType) {
         metadata = await ServiceLocator.googleDriveSyncService.createSyncFile(
           authenticatedClient: authenticatedClient,
           fileName: fileName,
@@ -2103,13 +2080,31 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
                         icon: Icons.folder_open_rounded,
                         onTap: _importLocalDocumentForSimple,
                       ),
-                      const SizedBox(height: 10),
-                      _SetupCard(
-                        title: 'Open with link',
-                        subtitle:
-                            _simpleXlsxLink ?? 'MVP: only XLSX document links',
-                        icon: Icons.link_rounded,
-                        onTap: _openXlsxViaLink,
+                      const SizedBox(height: 14),
+                      FutureBuilder<String>(
+                        future: _cloudDocumentSubtitle(),
+                        builder: (context, snapshot) {
+                          final subtitle =
+                              snapshot.data ??
+                              'Choose or create the Google Drive file used for sync.';
+                          return _SetupCard(
+                            title: 'Edit Cloud Document',
+                            subtitle: subtitle,
+                            icon: Icons.cloud_outlined,
+                            trailing: _isChoosingGoogleDriveFile
+                                ? const SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : null,
+                            onTap: _isChoosingGoogleDriveFile
+                                ? null
+                                : _chooseGoogleDriveSyncFile,
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -2486,16 +2481,9 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
           icon: Icons.folder_open_rounded,
           onTap: _importCsv,
         ),
-        const SizedBox(height: 10),
-        _SetupCard(
-          title: 'Open with link',
-          subtitle: _simpleXlsxLink ?? 'MVP: only XLSX document links',
-          icon: Icons.link_rounded,
-          onTap: _openXlsxViaLink,
-        ),
         const SizedBox(height: 14),
         Text(
-          'Tip: this follows your sketch flow. Pick a file first, then edit daily rows.',
+          'Tip: pick a local file first, then edit daily rows. For cloud-based files, connect Google in Settings and use Edit Cloud Document here.',
           style: theme.textTheme.bodyMedium,
         ),
       ],
@@ -2662,6 +2650,93 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
   }
 }
 
+class _GoogleDriveFileSelection {
+  const _GoogleDriveFileSelection._({this.file, this.createNew = false});
+
+  const _GoogleDriveFileSelection.pick(GoogleDriveFileMetadata file)
+    : this._(file: file);
+
+  const _GoogleDriveFileSelection.clear() : this._();
+
+  const _GoogleDriveFileSelection.createNew() : this._(createNew: true);
+
+  final GoogleDriveFileMetadata? file;
+  final bool createNew;
+}
+
+class _GoogleDriveFilePickerDialog extends StatelessWidget {
+  const _GoogleDriveFilePickerDialog({
+    required this.files,
+    required this.selectedFileId,
+  });
+
+  final List<GoogleDriveFileMetadata> files;
+  final String? selectedFileId;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Choose sync file'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: files.isEmpty
+            ? const Text(
+                'No supported CSV, XLSX, or ODS files are visible yet. You can create a new sync file instead.',
+              )
+            : ListView(
+                shrinkWrap: true,
+                children: files
+                    .map(
+                      (file) => ListTile(
+                        leading: Icon(
+                          file.id == selectedFileId
+                              ? Icons.check_circle_rounded
+                              : Icons.insert_drive_file_outlined,
+                        ),
+                        title: Text(file.name),
+                        subtitle: Text(_mimeLabel(file.mimeType)),
+                        onTap: () => Navigator.of(
+                          context,
+                        ).pop(_GoogleDriveFileSelection.pick(file)),
+                      ),
+                    )
+                    .toList(),
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () =>
+              Navigator.of(context).pop(const _GoogleDriveFileSelection.clear()),
+          child: const Text('Clear'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(
+            context,
+          ).pop(const _GoogleDriveFileSelection.createNew()),
+          child: const Text('Create new'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+
+  static String _mimeLabel(String mimeType) {
+    switch (mimeType) {
+      case 'text/csv':
+        return 'CSV';
+      case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+        return 'XLSX';
+      case 'application/vnd.oasis.opendocument.spreadsheet':
+        return 'ODS';
+      default:
+        return mimeType;
+    }
+  }
+}
+
 class _TopHeader extends StatelessWidget {
   const _TopHeader({
     required this.isAdvancedMode,
@@ -2754,12 +2829,14 @@ class _SetupCard extends StatelessWidget {
     required this.subtitle,
     required this.icon,
     required this.onTap,
+    this.trailing,
   });
 
   final String title;
   final String subtitle;
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -2783,7 +2860,7 @@ class _SetupCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              Icon(icon),
+              trailing ?? Icon(icon),
             ],
           ),
         ),

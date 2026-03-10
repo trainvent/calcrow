@@ -6,6 +6,9 @@ class GoogleDriveAuthException implements Exception {
   const GoogleDriveAuthException(this.message);
 
   final String message;
+
+  @override
+  String toString() => message;
 }
 
 class GoogleDriveLinkResult {
@@ -47,7 +50,7 @@ class GoogleDriveAuthService {
       final token = auth.accessToken;
       if (token == null || token.isEmpty) {
         throw const GoogleDriveAuthException(
-          'Could not get Drive API access token.',
+          'Could not get Drive API access token. Check Android OAuth SHA-1 setup, OAuth consent, and refresh google-services.json.',
         );
       }
       final email = account.email.trim();
@@ -59,7 +62,9 @@ class GoogleDriveAuthService {
       return GoogleDriveLinkResult(email: email, accessToken: token);
     } catch (error) {
       if (error is GoogleDriveAuthException) rethrow;
-      throw GoogleDriveAuthException('Google linking failed: $error');
+      throw GoogleDriveAuthException(
+        'Google sign-in failed (${error.runtimeType}): $error',
+      );
     }
   }
 
@@ -74,10 +79,17 @@ class GoogleDriveAuthService {
         );
       }
       final headers = await account.authHeaders;
+      if (headers.isEmpty) {
+        throw const GoogleDriveAuthException(
+          'Google auth headers are empty. Check OAuth client setup and Drive scope consent.',
+        );
+      }
       return GoogleAuthClient(headers);
     } catch (error) {
       if (error is GoogleDriveAuthException) rethrow;
-      throw GoogleDriveAuthException('Failed to get authenticated client: $error');
+      throw GoogleDriveAuthException(
+        'Failed to get authenticated client (${error.runtimeType}): $error',
+      );
     }
   }
 
@@ -98,7 +110,7 @@ class GoogleDriveAuthService {
       clientId: kIsWeb && webClientId.isNotEmpty ? webClientId : null,
       scopes: const <String>[
         'email',
-        'https://www.googleapis.com/auth/drive.file',
+        'https://www.googleapis.com/auth/drive',
       ],
     );
   }

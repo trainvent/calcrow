@@ -118,6 +118,18 @@ class DbService {
     }, SetOptions(merge: true));
   }
 
+  Future<void> clearGoogleDriveSyncFile({required String uid}) {
+    return _firestore.collection(_usersCollection).doc(uid).set({
+      'settings': {
+        'googleDriveSyncFileId': FieldValue.delete(),
+        'googleDriveSyncFileName': FieldValue.delete(),
+        'googleDriveSyncMimeType': FieldValue.delete(),
+        'googleDriveLastSyncedAt': FieldValue.delete(),
+      },
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   Future<void> setSafFolderUri({
     required String uid,
     required String treeUri,
