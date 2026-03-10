@@ -5,6 +5,8 @@ import '../services/auth_service.dart';
 import '../services/db_service.dart';
 import '../services/google_drive_auth_service.dart';
 import '../services/google_drive_sync_service.dart';
+import '../services/simple_cloud_document_service.dart';
+import '../services/simple_local_document_service.dart';
 
 class ServiceLocator {
   ServiceLocator._();
@@ -13,6 +15,8 @@ class ServiceLocator {
   static late final DbService dbService;
   static late final GoogleDriveAuthService googleDriveAuthService;
   static late final GoogleDriveSyncService googleDriveSyncService;
+  static late final SimpleLocalDocumentService simpleLocalDocumentService;
+  static late final SimpleCloudDocumentService simpleCloudDocumentService;
   static bool _isSetup = false;
 
   static bool get isSetup => _isSetup;
@@ -23,6 +27,13 @@ class ServiceLocator {
     dbService = DbService(FirebaseFirestore.instance);
     googleDriveAuthService = GoogleDriveAuthService();
     googleDriveSyncService = GoogleDriveSyncService();
+    simpleLocalDocumentService = SimpleLocalDocumentService();
+    simpleCloudDocumentService = SimpleCloudDocumentService(
+      authService: authService,
+      dbService: dbService,
+      googleDriveAuthService: googleDriveAuthService,
+      googleDriveSyncService: googleDriveSyncService,
+    );
     _isSetup = true;
   }
 }

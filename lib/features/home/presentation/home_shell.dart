@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'tabs/settings_tab.dart';
 import 'tabs/sheet_preview_tab.dart';
-import 'tabs/simple/today_tab_simple.dart';
+import 'tabs/today_tab.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
@@ -15,7 +15,7 @@ class _HomeShellState extends State<HomeShell> {
   int _currentIndex = 0;
 
   final _tabs = const [
-    TodayTabSimple(),
+    TodayTab(),
     SheetPreviewTab(),
     SettingsTab(),
   ];

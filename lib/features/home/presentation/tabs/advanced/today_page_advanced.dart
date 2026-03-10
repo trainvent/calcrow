@@ -5,24 +5,24 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
 import '../../sheet_preview_store.dart';
-import 'widgets/notes_widget.dart';
-import 'widgets/row_definement_widget.dart';
-import 'widgets/smart_data_widget.dart';
-import 'widgets/wellbeing_widget.dart';
-import 'widgets/workhours_widget.dart';
+import 'advanced_widgets/notes_widget.dart';
+import 'advanced_widgets/row_definement_widget.dart';
+import 'advanced_widgets/smart_data_widget.dart';
+import 'advanced_widgets/wellbeing_widget.dart';
+import 'advanced_widgets/workhours_widget.dart';
 import '../simple/widgets/select_time_widget.dart';
 import '../simple/widgets/timespan_widget.dart';
 
 enum _WidgetBlock { rowDefinement, workhours, smartData, wellbeing, notes }
 
-class TodayTabAdvanced extends StatefulWidget {
-  const TodayTabAdvanced({super.key});
+class TodayPageAdvanced extends StatefulWidget {
+  const TodayPageAdvanced({super.key});
 
   @override
-  State<TodayTabAdvanced> createState() => _TodayTabAdvancedState();
+  State<TodayPageAdvanced> createState() => _TodayPageAdvancedState();
 }
 
-class _TodayTabAdvancedState extends State<TodayTabAdvanced> {
+class _TodayPageAdvancedState extends State<TodayPageAdvanced> {
   static const XTypeGroup _csvTypeGroup = XTypeGroup(
     label: 'CSV',
     extensions: <String>['csv'],

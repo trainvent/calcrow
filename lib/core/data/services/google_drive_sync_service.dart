@@ -132,6 +132,31 @@ class GoogleDriveSyncService {
     }
   }
 
+  Future<Uint8List> downloadFileBytes({
+    required http.Client authenticatedClient,
+    required String fileId,
+  }) async {
+    final driveApi = drive.DriveApi(authenticatedClient);
+    try {
+      final response = await driveApi.files.get(
+        fileId,
+        downloadOptions: drive.DownloadOptions.fullMedia,
+      );
+      if (response is! drive.Media) {
+        throw const GoogleDriveSyncException(
+          'Drive file download did not return media bytes.',
+        );
+      }
+      final chunks = await response.stream.toList();
+      return Uint8List.fromList(
+        chunks.expand((chunk) => chunk).toList(growable: false),
+      );
+    } catch (e) {
+      if (e is GoogleDriveSyncException) rethrow;
+      throw GoogleDriveSyncException('Could not download Drive file: $e');
+    }
+  }
+
   Future<List<GoogleDriveFileMetadata>> listSyncFiles({
     required http.Client authenticatedClient,
   }) async {

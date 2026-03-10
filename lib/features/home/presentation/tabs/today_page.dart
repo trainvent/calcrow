@@ -6,17 +6,16 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:saf_stream/saf_stream.dart';
-import 'package:saf_util/saf_util.dart';
 import 'package:calcrow/app/widgets/triangle_loading_indicator.dart';
 import 'package:calcrow/core/data/di/service_locator.dart';
-import 'package:calcrow/features/home/presentation/tabs/advanced/widgets/notes_widget.dart';
-import 'package:calcrow/features/home/presentation/tabs/advanced/widgets/row_definement_widget.dart';
-import 'package:calcrow/features/home/presentation/tabs/advanced/widgets/smart_data_widget.dart';
-import 'package:calcrow/features/home/presentation/tabs/advanced/widgets/wellbeing_widget.dart';
-import 'package:calcrow/features/home/presentation/tabs/advanced/widgets/workhours_widget.dart';
+import 'package:calcrow/features/home/presentation/tabs/advanced/advanced_widgets/notes_widget.dart';
+import 'package:calcrow/features/home/presentation/tabs/advanced/advanced_widgets/row_definement_widget.dart';
+import 'package:calcrow/features/home/presentation/tabs/advanced/advanced_widgets/smart_data_widget.dart';
+import 'package:calcrow/features/home/presentation/tabs/advanced/advanced_widgets/wellbeing_widget.dart';
+import 'package:calcrow/features/home/presentation/tabs/advanced/advanced_widgets/workhours_widget.dart';
 import 'package:calcrow/core/data/services/google_drive_auth_service.dart';
 import 'package:calcrow/core/data/services/google_drive_sync_service.dart';
+import 'package:calcrow/core/data/services/simple_local_document_service.dart';
 import 'package:calcrow/core/data/services/simple_sheet_persistence_service.dart';
 import 'package:calcrow/core/sheet_type_logic/csv_logic.dart';
 import 'package:calcrow/core/sheet_type_logic/ods_logic.dart';
@@ -25,18 +24,18 @@ import 'package:calcrow/core/sheet_type_logic/xlsx_logic.dart';
 import 'package:calcrow/features/home/presentation/tabs/simple/widgets/select_time_widget.dart';
 import 'package:calcrow/features/home/presentation/tabs/simple/widgets/timespan_widget.dart';
 
-import '../../sheet_preview_store.dart';
+import '../sheet_preview_store.dart';
 
 enum _WidgetBlock { rowDefinement, workhours, smartData, wellbeing, notes }
 
-class TodayTabSimple extends StatefulWidget {
-  const TodayTabSimple({super.key});
+class TodayPage extends StatefulWidget {
+  const TodayPage({super.key});
 
   @override
-  State<TodayTabSimple> createState() => _TodayTabSimpleState();
+  State<TodayPage> createState() => _TodayPageState();
 }
 
-class _TodayTabSimpleState extends State<TodayTabSimple> {
+class _TodayPageState extends State<TodayPage> {
   static const String _googleDriveLogTag = 'CalcrowGoogleDrive';
   static const List<String> _simpleTypeOptions = <String>[
     'text',
@@ -78,8 +77,6 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
   static const double _defaultMoodLevel = 0.45;
   static const double _defaultEnergyLevel = 0.62;
   static const int _previewRowLimit = 100;
-  static final SafStream _safStreamReader = SafStream();
-  static final SafUtil _safUtil = SafUtil();
   final SimpleSheetPersistenceService _sheetPersistenceService =
       SimpleSheetPersistenceService();
 
@@ -127,6 +124,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
   bool _showNotes = true;
   bool _isOpeningDocument = false;
   bool _isChoosingGoogleDriveFile = false;
+  _SimpleDocumentTarget? _simpleDocumentTarget;
 
   @override
   void initState() {
@@ -178,91 +176,35 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     await _runWithDocumentOpeningIndicator(() async {
       try {
         final messenger = ScaffoldMessenger.of(context);
-        Uint8List bytes = Uint8List(0);
-        String fileName = 'imported_document';
-        String? sourcePath;
+        final result = await ServiceLocator.simpleLocalDocumentService
+            .openDocumentForSimpleEditor(
+              acceptedTypeGroups: _localDocumentTypeGroups,
+              parseSheetData: _parseSimpleSheetData,
+              readXFilePath: _readXFilePath,
+            );
+        if (!mounted || result == null) return;
 
-        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-          final pickedFile = await _safUtil.pickFile(
-            mimeTypes: const <String>[
-              'text/csv',
-              'text/comma-separated-values',
-              'application/csv',
-              'text/*',
-              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-              'application/vnd.ms-excel',
-              'application/vnd.oasis.opendocument.spreadsheet',
-              'application/octet-stream',
-            ],
-          );
-          if (!mounted || pickedFile == null) return;
-          fileName = pickedFile.name.trim().isEmpty ? fileName : pickedFile.name;
-          sourcePath = pickedFile.uri.trim().isEmpty ? null : pickedFile.uri.trim();
-          if (sourcePath != null) {
-            bytes = await _safStreamReader.readFileBytes(sourcePath);
-          }
-        } else {
-          final file = await openFile(
-            acceptedTypeGroups: _localDocumentTypeGroups,
-            confirmButtonText: 'Open document',
-          );
-          if (!mounted || file == null) return;
-          fileName = file.name;
-          bytes = await file.readAsBytes();
-          sourcePath = _readXFilePath(file);
-        }
-
+        final sheetData = result.sheetData;
         if (!mounted) return;
-        if (bytes.isEmpty) {
-          messenger.showSnackBar(
-            const SnackBar(content: Text('Could not read document content.')),
-          );
-          return;
-        }
 
-        final format = _detectSimpleFileFormat(
-          fileName: fileName,
-          path: sourcePath,
-          bytes: bytes,
+        _loadSimpleProfileData(
+          sheetData,
+          target: _LocalSimpleDocumentTarget(existingPath: result.existingPath),
         );
-        late final SimpleSheetData sheetData;
-        switch (format) {
-          case SimpleFileFormat.csv:
-            sheetData = CsvSheetLogic.parse(
-              bytes: bytes,
-              fileName: fileName,
-              path: sourcePath,
-            );
-          case SimpleFileFormat.xlsx:
-            sheetData = XlsxSheetLogic.parse(
-              bytes: bytes,
-              fileName: fileName,
-              path: sourcePath,
-            );
-          case SimpleFileFormat.ods:
-            sheetData = await _parseOdsSheetData(
-              bytes: bytes,
-              fileName: fileName,
-              path: sourcePath,
-            );
-        }
-        if (!mounted) return;
-
-        final hasSafTarget =
-            !kIsWeb &&
-            defaultTargetPlatform == TargetPlatform.android &&
-            sourcePath != null &&
-            _sheetPersistenceService.canUseDirectSafUri(sourcePath);
-        _loadSimpleProfileData(sheetData);
 
         final sourceLabel = switch (sheetData.format) {
-          SimpleFileFormat.csv => 'Loaded $fileName (${sheetData.rows.length} entries).',
+          SimpleFileFormat.csv => 'Loaded ${sheetData.fileName} (${sheetData.rows.length} entries).',
           SimpleFileFormat.xlsx =>
-            'Loaded $fileName (${sheetData.rows.length} entries) from tab ${sheetData.xlsxSheetName ?? 'default'}.${hasSafTarget ? ' SAF target ready.' : ' SAF target not detected.'}',
+            'Loaded ${sheetData.fileName} (${sheetData.rows.length} entries) from tab ${sheetData.xlsxSheetName ?? 'default'}.${result.hasSafTarget ? ' SAF target ready.' : ' SAF target not detected.'}',
           SimpleFileFormat.ods =>
-            'Loaded $fileName (${sheetData.rows.length} entries) from sheet ${sheetData.xlsxSheetName ?? 'default'}.${hasSafTarget ? ' SAF target ready.' : ' SAF target not detected.'}',
+            'Loaded ${sheetData.fileName} (${sheetData.rows.length} entries) from sheet ${sheetData.xlsxSheetName ?? 'default'}.${result.hasSafTarget ? ' SAF target ready.' : ' SAF target not detected.'}',
         };
         messenger.showSnackBar(SnackBar(content: Text(sourceLabel)));
+      } on LocalSimpleDocumentException catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
       } on UnsupportedError catch (error) {
         if (!mounted) return;
         ScaffoldMessenger.of(
@@ -273,6 +215,53 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Import failed: $error')));
+      }
+    });
+  }
+
+  Future<void> _openGoogleDriveDocument({
+    required GoogleDriveFileMetadata file,
+  }) async {
+    await _runWithDocumentOpeningIndicator(() async {
+      final messenger = ScaffoldMessenger.of(context);
+      try {
+        final result = await ServiceLocator.simpleCloudDocumentService
+            .openDocument(
+              file: file,
+              parseSheetData: _parseSimpleSheetData,
+            );
+        if (!mounted) return;
+        _loadSimpleProfileData(
+          result.sheetData,
+          target: _CloudSimpleDocumentTarget(
+            fileId: result.file.id,
+            fileName: result.file.name,
+            mimeType: result.file.mimeType,
+          ),
+        );
+        messenger.showSnackBar(
+          SnackBar(content: Text('Opened cloud document ${result.file.name}.')),
+        );
+      } on GoogleDriveAuthException catch (error) {
+        debugPrint(
+          '$_googleDriveLogTag simple open drive auth error: ${error.message}',
+        );
+        if (!mounted) return;
+        messenger.showSnackBar(SnackBar(content: Text(error.message)));
+      } on GoogleDriveSyncException catch (error) {
+        debugPrint(
+          '$_googleDriveLogTag simple open drive sync error: ${error.message}',
+        );
+        if (!mounted) return;
+        messenger.showSnackBar(SnackBar(content: Text(error.message)));
+      } on UnsupportedError catch (error) {
+        if (!mounted) return;
+        messenger.showSnackBar(SnackBar(content: Text(error.message ?? '$error')));
+      } catch (error) {
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(content: Text('Could not open cloud document: $error')),
+        );
       }
     });
   }
@@ -312,39 +301,18 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       if (selection == null) return;
 
       if (selection.createNew) {
-        final createClient = await ServiceLocator.googleDriveAuthService
-            .getAuthenticatedClient();
-        late final GoogleDriveFileMetadata createdFile;
-        try {
-          createdFile = await ServiceLocator.googleDriveSyncService
-              .createSyncFile(
-                authenticatedClient: createClient,
-                fileName: 'calcrow_sync.csv',
-                bytes: Uint8List.fromList(
-                  utf8.encode('Date,Start,End,Break (min),Notes\n'),
-                ),
-                mimeType: 'text/csv',
-                parentFolderId: selection.folderId,
-              );
-        } finally {
-          createClient.close();
-        }
-        await ServiceLocator.dbService.setGoogleDriveSyncFile(
-          uid: session.uid,
-          fileId: createdFile.id,
-          fileName: createdFile.name,
-          mimeType: createdFile.mimeType,
+        final createdFile = await ServiceLocator.simpleCloudDocumentService
+            .createSyncFile(parentFolderId: selection.folderId);
+        await ServiceLocator.simpleCloudDocumentService.setSelectedSyncFile(
+          file: createdFile,
         );
-        if (!mounted) return;
-        messenger.showSnackBar(
-          SnackBar(content: Text('Cloud sync file set to ${createdFile.name}.')),
-        );
+        await _openGoogleDriveDocument(file: createdFile);
         return;
       }
 
       final selectedFile = selection.file;
       if (selectedFile == null) {
-        await ServiceLocator.dbService.clearGoogleDriveSyncFile(uid: session.uid);
+        await ServiceLocator.simpleCloudDocumentService.clearSelectedSyncFile();
         if (!mounted) return;
         messenger.showSnackBar(
           const SnackBar(content: Text('Google Drive sync file cleared.')),
@@ -352,16 +320,10 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
         return;
       }
 
-      await ServiceLocator.dbService.setGoogleDriveSyncFile(
-        uid: session.uid,
-        fileId: selectedFile.id,
-        fileName: selectedFile.name,
-        mimeType: selectedFile.mimeType,
+      await ServiceLocator.simpleCloudDocumentService.setSelectedSyncFile(
+        file: selectedFile,
       );
-      if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(content: Text('Cloud sync file set to ${selectedFile.name}.')),
-      );
+      await _openGoogleDriveDocument(file: selectedFile);
     } on GoogleDriveAuthException catch (error) {
       debugPrint(
         '$_googleDriveLogTag simple choose file auth error: ${error.message}',
@@ -382,20 +344,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
   }
 
   Future<String> _cloudDocumentSubtitle() async {
-    final session = ServiceLocator.authService.currentSession;
-    if (session == null) {
-      return 'Connect your Google account in Settings first.';
-    }
-    final settings = await ServiceLocator.dbService.getUserSettings(session.uid);
-    final linked = settings?['googleDriveLinked'];
-    if (linked is! bool || !linked) {
-      return 'Connect your Google account in Settings first.';
-    }
-    final fileName = (settings?['googleDriveSyncFileName'] as String?)?.trim();
-    if (fileName != null && fileName.isNotEmpty) {
-      return 'Manage Google Drive sync file: $fileName';
-    }
-    return 'Choose or create the Google Drive file used for sync.';
+    return ServiceLocator.simpleCloudDocumentService.buildSubtitle();
   }
 
   Future<SimpleSheetData> _parseOdsSheetData({
@@ -412,6 +361,38 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       }),
     );
     return simpleSheetDataFromTransfer(transfer);
+  }
+
+  Future<SimpleSheetData> _parseSimpleSheetData({
+    required Uint8List bytes,
+    required String fileName,
+    required String? path,
+  }) async {
+    final format = _detectSimpleFileFormat(
+      fileName: fileName,
+      path: path,
+      bytes: bytes,
+    );
+    switch (format) {
+      case SimpleFileFormat.csv:
+        return CsvSheetLogic.parse(
+          bytes: bytes,
+          fileName: fileName,
+          path: path,
+        );
+      case SimpleFileFormat.xlsx:
+        return XlsxSheetLogic.parse(
+          bytes: bytes,
+          fileName: fileName,
+          path: path,
+        );
+      case SimpleFileFormat.ods:
+        return _parseOdsSheetData(
+          bytes: bytes,
+          fileName: fileName,
+          path: path,
+        );
+    }
   }
 
   SimpleFileFormat _detectSimpleFileFormat({
@@ -470,7 +451,10 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
         (bytes[3] == 0x04 || bytes[3] == 0x06 || bytes[3] == 0x08);
   }
 
-  void _loadSimpleProfileData(SimpleSheetData sheetData) {
+  void _loadSimpleProfileData(
+    SimpleSheetData sheetData, {
+    _SimpleDocumentTarget? target,
+  }) {
     setState(() {
       _simpleImportedFileName = sheetData.fileName;
       _simpleImportedPath = sheetData.path;
@@ -486,6 +470,9 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       _simpleRows = sheetData.rows;
       _simpleImportedWorkbook = sheetData.workbook;
       _simpleImportedSourceBytes = sheetData.sourceBytes;
+      _simpleDocumentTarget =
+          target ??
+          _LocalSimpleDocumentTarget(existingPath: sheetData.path);
     });
 
     _selectSimpleEditorTargetRow();
@@ -861,6 +848,10 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
   Future<SimplePersistResult> _persistSimpleSheet({
     required SimplePersistMode mode,
   }) async {
+    final target = _simpleDocumentTarget;
+    if (target is _CloudSimpleDocumentTarget) {
+      return _persistSimpleCloud(target: target);
+    }
     final format = _simpleImportedFormat;
     if (format == SimpleFileFormat.xlsx) {
       return _persistSimpleXlsx(mode: mode);
@@ -872,6 +863,9 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
   }
 
   Future<String?> _syncSimpleSheetToGoogleDrive() async {
+    if (_simpleDocumentTarget is _CloudSimpleDocumentTarget) {
+      return null;
+    }
     if (!ServiceLocator.isSetup) return null;
 
     final session = ServiceLocator.authService.currentSession;
@@ -915,7 +909,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
         existingMimeType == null ||
         existingMimeType.isEmpty) {
       throw const GoogleDriveSyncException(
-        'No Google Drive sync file selected. Choose one in Settings.',
+        'No Google Drive sync file selected. Use Edit Cloud Document first.',
       );
     }
 
@@ -996,6 +990,52 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
     );
   }
 
+  Future<SimplePersistResult> _persistSimpleCloud({
+    required _CloudSimpleDocumentTarget target,
+  }) async {
+    final simpleData = _buildSimpleSheetDataForPersist();
+    final format = _simpleImportedFormat ?? SimpleFileFormat.csv;
+    final bytes = format == SimpleFileFormat.xlsx
+        ? XlsxSheetLogic.buildBytes(simpleData)
+        : format == SimpleFileFormat.ods
+        ? OdsSheetLogic.buildBytes(simpleData)
+        : CsvSheetLogic.buildBytes(simpleData);
+    final mimeType = _mimeTypeForFormat(format);
+    final fileName = _simpleSuggestedFileName(
+      defaultExtension: format == SimpleFileFormat.xlsx
+          ? 'xlsx'
+          : format == SimpleFileFormat.ods
+          ? 'ods'
+          : 'csv',
+    );
+
+    final metadata = await ServiceLocator.simpleCloudDocumentService
+        .persistDocument(
+          fileId: target.fileId,
+          existingMimeType: target.mimeType,
+          fileName: fileName,
+          bytes: bytes,
+          outputMimeType: mimeType,
+        );
+    setState(() {
+      _simpleImportedFileName = metadata.name;
+      _simpleImportedPath = null;
+      _simpleDocumentTarget = _CloudSimpleDocumentTarget(
+        fileId: metadata.id,
+        fileName: metadata.name,
+        mimeType: metadata.mimeType,
+      );
+    });
+
+    return SimplePersistResult(
+      locationLabel: 'Google Drive (${metadata.name})',
+      overwroteExistingFile: true,
+      usedAppDocumentsFallback: false,
+      savedPath: metadata.id,
+      resolvedFileName: metadata.name,
+    );
+  }
+
   SimpleSheetData _buildSimpleSheetDataForPersist() {
     return SimpleSheetData(
       fileName: _simpleImportedFileName ?? 'calcrow_simple',
@@ -1011,6 +1051,17 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       workbook: _simpleImportedWorkbook,
       sourceBytes: _simpleImportedSourceBytes,
     );
+  }
+
+  String _mimeTypeForFormat(SimpleFileFormat format) {
+    switch (format) {
+      case SimpleFileFormat.csv:
+        return 'text/csv';
+      case SimpleFileFormat.xlsx:
+        return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      case SimpleFileFormat.ods:
+        return 'application/vnd.oasis.opendocument.spreadsheet';
+    }
   }
 
   Future<SimplePersistResult> _persistSimpleBytes({
@@ -1034,8 +1085,13 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
         mode: mode,
       ),
     );
-    _simpleImportedPath = result.savedPath;
-    _simpleImportedFileName = result.resolvedFileName;
+    setState(() {
+      _simpleImportedPath = result.savedPath;
+      _simpleImportedFileName = result.resolvedFileName;
+      _simpleDocumentTarget = _LocalSimpleDocumentTarget(
+        existingPath: result.savedPath,
+      );
+    });
     return result;
   }
 
@@ -2236,6 +2292,7 @@ class _TodayTabSimpleState extends State<TodayTabSimple> {
       _simpleEditingRowIndex = 0;
       _simpleImportedWorkbook = null;
       _simpleImportedSourceBytes = null;
+      _simpleDocumentTarget = null;
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2266,6 +2323,28 @@ class _GoogleDriveFileSelection {
   final GoogleDriveFileMetadata? file;
   final bool createNew;
   final String? folderId;
+}
+
+abstract class _SimpleDocumentTarget {
+  const _SimpleDocumentTarget();
+}
+
+class _LocalSimpleDocumentTarget extends _SimpleDocumentTarget {
+  const _LocalSimpleDocumentTarget({required this.existingPath});
+
+  final String? existingPath;
+}
+
+class _CloudSimpleDocumentTarget extends _SimpleDocumentTarget {
+  const _CloudSimpleDocumentTarget({
+    required this.fileId,
+    required this.fileName,
+    required this.mimeType,
+  });
+
+  final String fileId;
+  final String fileName;
+  final String mimeType;
 }
 
 class _GoogleDriveFolderNode {

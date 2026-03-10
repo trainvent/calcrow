@@ -24,6 +24,7 @@ class _SettingsTabState extends State<SettingsTab> {
   static const String _safTestFileName = 'calcrow_saf_test.txt';
   static const String _googleDriveLogTag = 'CalcrowGoogleDrive';
   bool _isLinkingGoogle = false;
+  bool _isUpdatingAdvancedFeatures = false;
   bool _isUpdatingSafFolder = false;
   static final SafStream _safStream = SafStream();
   static final SafUtil _safUtil = SafUtil();
@@ -151,6 +152,21 @@ class _SettingsTabState extends State<SettingsTab> {
                           subtitle: Text(dateFormat),
                         ),
                         const Divider(height: 1),
+                        SwitchListTile(
+                          secondary: const Icon(Icons.tune_rounded),
+                          title: const Text('Advanced features'),
+                          subtitle: const Text(
+                            'Show the advanced Today layout for power-user tools.',
+                          ),
+                          value: _advancedFeaturesEnabled(settings),
+                          onChanged: _isUpdatingAdvancedFeatures
+                              ? null
+                              : (value) => _setAdvancedFeaturesEnabled(
+                                  session: session,
+                                  enabled: value,
+                                ),
+                        ),
+                        const Divider(height: 1),
                         const ListTile(
                           leading: Icon(Icons.cloud_done_outlined),
                           title: Text('Cloud backup'),
@@ -269,6 +285,11 @@ class _SettingsTabState extends State<SettingsTab> {
     return linked is bool ? linked : false;
   }
 
+  bool _advancedFeaturesEnabled(Map<String, dynamic>? settings) {
+    final enabled = settings?['advancedFeaturesEnabled'];
+    return enabled is bool ? enabled : false;
+  }
+
   String _googleDriveSubtitle(Map<String, dynamic>? settings) {
     final linked = _isGoogleDriveLinked(settings);
     if (!linked) {
@@ -279,6 +300,40 @@ class _SettingsTabState extends State<SettingsTab> {
       return 'Linked as $email';
     }
     return 'Google Drive connected';
+  }
+
+  Future<void> _setAdvancedFeaturesEnabled({
+    required AuthSession session,
+    required bool enabled,
+  }) async {
+    if (_isUpdatingAdvancedFeatures) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isUpdatingAdvancedFeatures = true);
+    try {
+      await ServiceLocator.dbService.setAdvancedFeaturesEnabled(
+        uid: session.uid,
+        enabled: enabled,
+      );
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            enabled
+                ? 'Advanced features enabled.'
+                : 'Advanced features disabled.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not update advanced features: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingAdvancedFeatures = false);
+      }
+    }
   }
 
   String _safFolderSubtitle(Map<String, dynamic>? settings) {
