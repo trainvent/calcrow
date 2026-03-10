@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/data/di/service_locator.dart';
-import '../../../../core/data/services/auth_service.dart';
+import '../../../../../core/data/di/service_locator.dart';
+import '../../../../../core/data/services/auth_service.dart';
+import '../../../../../core/data/services/user_repository.dart';
 import 'advanced/today_page_advanced.dart';
 import 'today_page.dart';
 
@@ -21,12 +22,11 @@ class TodayTab extends StatelessWidget {
         if (session == null) {
           return const TodayPage();
         }
-        return StreamBuilder<Map<String, dynamic>?>(
-          stream: ServiceLocator.dbService.watchUserSettings(session.uid),
+        return StreamBuilder<UserSettingsData>(
+          stream: ServiceLocator.userRepository.watchUserSettings(session.uid),
           builder: (context, settingsSnapshot) {
             final settings = settingsSnapshot.data;
-            final advancedEnabled =
-                settings?['advancedFeaturesEnabled'] == true;
+            final advancedEnabled = settings?.advancedFeaturesEnabled == true;
             if (advancedEnabled) {
               return const TodayPageAdvanced();
             }

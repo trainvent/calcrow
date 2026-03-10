@@ -4,7 +4,7 @@ import 'package:excel/excel.dart' as excel_pkg;
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
-import '../../sheet_preview_store.dart';
+import '../../Sheet/sheet_preview_store.dart';
 import 'advanced_widgets/notes_widget.dart';
 import 'advanced_widgets/row_definement_widget.dart';
 import 'advanced_widgets/smart_data_widget.dart';

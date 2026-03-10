@@ -3,10 +3,10 @@ import 'dart:typed_data';
 
 import '../../sheet_type_logic/sheet_file_models.dart';
 import 'auth_service.dart';
-import 'db_service.dart';
 import 'google_drive_auth_service.dart';
 import 'google_drive_sync_service.dart';
 import 'simple_local_document_service.dart';
+import 'user_repository.dart';
 
 class CloudSimpleDocumentOpenResult {
   const CloudSimpleDocumentOpenResult({
@@ -21,16 +21,16 @@ class CloudSimpleDocumentOpenResult {
 class SimpleCloudDocumentService {
   SimpleCloudDocumentService({
     required AuthService authService,
-    required DbService dbService,
+    required UserRepository userRepository,
     required GoogleDriveAuthService googleDriveAuthService,
     required GoogleDriveSyncService googleDriveSyncService,
   }) : _authService = authService,
-       _dbService = dbService,
+       _userRepository = userRepository,
        _googleDriveAuthService = googleDriveAuthService,
        _googleDriveSyncService = googleDriveSyncService;
 
   final AuthService _authService;
-  final DbService _dbService;
+  final UserRepository _userRepository;
   final GoogleDriveAuthService _googleDriveAuthService;
   final GoogleDriveSyncService _googleDriveSyncService;
 
@@ -39,12 +39,11 @@ class SimpleCloudDocumentService {
     if (session == null) {
       return 'Connect your Google account in Settings first.';
     }
-    final settings = await _dbService.getUserSettings(session.uid);
-    final linked = settings?['googleDriveLinked'];
-    if (linked is! bool || !linked) {
+    final settings = await _userRepository.getUserSettings(session.uid);
+    if (!settings.googleDriveLinked) {
       return 'Connect your Google account in Settings first.';
     }
-    final fileName = (settings?['googleDriveSyncFileName'] as String?)?.trim();
+    final fileName = settings.googleDriveSyncFileName;
     if (fileName != null && fileName.isNotEmpty) {
       return 'Manage Google Drive sync file: $fileName';
     }
@@ -55,7 +54,7 @@ class SimpleCloudDocumentService {
     required GoogleDriveFileMetadata file,
   }) async {
     final session = _requireSession();
-    await _dbService.setGoogleDriveSyncFile(
+    await _userRepository.setGoogleDriveSyncFile(
       uid: session.uid,
       fileId: file.id,
       fileName: file.name,
@@ -65,7 +64,7 @@ class SimpleCloudDocumentService {
 
   Future<void> clearSelectedSyncFile() async {
     final session = _requireSession();
-    await _dbService.clearGoogleDriveSyncFile(uid: session.uid);
+    await _userRepository.clearGoogleDriveSyncFile(uid: session.uid);
   }
 
   Future<GoogleDriveFileMetadata> createSyncFile({
@@ -141,7 +140,7 @@ class SimpleCloudDocumentService {
     } finally {
       client.close();
     }
-    await _dbService.setGoogleDriveSyncFile(
+    await _userRepository.setGoogleDriveSyncFile(
       uid: session.uid,
       fileId: metadata.id,
       fileName: metadata.name,

@@ -6,12 +6,13 @@ import 'package:http/http.dart' as http;
 import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
 
-import '../../../../core/data/di/service_locator.dart';
-import '../../../../core/data/services/auth_service.dart';
-import '../../../../core/data/services/google_drive_auth_service.dart';
-import '../../../../core/data/services/google_drive_sync_service.dart';
-import '../../../../core/data/services/simple_sheet_persistence_service.dart';
-import '../../../auth/presentation/sign_in_sheet.dart';
+import '../../../../../core/data/di/service_locator.dart';
+import '../../../../../core/data/services/auth_service.dart';
+import '../../../../../core/data/services/google_drive_auth_service.dart';
+import '../../../../../core/data/services/google_drive_sync_service.dart';
+import '../../../../../core/data/services/simple_sheet_persistence_service.dart';
+import '../../../../../core/data/services/user_repository.dart';
+import '../../../../auth/presentation/sign_in_sheet.dart';
 
 class SettingsTab extends StatefulWidget {
   const SettingsTab({super.key});
@@ -135,13 +136,14 @@ class _SettingsTabState extends State<SettingsTab> {
               ),
             ],
             if (session != null)
-              StreamBuilder<Map<String, dynamic>?>(
-                stream: ServiceLocator.dbService.watchUserSettings(session.uid),
+              StreamBuilder<UserSettingsData>(
+                stream: ServiceLocator.userRepository.watchUserSettings(
+                  session.uid,
+                ),
                 builder: (context, snapshot) {
                   final settings = snapshot.data;
                   final dateFormat =
-                      (settings?['defaultDateFormat'] as String?) ??
-                      'YYYY-MM-DD';
+                      settings?.defaultDateFormat ?? 'YYYY-MM-DD';
 
                   return Card(
                     child: Column(
@@ -171,6 +173,18 @@ class _SettingsTabState extends State<SettingsTab> {
                           leading: Icon(Icons.cloud_done_outlined),
                           title: Text('Cloud backup'),
                           subtitle: Text('Connected'),
+                        ),
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.workspace_premium_outlined),
+                          title: const Text('Entitlement'),
+                          subtitle: Text(
+                            settings?.isPro == true
+                                ? 'Pro enabled.'
+                                : 'Open subscription and purchase options.',
+                          ),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: () => _openEntitlementScreen(session: session),
                         ),
                         const Divider(height: 1),
                         ListTile(
@@ -280,22 +294,20 @@ class _SettingsTabState extends State<SettingsTab> {
     );
   }
 
-  bool _isGoogleDriveLinked(Map<String, dynamic>? settings) {
-    final linked = settings?['googleDriveLinked'];
-    return linked is bool ? linked : false;
+  bool _isGoogleDriveLinked(UserSettingsData? settings) {
+    return settings?.googleDriveLinked == true;
   }
 
-  bool _advancedFeaturesEnabled(Map<String, dynamic>? settings) {
-    final enabled = settings?['advancedFeaturesEnabled'];
-    return enabled is bool ? enabled : false;
+  bool _advancedFeaturesEnabled(UserSettingsData? settings) {
+    return settings?.advancedFeaturesEnabled == true;
   }
 
-  String _googleDriveSubtitle(Map<String, dynamic>? settings) {
+  String _googleDriveSubtitle(UserSettingsData? settings) {
     final linked = _isGoogleDriveLinked(settings);
     if (!linked) {
       return 'Sign in with Google and grant Drive read/write permissions.';
     }
-    final email = (settings?['googleDriveEmail'] as String?)?.trim();
+    final email = settings?.googleDriveEmail;
     if (email != null && email.isNotEmpty) {
       return 'Linked as $email';
     }
@@ -336,11 +348,11 @@ class _SettingsTabState extends State<SettingsTab> {
     }
   }
 
-  String _safFolderSubtitle(Map<String, dynamic>? settings) {
+  String _safFolderSubtitle(UserSettingsData? settings) {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
       return 'Available on Android only.';
     }
-    final uri = (settings?['safTreeUri'] as String?)?.trim();
+    final uri = settings?.safTreeUri;
     final runtimeUri = SimpleSheetPersistenceService.runtimeSafTreeUri;
     final effectiveUri = (uri == null || uri.isEmpty) ? runtimeUri : uri;
     if (effectiveUri == null || effectiveUri.isEmpty) {
@@ -362,7 +374,7 @@ class _SettingsTabState extends State<SettingsTab> {
     try {
       if (currentlyLinked) {
         await ServiceLocator.googleDriveAuthService.unlinkAccount();
-        await ServiceLocator.dbService.clearGoogleDriveLink(uid: uid);
+        await ServiceLocator.userRepository.clearGoogleDriveLinked(uid: uid);
         if (!mounted) return;
         messenger.showSnackBar(
           const SnackBar(content: Text('Google account unlinked.')),
@@ -370,9 +382,12 @@ class _SettingsTabState extends State<SettingsTab> {
       } else {
         late final GoogleDriveLinkResult linkResult;
         try {
-          linkResult = await ServiceLocator.googleDriveAuthService.linkAccount();
+          linkResult = await ServiceLocator.googleDriveAuthService
+              .linkAccount();
         } on GoogleDriveAuthException catch (error) {
-          throw GoogleDriveAuthException('Sign-in step failed: ${error.message}');
+          throw GoogleDriveAuthException(
+            'Sign-in step failed: ${error.message}',
+          );
         }
 
         late final http.Client client;
@@ -386,7 +401,7 @@ class _SettingsTabState extends State<SettingsTab> {
         } finally {
           client.close();
         }
-        await ServiceLocator.dbService.setGoogleDriveLink(
+        await ServiceLocator.userRepository.setGoogleDriveLinked(
           uid: uid,
           email: linkResult.email,
         );
@@ -400,11 +415,15 @@ class _SettingsTabState extends State<SettingsTab> {
         );
       }
     } on GoogleDriveAuthException catch (error) {
-      debugPrint('$_googleDriveLogTag settings link auth error: ${error.message}');
+      debugPrint(
+        '$_googleDriveLogTag settings link auth error: ${error.message}',
+      );
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(content: Text(error.message)));
     } on GoogleDriveSyncException catch (error) {
-      debugPrint('$_googleDriveLogTag settings link sync error: ${error.message}');
+      debugPrint(
+        '$_googleDriveLogTag settings link sync error: ${error.message}',
+      );
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(content: Text(error.message)));
     } catch (error) {
@@ -420,6 +439,21 @@ class _SettingsTabState extends State<SettingsTab> {
     }
   }
 
+  Future<void> _openEntitlementScreen({required AuthSession session}) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final settings = await ServiceLocator.userRepository.getUserSettings(
+      session.uid,
+    );
+    final nextIsPro = !settings.isPro;
+    await ServiceLocator.userRepository.setIsPro(
+      uid: session.uid,
+      isPro: nextIsPro,
+    );
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(content: Text(nextIsPro ? 'Pro enabled.' : 'Pro disabled.')),
+    );
+  }
 
   Future<void> _setSafFolder({AuthSession? session}) async {
     final messenger = ScaffoldMessenger.of(context);
@@ -482,11 +516,10 @@ class _SettingsTabState extends State<SettingsTab> {
     }
   }
 
-  Future<void> _testSafFolder({required Map<String, dynamic>? settings}) async {
+  Future<void> _testSafFolder({required UserSettingsData? settings}) async {
     final messenger = ScaffoldMessenger.of(context);
     final treeUri =
-        (settings?['safTreeUri'] as String?)?.trim() ??
-        SimpleSheetPersistenceService.runtimeSafTreeUri;
+        settings?.safTreeUri ?? SimpleSheetPersistenceService.runtimeSafTreeUri;
     if (treeUri == null || treeUri.isEmpty) {
       messenger.showSnackBar(
         const SnackBar(content: Text('No SAF folder configured.')),
@@ -529,11 +562,10 @@ class _SettingsTabState extends State<SettingsTab> {
     }
   }
 
-  Future<void> _revertSafTest({required Map<String, dynamic>? settings}) async {
+  Future<void> _revertSafTest({required UserSettingsData? settings}) async {
     final messenger = ScaffoldMessenger.of(context);
     final treeUri =
-        (settings?['safTreeUri'] as String?)?.trim() ??
-        SimpleSheetPersistenceService.runtimeSafTreeUri;
+        settings?.safTreeUri ?? SimpleSheetPersistenceService.runtimeSafTreeUri;
     if (treeUri == null || treeUri.isEmpty) {
       messenger.showSnackBar(
         const SnackBar(content: Text('No SAF folder configured.')),

@@ -7,6 +7,7 @@ import '../services/google_drive_auth_service.dart';
 import '../services/google_drive_sync_service.dart';
 import '../services/simple_cloud_document_service.dart';
 import '../services/simple_local_document_service.dart';
+import '../services/user_repository.dart';
 
 class ServiceLocator {
   ServiceLocator._();
@@ -17,6 +18,7 @@ class ServiceLocator {
   static late final GoogleDriveSyncService googleDriveSyncService;
   static late final SimpleLocalDocumentService simpleLocalDocumentService;
   static late final SimpleCloudDocumentService simpleCloudDocumentService;
+  static late final UserRepository userRepository;
   static bool _isSetup = false;
 
   static bool get isSetup => _isSetup;
@@ -27,10 +29,15 @@ class ServiceLocator {
     dbService = DbService(FirebaseFirestore.instance);
     googleDriveAuthService = GoogleDriveAuthService();
     googleDriveSyncService = GoogleDriveSyncService();
+    userRepository = UserRepository(
+      authService: authService,
+      dbService: dbService,
+      firestore: FirebaseFirestore.instance,
+    );
     simpleLocalDocumentService = SimpleLocalDocumentService();
     simpleCloudDocumentService = SimpleCloudDocumentService(
       authService: authService,
-      dbService: dbService,
+      userRepository: userRepository,
       googleDriveAuthService: googleDriveAuthService,
       googleDriveSyncService: googleDriveSyncService,
     );
