@@ -10,8 +10,10 @@ import '../../../../../core/data/di/service_locator.dart';
 import '../../../../../core/data/services/auth_service.dart';
 import '../../../../../core/data/services/google_drive_auth_service.dart';
 import '../../../../../core/data/services/google_drive_sync_service.dart';
+import '../../../../../core/data/services/purchases_service.dart';
 import '../../../../../core/data/services/simple_sheet_persistence_service.dart';
 import '../../../../../core/data/services/user_repository.dart';
+import 'entitlement_page.dart';
 import '../../../../auth/presentation/sign_in_sheet.dart';
 
 class SettingsTab extends StatefulWidget {
@@ -440,18 +442,12 @@ class _SettingsTabState extends State<SettingsTab> {
   }
 
   Future<void> _openEntitlementScreen({required AuthSession session}) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final settings = await ServiceLocator.userRepository.getUserSettings(
-      session.uid,
-    );
-    final nextIsPro = !settings.isPro;
-    await ServiceLocator.userRepository.setIsPro(
-      uid: session.uid,
-      isPro: nextIsPro,
-    );
     if (!mounted) return;
-    messenger.showSnackBar(
-      SnackBar(content: Text(nextIsPro ? 'Pro enabled.' : 'Pro disabled.')),
+    await PurchasesService.instance.syncAppUser(session.uid);
+    await PurchasesService.instance.refreshCustomerInfo();
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const EntitlementPage()),
     );
   }
 

@@ -5,6 +5,7 @@ import '../services/auth_service.dart';
 import '../services/db_service.dart';
 import '../services/google_drive_auth_service.dart';
 import '../services/google_drive_sync_service.dart';
+import '../services/purchases_service.dart';
 import '../services/simple_cloud_document_service.dart';
 import '../services/simple_local_document_service.dart';
 import '../services/user_repository.dart';
@@ -16,6 +17,7 @@ class ServiceLocator {
   static late final DbService dbService;
   static late final GoogleDriveAuthService googleDriveAuthService;
   static late final GoogleDriveSyncService googleDriveSyncService;
+  static PurchasesService get purchasesService => PurchasesService.instance;
   static late final SimpleLocalDocumentService simpleLocalDocumentService;
   static late final SimpleCloudDocumentService simpleCloudDocumentService;
   static late final UserRepository userRepository;

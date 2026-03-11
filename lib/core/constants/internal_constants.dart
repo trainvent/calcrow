@@ -6,4 +6,5 @@ class IConst {
       'ca-app-pub-5296065079333841/5488463809';
   static const String adMobAndroidBannerId =
       'ca-app-pub-5296065079333841/3488463809';
+  static const String revenueCatTestAPIKey = 'test_zFrDCqEavHplIKHUXrRXIoxDYff';
 }

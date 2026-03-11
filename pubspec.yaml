@@ -48,6 +48,8 @@ dependencies:
   saf_stream: ^0.12.3
   saf_util: ^0.11.0
   xml: ^6.6.1
+  purchases_flutter: ^9.13.1
+  purchases_ui_flutter: ^9.13.1
 
 dev_dependencies:
   flutter_test:
