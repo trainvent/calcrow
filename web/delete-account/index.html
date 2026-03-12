@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Delete Your Calcrow Account</title>
+  <meta
+    name="description"
+    content="How to delete your Calcrow account and what data is removed."
+  >
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f1e8;
+      --panel: #fffdf8;
+      --ink: #1f1a17;
+      --muted: #665d57;
+      --line: #e7ddd1;
+      --accent: #bb5a3c;
+      --accent-soft: #f4ddd2;
+      --shadow: 0 20px 50px rgba(31, 26, 23, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, #f8e3d8, transparent 30%),
+        radial-gradient(circle at top right, #e0efe8, transparent 35%),
+        var(--bg);
+    }
+
+    main {
+      width: min(860px, calc(100vw - 32px));
+      margin: 40px auto;
+      padding: 32px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .eyebrow {
+      display: inline-block;
+      margin-bottom: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    h1, h2 {
+      line-height: 1.2;
+      margin: 0 0 12px;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 6vw, 3.4rem);
+      margin-bottom: 16px;
+    }
+
+    h2 {
+      font-size: 1.2rem;
+      margin-top: 28px;
+    }
+
+    p, li {
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    ol, ul {
+      padding-left: 20px;
+    }
+
+    .meta {
+      margin: 0 0 24px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .notice {
+      padding: 16px 18px;
+      border-radius: 16px;
+      background: #faf4ec;
+      border: 1px solid var(--line);
+    }
+
+    a {
+      color: var(--accent);
+    }
+
+    @media (max-width: 640px) {
+      main {
+        width: min(860px, calc(100vw - 20px));
+        margin: 16px auto;
+        padding: 20px;
+        border-radius: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">Calcrow</div>
+    <h1>Delete Your Account</h1>
+    <p class="meta">Last updated: March 12, 2026</p>
+
+    <p class="notice">
+      If you created a Calcrow account, you can request permanent account deletion from inside the app.
+      This page explains the expected deletion flow and what data is removed.
+    </p>
+
+    <h2>How to delete your Calcrow account</h2>
+    <ol>
+      <li>Open the Calcrow app.</li>
+      <li>Sign in to the account you want to delete.</li>
+      <li>Open Settings.</li>
+      <li>Choose the delete-account option and confirm the request.</li>
+    </ol>
+
+    <h2>What will be deleted</h2>
+    <ul>
+      <li>Your Calcrow account profile and authentication record.</li>
+      <li>Stored app settings associated with that account.</li>
+      <li>Linked cloud metadata saved specifically for your Calcrow account.</li>
+    </ul>
+
+    <h2>What is not automatically deleted</h2>
+    <ul>
+      <li>Spreadsheet files already stored on your device, in your browser downloads, or in your personal cloud storage.</li>
+      <li>Purchase, billing, or subscription records maintained by the app store, payment processor, or tax and accounting systems.</li>
+      <li>Backup copies retained temporarily for security, fraud prevention, or legal compliance where required.</li>
+    </ul>
+
+    <h2>Timing</h2>
+    <p>
+      Account deletion is intended to start immediately after confirmation. Some connected systems or retained
+      records may take additional time to disappear from backups or provider dashboards.
+    </p>
+
+    <h2>Need more context?</h2>
+    <p>
+      Review the <a href="/privacy-policy/">Calcrow Privacy Policy</a> for more details about how account and file data is handled.
+    </p>
+  </main>
+</body>
+</html>

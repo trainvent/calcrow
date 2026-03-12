@@ -9,6 +9,7 @@ import '../services/purchases_service.dart';
 import '../services/simple_cloud_document_service.dart';
 import '../services/simple_local_document_service.dart';
 import '../services/user_repository.dart';
+import '../services/webdav_service.dart';
 
 class ServiceLocator {
   ServiceLocator._();
@@ -17,6 +18,7 @@ class ServiceLocator {
   static late final DbService dbService;
   static late final GoogleDriveAuthService googleDriveAuthService;
   static late final GoogleDriveSyncService googleDriveSyncService;
+  static late final WebDavService webDavService;
   static PurchasesService get purchasesService => PurchasesService.instance;
   static late final SimpleLocalDocumentService simpleLocalDocumentService;
   static late final SimpleCloudDocumentService simpleCloudDocumentService;
@@ -31,6 +33,7 @@ class ServiceLocator {
     dbService = DbService(FirebaseFirestore.instance);
     googleDriveAuthService = GoogleDriveAuthService();
     googleDriveSyncService = GoogleDriveSyncService();
+    webDavService = WebDavService();
     userRepository = UserRepository(
       authService: authService,
       dbService: dbService,
@@ -42,6 +45,7 @@ class ServiceLocator {
       userRepository: userRepository,
       googleDriveAuthService: googleDriveAuthService,
       googleDriveSyncService: googleDriveSyncService,
+      webDavService: webDavService,
     );
     _isSetup = true;
   }

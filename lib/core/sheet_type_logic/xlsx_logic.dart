@@ -55,10 +55,15 @@ class XlsxSheetLogic {
         .take(headerCount)
         .map((value) => value.trim())
         .toList();
-    final rows = normalizedRows
+    final bodyRows = normalizedRows
         .skip(1)
         .map((row) => row.take(headerCount).toList())
         .toList();
+    final trimmedRowCount = _trimTrailingFooterRows(
+      headers: headers,
+      rows: bodyRows,
+    );
+    final rows = bodyRows.take(trimmedRowCount).toList();
     final valueTypes = _inferSimpleTypes(
       headerCount,
       rows.take(20).toList(),
@@ -491,6 +496,57 @@ class XlsxSheetLogic {
       }
       return headerGuess ?? 'text';
     });
+  }
+
+  static int _trimTrailingFooterRows({
+    required List<String> headers,
+    required List<List<String>> rows,
+  }) {
+    if (rows.isEmpty) return 0;
+    final dateColumnIndex = _findDateColumnIndex(headers: headers, rows: rows);
+    if (dateColumnIndex == null) {
+      return rows.length;
+    }
+
+    var lastDateRowIndex = -1;
+    for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+      final row = rows[rowIndex];
+      final value = dateColumnIndex < row.length ? row[dateColumnIndex] : '';
+      if (_looksLikeDateValue(value)) {
+        lastDateRowIndex = rowIndex;
+      }
+    }
+    if (lastDateRowIndex < 0) {
+      return rows.length;
+    }
+    return lastDateRowIndex + 1;
+  }
+
+  static int? _findDateColumnIndex({
+    required List<String> headers,
+    required List<List<String>> rows,
+  }) {
+    final headerIndex = headers.indexWhere(_isDateHeaderName);
+    if (headerIndex >= 0) return headerIndex;
+
+    for (var columnIndex = 0; columnIndex < headers.length; columnIndex++) {
+      var matches = 0;
+      var checked = 0;
+      for (final row in rows) {
+        if (columnIndex >= row.length) continue;
+        final value = row[columnIndex].trim();
+        if (value.isEmpty) continue;
+        checked++;
+        if (_looksLikeDateValue(value)) {
+          matches++;
+        }
+        if (checked >= 12) break;
+      }
+      if (matches >= 3) {
+        return columnIndex;
+      }
+    }
+    return null;
   }
 
   static bool _looksLikeDateValue(String value) {

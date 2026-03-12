@@ -45,6 +45,7 @@ dependencies:
   cloud_firestore: ^6.1.0
   googleapis: ^13.1.0
   path_provider: ^2.1.5
+  flutter_secure_storage: ^9.2.4
   saf_stream: ^0.12.3
   saf_util: ^0.11.0
   xml: ^6.6.1
@@ -76,7 +77,10 @@ flutter:
   assets:
     - test_objects/raw/Arbeitszeiten_2026.csv
     - test_objects/raw/Arbeitszeiten_2026.xlsx
-    - test_objects/raw/Arbeitszeiten_2026_Randnotiz.ods
+    - test_objects/raw/Arbeitszeiten_2026.ods
+    - test_objects/manipulate/Arbeitszeiten_2026.csv
+    - test_objects/manipulate/Arbeitszeiten_2026.xlsx
+    - test_objects/manipulate/Arbeitszeiten_2026.ods
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

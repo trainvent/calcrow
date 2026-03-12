@@ -22,9 +22,7 @@ class DbService {
       'email': email,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
-      'settings': {
-        'defaultDateFormat': 'YYYY-MM-DD',
-      },
+      'settings': {'defaultDateFormat': 'YYYY-MM-DD'},
     });
   }
 
@@ -37,7 +35,10 @@ class DbService {
   }
 
   Future<bool> isUserEmailVerified(String uid) async {
-    final snapshot = await _firestore.collection(_usersCollection).doc(uid).get();
+    final snapshot = await _firestore
+        .collection(_usersCollection)
+        .doc(uid)
+        .get();
     final data = snapshot.data();
     if (data == null) return false;
     final verified = data['emailVerified'];
@@ -45,7 +46,9 @@ class DbService {
   }
 
   Stream<bool> watchUserEmailVerified(String uid) {
-    return _firestore.collection(_usersCollection).doc(uid).snapshots().map((doc) {
+    return _firestore.collection(_usersCollection).doc(uid).snapshots().map((
+      doc,
+    ) {
       final data = doc.data();
       if (data == null) return false;
       final verified = data['emailVerified'];
@@ -54,7 +57,9 @@ class DbService {
   }
 
   Stream<Map<String, dynamic>?> watchUserSettings(String uid) {
-    return _firestore.collection(_usersCollection).doc(uid).snapshots().map((doc) {
+    return _firestore.collection(_usersCollection).doc(uid).snapshots().map((
+      doc,
+    ) {
       final data = doc.data();
       if (data == null) return null;
       final settings = data['settings'];
@@ -64,7 +69,10 @@ class DbService {
   }
 
   Future<Map<String, dynamic>?> getUserSettings(String uid) async {
-    final snapshot = await _firestore.collection(_usersCollection).doc(uid).get();
+    final snapshot = await _firestore
+        .collection(_usersCollection)
+        .doc(uid)
+        .get();
     final data = snapshot.data();
     if (data == null) return null;
     final settings = data['settings'];
@@ -78,6 +86,7 @@ class DbService {
   }) {
     return _firestore.collection(_usersCollection).doc(uid).set({
       'settings': {
+        'cloudSyncProvider': 'googleDrive',
         'googleDriveLinked': true,
         'googleDriveEmail': email,
         'googleDriveLinkedAt': FieldValue.serverTimestamp(),
@@ -97,6 +106,16 @@ class DbService {
         'googleDriveSyncMimeType': FieldValue.delete(),
         'googleDriveLastSyncedAt': FieldValue.delete(),
       },
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> setCloudSyncProvider({
+    required String uid,
+    required String provider,
+  }) {
+    return _firestore.collection(_usersCollection).doc(uid).set({
+      'settings': {'cloudSyncProvider': provider},
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
@@ -130,10 +149,69 @@ class DbService {
     }, SetOptions(merge: true));
   }
 
-  Future<void> setSafFolderUri({
+  Future<void> setWebDavLink({
     required String uid,
-    required String treeUri,
+    required String serverUrl,
+    required String username,
   }) {
+    return _firestore.collection(_usersCollection).doc(uid).set({
+      'settings': {
+        'cloudSyncProvider': 'webDav',
+        'webDavLinked': true,
+        'webDavServerUrl': serverUrl,
+        'webDavUsername': username,
+        'webDavLinkedAt': FieldValue.serverTimestamp(),
+      },
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> clearWebDavLink({required String uid}) {
+    return _firestore.collection(_usersCollection).doc(uid).set({
+      'settings': {
+        'webDavLinked': false,
+        'webDavServerUrl': FieldValue.delete(),
+        'webDavUsername': FieldValue.delete(),
+        'webDavLinkedAt': FieldValue.delete(),
+        'webDavSyncFilePath': FieldValue.delete(),
+        'webDavSyncFileName': FieldValue.delete(),
+        'webDavSyncMimeType': FieldValue.delete(),
+        'webDavLastSyncedAt': FieldValue.delete(),
+      },
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> setWebDavSyncFile({
+    required String uid,
+    required String path,
+    required String fileName,
+    required String mimeType,
+  }) {
+    return _firestore.collection(_usersCollection).doc(uid).set({
+      'settings': {
+        'webDavSyncFilePath': path,
+        'webDavSyncFileName': fileName,
+        'webDavSyncMimeType': mimeType,
+        'webDavLastSyncedAt': FieldValue.serverTimestamp(),
+      },
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> clearWebDavSyncFile({required String uid}) {
+    return _firestore.collection(_usersCollection).doc(uid).set({
+      'settings': {
+        'webDavSyncFilePath': FieldValue.delete(),
+        'webDavSyncFileName': FieldValue.delete(),
+        'webDavSyncMimeType': FieldValue.delete(),
+        'webDavLastSyncedAt': FieldValue.delete(),
+      },
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> setSafFolderUri({required String uid, required String treeUri}) {
     return _firestore.collection(_usersCollection).doc(uid).set({
       'settings': {
         'safTreeUri': treeUri,
@@ -158,9 +236,7 @@ class DbService {
     required bool enabled,
   }) {
     return _firestore.collection(_usersCollection).doc(uid).set({
-      'settings': {
-        'advancedFeaturesEnabled': enabled,
-      },
+      'settings': {'advancedFeaturesEnabled': enabled},
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }

@@ -13,6 +13,7 @@ import '../../../../../core/data/services/google_drive_sync_service.dart';
 import '../../../../../core/data/services/purchases_service.dart';
 import '../../../../../core/data/services/simple_sheet_persistence_service.dart';
 import '../../../../../core/data/services/user_repository.dart';
+import '../../../../../core/data/services/webdav_service.dart';
 import 'entitlement_page.dart';
 import '../../../../auth/presentation/sign_in_sheet.dart';
 
@@ -27,6 +28,7 @@ class _SettingsTabState extends State<SettingsTab> {
   static const String _safTestFileName = 'calcrow_saf_test.txt';
   static const String _googleDriveLogTag = 'CalcrowGoogleDrive';
   bool _isLinkingGoogle = false;
+  bool _isLinkingWebDav = false;
   bool _isUpdatingAdvancedFeatures = false;
   bool _isUpdatingSafFolder = false;
   static final SafStream _safStream = SafStream();
@@ -174,7 +176,9 @@ class _SettingsTabState extends State<SettingsTab> {
                         const ListTile(
                           leading: Icon(Icons.cloud_done_outlined),
                           title: Text('Cloud backup'),
-                          subtitle: Text('Connected'),
+                          subtitle: Text(
+                            'Manage Google Drive and WebDAV connections.',
+                          ),
                         ),
                         const Divider(height: 1),
                         ListTile(
@@ -214,6 +218,67 @@ class _SettingsTabState extends State<SettingsTab> {
                                         : 'Link',
                                   ),
                                 ),
+                        ),
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.storage_rounded),
+                          title: const Text('Link WebDAV / Nextcloud'),
+                          subtitle: Text(_webDavSubtitle(settings)),
+                          trailing: _isLinkingWebDav
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : TextButton(
+                                  onPressed: () => _toggleWebDavLink(
+                                    session: session,
+                                    currentlyLinked: _isWebDavLinked(settings),
+                                    settings: settings,
+                                  ),
+                                  child: Text(
+                                    _isWebDavLinked(settings)
+                                        ? 'Unlink'
+                                        : 'Link',
+                                  ),
+                                ),
+                        ),
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.cloud_sync_outlined),
+                          title: const Text('Active cloud provider'),
+                          subtitle: Text(
+                            _activeCloudProviderSubtitle(settings),
+                          ),
+                          trailing: DropdownButtonHideUnderline(
+                            child: DropdownButton<CloudSyncProvider>(
+                              value: _selectedCloudProvider(settings),
+                              hint: const Text('Choose'),
+                              onChanged:
+                                  _availableCloudProviders(settings).isEmpty
+                                  ? null
+                                  : (value) {
+                                      if (value == null) return;
+                                      _setCloudSyncProvider(
+                                        session: session,
+                                        provider: value,
+                                      );
+                                    },
+                              items: _availableCloudProviders(settings)
+                                  .map(
+                                    (provider) =>
+                                        DropdownMenuItem<CloudSyncProvider>(
+                                          value: provider,
+                                          child: Text(
+                                            _cloudProviderLabel(provider),
+                                          ),
+                                        ),
+                                  )
+                                  .toList(),
+                            ),
+                          ),
                         ),
                         const Divider(height: 1),
                         ListTile(
@@ -304,6 +369,25 @@ class _SettingsTabState extends State<SettingsTab> {
     return settings?.advancedFeaturesEnabled == true;
   }
 
+  bool _isWebDavLinked(UserSettingsData? settings) {
+    return settings?.webDavLinked == true;
+  }
+
+  CloudSyncProvider? _selectedCloudProvider(UserSettingsData? settings) {
+    if (settings == null) return null;
+    return ServiceLocator.simpleCloudDocumentService.activeProviderFromSettings(
+      settings,
+    );
+  }
+
+  List<CloudSyncProvider> _availableCloudProviders(UserSettingsData? settings) {
+    if (settings == null) return const <CloudSyncProvider>[];
+    return <CloudSyncProvider>[
+      if (_isGoogleDriveLinked(settings)) CloudSyncProvider.googleDrive,
+      if (_isWebDavLinked(settings)) CloudSyncProvider.webDav,
+    ];
+  }
+
   String _googleDriveSubtitle(UserSettingsData? settings) {
     final linked = _isGoogleDriveLinked(settings);
     if (!linked) {
@@ -314,6 +398,35 @@ class _SettingsTabState extends State<SettingsTab> {
       return 'Linked as $email';
     }
     return 'Google Drive connected';
+  }
+
+  String _webDavSubtitle(UserSettingsData? settings) {
+    final linked = _isWebDavLinked(settings);
+    if (!linked) {
+      return 'Connect a WebDAV or Nextcloud folder using its WebDAV URL.';
+    }
+    final username = settings?.webDavUsername;
+    final serverUrl = settings?.webDavServerUrl;
+    if (username != null && username.isNotEmpty && serverUrl != null) {
+      final host = Uri.tryParse(serverUrl)?.host;
+      if (host != null && host.isNotEmpty) {
+        return 'Linked as $username on $host';
+      }
+      return 'Linked as $username';
+    }
+    return 'WebDAV connected';
+  }
+
+  String _cloudProviderLabel(CloudSyncProvider provider) {
+    return ServiceLocator.simpleCloudDocumentService.providerLabel(provider);
+  }
+
+  String _activeCloudProviderSubtitle(UserSettingsData? settings) {
+    final provider = _selectedCloudProvider(settings);
+    if (provider == null) {
+      return 'Link Google Drive or WebDAV first.';
+    }
+    return 'Used for Edit Cloud Document and auto cloud save.';
   }
 
   Future<void> _setAdvancedFeaturesEnabled({
@@ -441,14 +554,230 @@ class _SettingsTabState extends State<SettingsTab> {
     }
   }
 
+  Future<void> _toggleWebDavLink({
+    required AuthSession session,
+    required bool currentlyLinked,
+    required UserSettingsData? settings,
+  }) async {
+    if (_isLinkingWebDav) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isLinkingWebDav = true);
+    try {
+      if (currentlyLinked) {
+        await ServiceLocator.webDavService.clearCredentials(uid: session.uid);
+        await ServiceLocator.userRepository.clearWebDavLinked(uid: session.uid);
+        if (!mounted) return;
+        messenger.showSnackBar(
+          const SnackBar(content: Text('WebDAV account unlinked.')),
+        );
+        return;
+      }
+
+      final connectionDetails = await _showWebDavDialog(
+        initialServerUrl: settings?.webDavServerUrl,
+        initialUsername: settings?.webDavUsername,
+      );
+      if (connectionDetails == null) {
+        return;
+      }
+
+      final linkedAccount = await ServiceLocator.webDavService.linkAccount(
+        uid: session.uid,
+        serverUrl: connectionDetails.serverUrl,
+        username: connectionDetails.username,
+        password: connectionDetails.password,
+      );
+      await ServiceLocator.userRepository.setWebDavLinked(
+        uid: session.uid,
+        serverUrl: linkedAccount.serverUrl,
+        username: linkedAccount.username,
+      );
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'WebDAV linked: ${linkedAccount.username} on ${linkedAccount.hostLabel}.',
+          ),
+        ),
+      );
+    } on WebDavException catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('WebDAV link failed: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLinkingWebDav = false);
+      }
+    }
+  }
+
+  Future<void> _setCloudSyncProvider({
+    required AuthSession session,
+    required CloudSyncProvider provider,
+  }) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ServiceLocator.userRepository.setCloudSyncProvider(
+        uid: session.uid,
+        provider: provider,
+      );
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            '${_cloudProviderLabel(provider)} is now the active cloud provider.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not update cloud provider: $error')),
+      );
+    }
+  }
+
+  Future<_WebDavFormResult?> _showWebDavDialog({
+    String? initialServerUrl,
+    String? initialUsername,
+  }) async {
+    var serverUrl = initialServerUrl ?? '';
+    var username = initialUsername ?? '';
+    var password = '';
+    var obscurePassword = true;
+    String? errorText;
+
+    final result = await showDialog<_WebDavFormResult>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Link WebDAV / Nextcloud'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      initialValue: serverUrl,
+                      keyboardType: TextInputType.url,
+                      onChanged: (value) => serverUrl = value,
+                      decoration: const InputDecoration(
+                        labelText: 'WebDAV URL',
+                        hintText:
+                            'https://cloud.example.com/remote.php/dav/files/you/',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      initialValue: username,
+                      keyboardType: TextInputType.emailAddress,
+                      onChanged: (value) => username = value,
+                      decoration: const InputDecoration(labelText: 'Username'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      obscureText: obscurePassword,
+                      onChanged: (value) => password = value,
+                      onFieldSubmitted: (_) {
+                        final trimmedServerUrl = serverUrl.trim();
+                        final trimmedUsername = username.trim();
+                        if (trimmedServerUrl.isEmpty ||
+                            trimmedUsername.isEmpty ||
+                            password.isEmpty) {
+                          setDialogState(() {
+                            errorText =
+                                'Enter the WebDAV URL, username, and app password.';
+                          });
+                          return;
+                        }
+                        Navigator.of(dialogContext).pop(
+                          _WebDavFormResult(
+                            serverUrl: trimmedServerUrl,
+                            username: trimmedUsername,
+                            password: password,
+                          ),
+                        );
+                      },
+                      decoration: InputDecoration(
+                        labelText: 'App password',
+                        suffixIcon: IconButton(
+                          onPressed: () {
+                            setDialogState(() {
+                              obscurePassword = !obscurePassword;
+                            });
+                          },
+                          icon: Icon(
+                            obscurePassword
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (errorText != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        errorText!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    final trimmedServerUrl = serverUrl.trim();
+                    final trimmedUsername = username.trim();
+                    if (trimmedServerUrl.isEmpty ||
+                        trimmedUsername.isEmpty ||
+                        password.isEmpty) {
+                      setDialogState(() {
+                        errorText =
+                            'Enter the WebDAV URL, username, and app password.';
+                      });
+                      return;
+                    }
+                    Navigator.of(dialogContext).pop(
+                      _WebDavFormResult(
+                        serverUrl: trimmedServerUrl,
+                        username: trimmedUsername,
+                        password: password,
+                      ),
+                    );
+                  },
+                  child: const Text('Link'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    return result;
+  }
+
   Future<void> _openEntitlementScreen({required AuthSession session}) async {
     if (!mounted) return;
     await PurchasesService.instance.syncAppUser(session.uid);
     await PurchasesService.instance.refreshCustomerInfo();
     if (!mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => const EntitlementPage()),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => const EntitlementPage()));
   }
 
   Future<void> _setSafFolder({AuthSession? session}) async {
@@ -629,4 +958,16 @@ class _SettingsTabState extends State<SettingsTab> {
       builder: (context) => const SignInSheet(),
     );
   }
+}
+
+class _WebDavFormResult {
+  const _WebDavFormResult({
+    required this.serverUrl,
+    required this.username,
+    required this.password,
+  });
+
+  final String serverUrl;
+  final String username;
+  final String password;
 }

@@ -13,10 +13,10 @@ import 'package:calcrow/features/home/presentation/tabs/Today/advanced/advanced_
 import 'package:calcrow/features/home/presentation/tabs/Today/advanced/advanced_widgets/smart_data_widget.dart';
 import 'package:calcrow/features/home/presentation/tabs/Today/advanced/advanced_widgets/wellbeing_widget.dart';
 import 'package:calcrow/features/home/presentation/tabs/Today/advanced/advanced_widgets/workhours_widget.dart';
-import 'package:calcrow/core/data/services/google_drive_auth_service.dart';
-import 'package:calcrow/core/data/services/google_drive_sync_service.dart';
+import 'package:calcrow/core/data/services/simple_cloud_document_service.dart';
 import 'package:calcrow/core/data/services/simple_local_document_service.dart';
 import 'package:calcrow/core/data/services/simple_sheet_persistence_service.dart';
+import 'package:calcrow/core/data/services/user_repository.dart';
 import 'package:calcrow/core/sheet_type_logic/csv_logic.dart';
 import 'package:calcrow/core/sheet_type_logic/ods_logic.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
@@ -36,7 +36,6 @@ class TodayPage extends StatefulWidget {
 }
 
 class _TodayPageState extends State<TodayPage> {
-  static const String _googleDriveLogTag = 'CalcrowGoogleDrive';
   static const List<String> _simpleTypeOptions = <String>[
     'text',
     'date',
@@ -123,7 +122,7 @@ class _TodayPageState extends State<TodayPage> {
   bool _showWellbeing = true;
   bool _showNotes = true;
   bool _isOpeningDocument = false;
-  bool _isChoosingGoogleDriveFile = false;
+  bool _isChoosingCloudFile = false;
   _SimpleDocumentTarget? _simpleDocumentTarget;
 
   @override
@@ -187,10 +186,11 @@ class _TodayPageState extends State<TodayPage> {
         final sheetData = result.sheetData;
         if (!mounted) return;
 
-        _loadSimpleProfileData(
+        final loaded = _loadSimpleProfileData(
           sheetData,
           target: _LocalSimpleDocumentTarget(existingPath: result.existingPath),
         );
+        if (!loaded) return;
 
         final sourceLabel = switch (sheetData.format) {
           SimpleFileFormat.csv =>
@@ -220,36 +220,31 @@ class _TodayPageState extends State<TodayPage> {
     });
   }
 
-  Future<void> _openGoogleDriveDocument({
-    required GoogleDriveFileMetadata file,
-  }) async {
+  Future<void> _openCloudDocument({required CloudFileMetadata file}) async {
     await _runWithDocumentOpeningIndicator(() async {
       final messenger = ScaffoldMessenger.of(context);
       try {
         final result = await ServiceLocator.simpleCloudDocumentService
             .openDocument(file: file, parseSheetData: _parseSimpleSheetData);
         if (!mounted) return;
-        _loadSimpleProfileData(
+        final loaded = _loadSimpleProfileData(
           result.sheetData,
           target: _CloudSimpleDocumentTarget(
+            provider: result.file.provider,
             fileId: result.file.id,
             fileName: result.file.name,
             mimeType: result.file.mimeType,
           ),
         );
+        if (!loaded) return;
         messenger.showSnackBar(
-          SnackBar(content: Text('Opened cloud document ${result.file.name}.')),
+          SnackBar(
+            content: Text(
+              'Opened ${ServiceLocator.simpleCloudDocumentService.providerLabel(result.file.provider)} document ${result.file.name}.',
+            ),
+          ),
         );
-      } on GoogleDriveAuthException catch (error) {
-        debugPrint(
-          '$_googleDriveLogTag simple open drive auth error: ${error.message}',
-        );
-        if (!mounted) return;
-        messenger.showSnackBar(SnackBar(content: Text(error.message)));
-      } on GoogleDriveSyncException catch (error) {
-        debugPrint(
-          '$_googleDriveLogTag simple open drive sync error: ${error.message}',
-        );
+      } on CloudSimpleDocumentException catch (error) {
         if (!mounted) return;
         messenger.showSnackBar(SnackBar(content: Text(error.message)));
       } on UnsupportedError catch (error) {
@@ -266,36 +261,41 @@ class _TodayPageState extends State<TodayPage> {
     });
   }
 
-  Future<void> _chooseGoogleDriveSyncFile() async {
-    if (_isChoosingGoogleDriveFile) return;
+  Future<void> _chooseCloudSyncFile() async {
+    if (_isChoosingCloudFile) return;
 
     final messenger = ScaffoldMessenger.of(context);
     final session = ServiceLocator.authService.currentSession;
     if (session == null) {
       messenger.showSnackBar(
         const SnackBar(
-          content: Text('Connect your Google account in Settings first.'),
+          content: Text('Connect a cloud provider in Settings first.'),
         ),
       );
       return;
     }
 
-    setState(() => _isChoosingGoogleDriveFile = true);
+    setState(() => _isChoosingCloudFile = true);
     try {
       final settings = await ServiceLocator.userRepository.getUserSettings(
         session.uid,
       );
-      if (!settings.googleDriveLinked) {
-        throw const GoogleDriveAuthException(
-          'Google account is not linked. Connect it in Settings first.',
+      final provider = ServiceLocator.simpleCloudDocumentService
+          .activeProviderFromSettings(settings);
+      if (provider == null) {
+        throw const CloudSimpleDocumentException(
+          'No cloud provider is active. Choose Google Drive or WebDAV in Settings first.',
         );
       }
 
       if (!mounted) return;
-      final selection = await showDialog<_GoogleDriveFileSelection>(
+      final selection = await showDialog<_CloudFileSelection>(
         context: context,
-        builder: (context) => _GoogleDriveFilePickerDialog(
-          selectedFileId: settings.googleDriveSyncFileId,
+        builder: (context) => _CloudFilePickerDialog(
+          provider: provider,
+          selectedFileId: ServiceLocator.simpleCloudDocumentService
+              .selectedSyncFileFromSettings(settings)
+              ?.id,
         ),
       );
       if (selection == null) return;
@@ -306,7 +306,7 @@ class _TodayPageState extends State<TodayPage> {
         await ServiceLocator.simpleCloudDocumentService.setSelectedSyncFile(
           file: createdFile,
         );
-        await _openGoogleDriveDocument(file: createdFile);
+        await _openCloudDocument(file: createdFile);
         return;
       }
 
@@ -315,7 +315,11 @@ class _TodayPageState extends State<TodayPage> {
         await ServiceLocator.simpleCloudDocumentService.clearSelectedSyncFile();
         if (!mounted) return;
         messenger.showSnackBar(
-          const SnackBar(content: Text('Google Drive sync file cleared.')),
+          SnackBar(
+            content: Text(
+              '${ServiceLocator.simpleCloudDocumentService.providerLabel(provider)} sync file cleared.',
+            ),
+          ),
         );
         return;
       }
@@ -323,22 +327,13 @@ class _TodayPageState extends State<TodayPage> {
       await ServiceLocator.simpleCloudDocumentService.setSelectedSyncFile(
         file: selectedFile,
       );
-      await _openGoogleDriveDocument(file: selectedFile);
-    } on GoogleDriveAuthException catch (error) {
-      debugPrint(
-        '$_googleDriveLogTag simple choose file auth error: ${error.message}',
-      );
-      if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text(error.message)));
-    } on GoogleDriveSyncException catch (error) {
-      debugPrint(
-        '$_googleDriveLogTag simple choose file sync error: ${error.message}',
-      );
+      await _openCloudDocument(file: selectedFile);
+    } on CloudSimpleDocumentException catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(content: Text(error.message)));
     } finally {
       if (mounted) {
-        setState(() => _isChoosingGoogleDriveFile = false);
+        setState(() => _isChoosingCloudFile = false);
       }
     }
   }
@@ -452,10 +447,22 @@ class _TodayPageState extends State<TodayPage> {
         (bytes[3] == 0x04 || bytes[3] == 0x06 || bytes[3] == 0x08);
   }
 
-  void _loadSimpleProfileData(
+  bool _loadSimpleProfileData(
     SimpleSheetData sheetData, {
     _SimpleDocumentTarget? target,
   }) {
+    final selection = _selectSimpleEditorTargetRowForSheetData(sheetData);
+    if (selection.usedDateColumn && !selection.foundMatchingDateRow) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Access denied: no row for ${_formatDate(DateTime.now())} was found in this sheet.',
+          ),
+        ),
+      );
+      return false;
+    }
+
     setState(() {
       _simpleImportedFileName = sheetData.fileName;
       _simpleImportedPath = sheetData.path;
@@ -477,6 +484,7 @@ class _TodayPageState extends State<TodayPage> {
 
     _selectSimpleEditorTargetRow();
     _publishSimpleRowsToPreview();
+    return true;
   }
 
   String? _readXFilePath(XFile file) {
@@ -510,12 +518,18 @@ class _TodayPageState extends State<TodayPage> {
     return null;
   }
 
-  void _selectSimpleEditorTargetRow() {
-    if (!_hasSimpleSchema) return;
+  _SimpleEditorTargetSelection _selectSimpleEditorTargetRow() {
+    if (!_hasSimpleSchema) {
+      return const _SimpleEditorTargetSelection(
+        usedDateColumn: false,
+        foundMatchingDateRow: false,
+      );
+    }
 
     final dateColumn = _simpleDateColumnIndex();
     final today = DateTime.now();
     int targetRowIndex = _simpleRows.length;
+    var foundMatchingDateRow = false;
 
     if (dateColumn != null) {
       int? fallbackMatchIndex;
@@ -528,6 +542,7 @@ class _TodayPageState extends State<TodayPage> {
         if (rowDate == null || !_isSameCalendarDate(rowDate, today)) {
           continue;
         }
+        foundMatchingDateRow = true;
         fallbackMatchIndex ??= i;
         if (_rowHasEditableEmptyCell(row, dateColumn: dateColumn)) {
           targetRowIndex = i;
@@ -550,6 +565,51 @@ class _TodayPageState extends State<TodayPage> {
     setState(() {
       _simpleEditingRowIndex = targetRowIndex;
     });
+    return _SimpleEditorTargetSelection(
+      usedDateColumn: dateColumn != null,
+      foundMatchingDateRow: foundMatchingDateRow,
+    );
+  }
+
+  _SimpleEditorTargetSelection _selectSimpleEditorTargetRowForSheetData(
+    SimpleSheetData sheetData,
+  ) {
+    if (sheetData.headers.isEmpty) {
+      return const _SimpleEditorTargetSelection(
+        usedDateColumn: false,
+        foundMatchingDateRow: false,
+      );
+    }
+
+    final typeIndex = sheetData.valueTypes.indexWhere(
+      (type) => type.trim().toLowerCase() == 'date',
+    );
+    final dateColumn = typeIndex >= 0
+        ? typeIndex
+        : sheetData.headers.indexWhere((header) => _isDateHeaderName(header));
+    if (dateColumn < 0) {
+      return const _SimpleEditorTargetSelection(
+        usedDateColumn: false,
+        foundMatchingDateRow: false,
+      );
+    }
+
+    final today = DateTime.now();
+    for (final row in sheetData.rows) {
+      if (dateColumn >= row.length) continue;
+      final rowDate = _parseDateFromCellValue(row[dateColumn]);
+      if (rowDate != null && _isSameCalendarDate(rowDate, today)) {
+        return const _SimpleEditorTargetSelection(
+          usedDateColumn: true,
+          foundMatchingDateRow: true,
+        );
+      }
+    }
+
+    return const _SimpleEditorTargetSelection(
+      usedDateColumn: true,
+      foundMatchingDateRow: false,
+    );
   }
 
   bool _rowHasEditableEmptyCell(List<String> row, {required int dateColumn}) {
@@ -631,33 +691,30 @@ class _TodayPageState extends State<TodayPage> {
       final saveResult = await _persistSimpleSheet(mode: mode);
       if (!mounted) return;
       try {
-        final syncFileName = await _syncSimpleSheetToGoogleDrive();
+        final syncFileName = await _syncSimpleSheetToCloud();
         if (!mounted) return;
         if (syncFileName != null) {
+          final targetSettings = await ServiceLocator.userRepository
+              .getCurrentUserSettings();
+          final provider = targetSettings == null
+              ? null
+              : ServiceLocator.simpleCloudDocumentService
+                    .activeProviderFromSettings(targetSettings);
+          final providerLabel = provider == null
+              ? 'cloud'
+              : ServiceLocator.simpleCloudDocumentService.providerLabel(
+                  provider,
+                );
           messenger.showSnackBar(
             SnackBar(
               content: Text(
-                'Row saved to ${saveResult.locationLabel} and synced to Google Drive ($syncFileName).',
+                'Row saved to ${saveResult.locationLabel} and synced to $providerLabel ($syncFileName).',
               ),
             ),
           );
           return;
         }
-      } on GoogleDriveAuthException catch (error) {
-        debugPrint(
-          '$_googleDriveLogTag simple sync auth error: ${error.message}',
-        );
-        if (!mounted) return;
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              'Row saved to ${saveResult.locationLabel}, but cloud sync failed: ${error.message}',
-            ),
-          ),
-        );
-        return;
-      } on GoogleDriveSyncException catch (error) {
-        debugPrint('$_googleDriveLogTag simple sync error: ${error.message}');
+      } on CloudSimpleDocumentException catch (error) {
         if (!mounted) return;
         messenger.showSnackBar(
           SnackBar(
@@ -860,7 +917,7 @@ class _TodayPageState extends State<TodayPage> {
     return _persistSimpleCsv(mode: mode);
   }
 
-  Future<String?> _syncSimpleSheetToGoogleDrive() async {
+  Future<String?> _syncSimpleSheetToCloud() async {
     if (_simpleDocumentTarget is _CloudSimpleDocumentTarget) {
       return null;
     }
@@ -872,10 +929,9 @@ class _TodayPageState extends State<TodayPage> {
     final settings = await ServiceLocator.userRepository.getUserSettings(
       session.uid,
     );
-    if (!settings.googleDriveLinked) return null;
-
-    final authenticatedClient = await ServiceLocator.googleDriveAuthService
-        .getAuthenticatedClient();
+    final existingCloudFile = ServiceLocator.simpleCloudDocumentService
+        .selectedSyncFileFromSettings(settings);
+    if (existingCloudFile == null) return null;
 
     final format = _simpleImportedFormat;
     final simpleData = _buildSimpleSheetDataForPersist();
@@ -896,44 +952,13 @@ class _TodayPageState extends State<TodayPage> {
           ? 'ods'
           : 'csv',
     );
-
-    final existingFileId = settings.googleDriveSyncFileId;
-    final existingMimeType = settings.googleDriveSyncMimeType;
-    if (existingFileId == null ||
-        existingFileId.isEmpty ||
-        existingMimeType == null ||
-        existingMimeType.isEmpty) {
-      throw const GoogleDriveSyncException(
-        'No Google Drive sync file selected. Use Edit Cloud Document first.',
-      );
-    }
-
-    final GoogleDriveFileMetadata metadata;
-    try {
-      if (existingMimeType != mimeType) {
-        metadata = await ServiceLocator.googleDriveSyncService.createSyncFile(
-          authenticatedClient: authenticatedClient,
+    final metadata = await ServiceLocator.simpleCloudDocumentService
+        .persistDocument(
+          existingFile: existingCloudFile,
           fileName: fileName,
           bytes: bytes,
-          mimeType: mimeType,
+          outputMimeType: mimeType,
         );
-      } else {
-        metadata = await ServiceLocator.googleDriveSyncService.updateFileBytes(
-          authenticatedClient: authenticatedClient,
-          fileId: existingFileId,
-          bytes: bytes,
-          mimeType: mimeType,
-        );
-      }
-    } finally {
-      authenticatedClient.close();
-    }
-    await ServiceLocator.dbService.setGoogleDriveSyncFile(
-      uid: session.uid,
-      fileId: metadata.id,
-      fileName: metadata.name,
-      mimeType: metadata.mimeType,
-    );
     return metadata.name;
   }
 
@@ -1006,8 +1031,12 @@ class _TodayPageState extends State<TodayPage> {
 
     final metadata = await ServiceLocator.simpleCloudDocumentService
         .persistDocument(
-          fileId: target.fileId,
-          existingMimeType: target.mimeType,
+          existingFile: CloudFileMetadata(
+            provider: target.provider,
+            id: target.fileId,
+            name: target.fileName,
+            mimeType: target.mimeType,
+          ),
           fileName: fileName,
           bytes: bytes,
           outputMimeType: mimeType,
@@ -1016,6 +1045,7 @@ class _TodayPageState extends State<TodayPage> {
       _simpleImportedFileName = metadata.name;
       _simpleImportedPath = null;
       _simpleDocumentTarget = _CloudSimpleDocumentTarget(
+        provider: metadata.provider,
         fileId: metadata.id,
         fileName: metadata.name,
         mimeType: metadata.mimeType,
@@ -1023,7 +1053,8 @@ class _TodayPageState extends State<TodayPage> {
     });
 
     return SimplePersistResult(
-      locationLabel: 'Google Drive (${metadata.name})',
+      locationLabel:
+          '${ServiceLocator.simpleCloudDocumentService.providerLabel(metadata.provider)} (${metadata.name})',
       overwroteExistingFile: true,
       usedAppDocumentsFallback: false,
       savedPath: metadata.id,
@@ -1106,6 +1137,96 @@ class _TodayPageState extends State<TodayPage> {
       return SimpleSheetPersistenceService.runtimeSafTreeUri;
     }
     return uri;
+  }
+
+  Future<void> _openSafDebugFixture(SimpleFileFormat format) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final preferredSafTreeUri = await _preferredSafTreeUri();
+    if (preferredSafTreeUri == null || preferredSafTreeUri.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Configure a SAF folder in Settings before using the debug fixture.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    try {
+      final assetPath = _debugFixtureAssetPath(format);
+      final fileName = _debugFixtureFileName(format);
+      final bytes = (await rootBundle.load(assetPath)).buffer.asUint8List();
+      final persistResult = await _sheetPersistenceService.persistBytes(
+        SimplePersistRequest(
+          bytes: bytes,
+          fileName: fileName,
+          typeGroup: _typeGroupForFormat(format),
+          mimeType: _mimeTypeForFormat(format),
+          confirmButtonText: 'Write debug fixture',
+          preferredSafTreeUri: preferredSafTreeUri,
+          mode: SimplePersistMode.safPreferred,
+        ),
+      );
+      final sheetData = await _parseSimpleSheetData(
+        bytes: bytes,
+        fileName: fileName,
+        path: persistResult.savedPath,
+      );
+      if (!mounted) return;
+      final loaded = _loadSimpleProfileData(
+        sheetData,
+        target: _LocalSimpleDocumentTarget(
+          existingPath: persistResult.savedPath,
+        ),
+      );
+      if (!loaded) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Loaded SAF debug fixture ${persistResult.resolvedFileName}.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not load SAF debug fixture: $error')),
+      );
+    }
+  }
+
+  String _debugFixtureAssetPath(SimpleFileFormat format) {
+    switch (format) {
+      case SimpleFileFormat.csv:
+        return 'test_objects/manipulate/Arbeitszeiten_2026.csv';
+      case SimpleFileFormat.xlsx:
+        return 'test_objects/manipulate/Arbeitszeiten_2026.xlsx';
+      case SimpleFileFormat.ods:
+        return 'test_objects/manipulate/Arbeitszeiten_2026.ods';
+    }
+  }
+
+  String _debugFixtureFileName(SimpleFileFormat format) {
+    switch (format) {
+      case SimpleFileFormat.csv:
+        return 'Arbeitszeiten_2026.csv';
+      case SimpleFileFormat.xlsx:
+        return 'Arbeitszeiten_2026.xlsx';
+      case SimpleFileFormat.ods:
+        return 'Arbeitszeiten_2026.ods';
+    }
+  }
+
+  XTypeGroup _typeGroupForFormat(SimpleFileFormat format) {
+    switch (format) {
+      case SimpleFileFormat.csv:
+        return _csvTypeGroup;
+      case SimpleFileFormat.xlsx:
+        return _xlsxTypeGroup;
+      case SimpleFileFormat.ods:
+        return _odsTypeGroup;
+    }
   }
 
   String _simpleSuggestedFileName({String? defaultExtension}) {
@@ -1782,27 +1903,77 @@ class _TodayPageState extends State<TodayPage> {
             icon: Icons.folder_open_rounded,
             onTap: _importLocalDocumentForSimple,
           ),
+          if (kDebugMode &&
+              !kIsWeb &&
+              defaultTargetPlatform == TargetPlatform.android) ...[
+            const SizedBox(height: 14),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Debug SAF Fixture',
+                      style: theme.textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Write a bundled fixture from test_objects/manipulate into the configured SAF folder and reopen it through the resulting SAF URI.',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () =>
+                                _openSafDebugFixture(SimpleFileFormat.csv),
+                            child: const Text('CSV'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () =>
+                                _openSafDebugFixture(SimpleFileFormat.xlsx),
+                            child: const Text('XLSX'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () =>
+                                _openSafDebugFixture(SimpleFileFormat.ods),
+                            child: const Text('ODS'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           FutureBuilder<String>(
             future: _cloudDocumentSubtitle(),
             builder: (context, snapshot) {
               final subtitle =
                   snapshot.data ??
-                  'Choose or create the Google Drive file used for sync.';
+                  'Choose or create the active cloud sync file.';
               return _SetupCard(
                 title: 'Edit Cloud Document',
                 subtitle: subtitle,
                 icon: Icons.cloud_outlined,
-                trailing: _isChoosingGoogleDriveFile
+                trailing: _isChoosingCloudFile
                     ? const SizedBox(
                         width: 22,
                         height: 22,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : null,
-                onTap: _isChoosingGoogleDriveFile
-                    ? null
-                    : _chooseGoogleDriveSyncFile,
+                onTap: _isChoosingCloudFile ? null : _chooseCloudSyncFile,
               );
             },
           ),
@@ -2131,7 +2302,7 @@ class _TodayPageState extends State<TodayPage> {
         ),
         const SizedBox(height: 14),
         Text(
-          'Tip: pick a local file first, then edit daily rows. For cloud-based files, connect Google in Settings and use Edit Cloud Document here.',
+          'Tip: pick a local file first, then edit daily rows. For cloud-based files, connect Google Drive or WebDAV in Settings and use Edit Cloud Document here.',
           style: theme.textTheme.bodyMedium,
         ),
       ],
@@ -2299,24 +2470,33 @@ class _TodayPageState extends State<TodayPage> {
   }
 }
 
-class _GoogleDriveFileSelection {
-  const _GoogleDriveFileSelection._({
+class _CloudFileSelection {
+  const _CloudFileSelection._({
     this.file,
     this.createNew = false,
     this.folderId,
   });
 
-  const _GoogleDriveFileSelection.pick(GoogleDriveFileMetadata file)
-    : this._(file: file);
+  const _CloudFileSelection.pick(CloudFileMetadata file) : this._(file: file);
 
-  const _GoogleDriveFileSelection.clear() : this._();
+  const _CloudFileSelection.clear() : this._();
 
-  const _GoogleDriveFileSelection.createNew({String? folderId})
+  const _CloudFileSelection.createNew({String? folderId})
     : this._(createNew: true, folderId: folderId);
 
-  final GoogleDriveFileMetadata? file;
+  final CloudFileMetadata? file;
   final bool createNew;
   final String? folderId;
+}
+
+class _SimpleEditorTargetSelection {
+  const _SimpleEditorTargetSelection({
+    required this.usedDateColumn,
+    required this.foundMatchingDateRow,
+  });
+
+  final bool usedDateColumn;
+  final bool foundMatchingDateRow;
 }
 
 abstract class _SimpleDocumentTarget {
@@ -2331,38 +2511,47 @@ class _LocalSimpleDocumentTarget extends _SimpleDocumentTarget {
 
 class _CloudSimpleDocumentTarget extends _SimpleDocumentTarget {
   const _CloudSimpleDocumentTarget({
+    required this.provider,
     required this.fileId,
     required this.fileName,
     required this.mimeType,
   });
 
+  final CloudSyncProvider provider;
   final String fileId;
   final String fileName;
   final String mimeType;
 }
 
-class _GoogleDriveFolderNode {
-  const _GoogleDriveFolderNode({required this.id, required this.name});
+class _CloudFolderNode {
+  const _CloudFolderNode({required this.id, required this.name});
 
   final String? id;
   final String name;
 }
 
-class _GoogleDriveFilePickerDialog extends StatefulWidget {
-  const _GoogleDriveFilePickerDialog({required this.selectedFileId});
+class _CloudFilePickerDialog extends StatefulWidget {
+  const _CloudFilePickerDialog({
+    required this.provider,
+    required this.selectedFileId,
+  });
 
+  final CloudSyncProvider provider;
   final String? selectedFileId;
 
   @override
-  State<_GoogleDriveFilePickerDialog> createState() =>
-      _GoogleDriveFilePickerDialogState();
+  State<_CloudFilePickerDialog> createState() => _CloudFilePickerDialogState();
 }
 
-class _GoogleDriveFilePickerDialogState
-    extends State<_GoogleDriveFilePickerDialog> {
-  List<GoogleDriveBrowserEntry> _entries = const <GoogleDriveBrowserEntry>[];
-  List<_GoogleDriveFolderNode> _folderStack = const <_GoogleDriveFolderNode>[
-    _GoogleDriveFolderNode(id: null, name: 'My Drive'),
+class _CloudFilePickerDialogState extends State<_CloudFilePickerDialog> {
+  List<CloudBrowserEntry> _entries = const <CloudBrowserEntry>[];
+  late List<_CloudFolderNode> _folderStack = <_CloudFolderNode>[
+    _CloudFolderNode(
+      id: null,
+      name: widget.provider == CloudSyncProvider.googleDrive
+          ? 'My Drive'
+          : 'WebDAV root',
+    ),
   ];
   bool _isLoading = true;
   String? _errorText;
@@ -2381,27 +2570,13 @@ class _GoogleDriveFilePickerDialogState
       _errorText = null;
     });
     try {
-      final client = await ServiceLocator.googleDriveAuthService
-          .getAuthenticatedClient();
-      try {
-        final entries = await ServiceLocator.googleDriveSyncService
-            .listFolderEntries(
-              authenticatedClient: client,
-              folderId: _currentFolderId,
-            );
-        if (!mounted) return;
-        setState(() {
-          _entries = entries;
-        });
-      } finally {
-        client.close();
-      }
-    } on GoogleDriveAuthException catch (error) {
+      final entries = await ServiceLocator.simpleCloudDocumentService
+          .listFolderEntries(folderId: _currentFolderId);
       if (!mounted) return;
       setState(() {
-        _errorText = error.message;
+        _entries = entries;
       });
-    } on GoogleDriveSyncException catch (error) {
+    } on CloudSimpleDocumentException catch (error) {
       if (!mounted) return;
       setState(() {
         _errorText = error.message;
@@ -2415,11 +2590,11 @@ class _GoogleDriveFilePickerDialogState
     }
   }
 
-  void _openFolder(GoogleDriveBrowserEntry entry) {
+  void _openFolder(CloudBrowserEntry entry) {
     setState(() {
-      _folderStack = <_GoogleDriveFolderNode>[
+      _folderStack = <_CloudFolderNode>[
         ..._folderStack,
-        _GoogleDriveFolderNode(id: entry.id, name: entry.name),
+        _CloudFolderNode(id: entry.id, name: entry.name),
       ];
     });
     _loadFolder();
@@ -2497,9 +2672,7 @@ class _GoogleDriveFilePickerDialogState
                               return;
                             }
                             Navigator.of(context).pop(
-                              _GoogleDriveFileSelection.pick(
-                                entry.asFileMetadata(),
-                              ),
+                              _CloudFileSelection.pick(entry.asFileMetadata()),
                             );
                           },
                         ),
@@ -2512,15 +2685,14 @@ class _GoogleDriveFilePickerDialogState
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(
-            context,
-          ).pop(const _GoogleDriveFileSelection.clear()),
+          onPressed: () =>
+              Navigator.of(context).pop(const _CloudFileSelection.clear()),
           child: const Text('Clear'),
         ),
         TextButton(
-          onPressed: () => Navigator.of(context).pop(
-            _GoogleDriveFileSelection.createNew(folderId: _currentFolderId),
-          ),
+          onPressed: () => Navigator.of(
+            context,
+          ).pop(_CloudFileSelection.createNew(folderId: _currentFolderId)),
           child: const Text('Create new'),
         ),
         TextButton(
