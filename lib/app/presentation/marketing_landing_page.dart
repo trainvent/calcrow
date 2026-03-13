@@ -70,7 +70,8 @@ class MarketingLandingPage extends StatelessWidget {
                       children: <Widget>[
                         _StoreCard(
                           title: 'Play Store',
-                          subtitle: 'Install Calcrow on Android phones and tablets.',
+                          subtitle:
+                              'Install Calcrow on Android phones and tablets.',
                           badge: 'Android',
                           accent: const Color(0xFF1F8F68),
                           actionLabel: 'Download for Android',
@@ -92,7 +93,8 @@ class MarketingLandingPage extends StatelessWidget {
                         ),
                         _StoreCard(
                           title: 'Web Client',
-                          subtitle: 'Open Calcrow directly in the browser and start editing.',
+                          subtitle:
+                              'Open Calcrow directly in the browser and start editing.',
                           badge: 'Browser',
                           accent: const Color(0xFFE36A44),
                           actionLabel: 'Open web client',
@@ -107,15 +109,18 @@ class MarketingLandingPage extends StatelessWidget {
                       children: const <Widget>[
                         _FeaturePill(
                           title: 'Open CSV, XLSX, ODS',
-                          text: 'Bring existing timesheets in without converting them first.',
+                          text:
+                              'Bring existing timesheets in without converting them first.',
                         ),
                         _FeaturePill(
                           title: 'Simple daily editor',
-                          text: 'Update the important fields fast and keep formulas intact.',
+                          text:
+                              'Update the important fields fast and keep formulas intact.',
                         ),
                         _FeaturePill(
                           title: 'Save back out',
-                          text: 'Download updated files from the browser when you are done.',
+                          text:
+                              'Download updated files from the browser when you are done.',
                         ),
                       ],
                     ),
@@ -184,10 +189,7 @@ class _TopBar extends StatelessWidget {
           ),
         ),
         const Spacer(),
-        TextButton(
-          onPressed: onOpenWeb,
-          child: const Text('Open app'),
-        ),
+        TextButton(onPressed: onOpenWeb, child: const Text('Open app')),
       ],
     );
   }
@@ -233,7 +235,7 @@ class _HeroCopy extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Text(
-            'Timesheets without the spreadsheet mess.',
+            'Fill Sheets on the go.',
             style: theme.textTheme.headlineLarge?.copyWith(
               fontSize: 56,
               height: 0.96,
@@ -254,14 +256,16 @@ class _HeroCopy extends StatelessWidget {
             runSpacing: 12,
             children: <Widget>[
               ElevatedButton(
-                onPressed: () => openSameTabUrl(MarketingLandingPage.webClientPath),
+                onPressed: () =>
+                    openSameTabUrl(MarketingLandingPage.webClientPath),
                 child: const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 8),
                   child: Text('Open web client'),
                 ),
               ),
               OutlinedButton(
-                onPressed: () => openExternalUrl(MarketingLandingPage.playStoreUrl),
+                onPressed: () =>
+                    openExternalUrl(MarketingLandingPage.playStoreUrl),
                 child: const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 8),
                   child: Text('Android download'),
@@ -310,19 +314,22 @@ class _PreviewPanel extends StatelessWidget {
           const _FlowStep(
             number: '01',
             title: 'Install on Android',
-            text: 'Keep Calcrow on hand for quick daily updates during the workday.',
+            text:
+                'Keep Calcrow on hand for quick daily updates during the workday.',
           ),
           const SizedBox(height: 12),
           const _FlowStep(
             number: '02',
             title: 'Launch in the browser',
-            text: 'Open the web client when you want the same editor on a larger screen.',
+            text:
+                'Open the web client when you want the same editor on a larger screen.',
           ),
           const SizedBox(height: 12),
           const _FlowStep(
             number: '03',
             title: 'Export cleanly',
-            text: 'Save finished files back out after making changes in simple mode.',
+            text:
+                'Save finished files back out after making changes in simple mode.',
           ),
           const SizedBox(height: 22),
           Container(
@@ -334,13 +341,22 @@ class _PreviewPanel extends StatelessWidget {
             ),
             child: Column(
               children: const <Widget>[
-                _MiniSheetRow(values: <String>['Date', 'Start', 'End', 'Total']),
+                _MiniSheetRow(
+                  values: <String>['Date', 'Start', 'End', 'Total'],
+                ),
                 SizedBox(height: 10),
-                _MiniSheetRow(values: <String>['13/03', '08:05', '16:32', '08:27']),
+                _MiniSheetRow(
+                  values: <String>['13/03', '08:05', '16:32', '08:27'],
+                ),
                 SizedBox(height: 10),
-                _MiniSheetRow(values: <String>['14/03', '07:58', '16:14', '08:16']),
+                _MiniSheetRow(
+                  values: <String>['14/03', '07:58', '16:14', '08:16'],
+                ),
                 SizedBox(height: 10),
-                _MiniSheetRow(values: <String>['Sum', ' ', ' ', '16:43'], highlight: true),
+                _MiniSheetRow(
+                  values: <String>['Sum', ' ', ' ', '16:43'],
+                  highlight: true,
+                ),
               ],
             ),
           ),
@@ -398,10 +414,7 @@ class _FlowStep extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 text,
-                style: const TextStyle(
-                  color: Color(0xFFB7C1C3),
-                  height: 1.4,
-                ),
+                style: const TextStyle(color: Color(0xFFB7C1C3), height: 1.4),
               ),
             ],
           ),
@@ -412,10 +425,7 @@ class _FlowStep extends StatelessWidget {
 }
 
 class _MiniSheetRow extends StatelessWidget {
-  const _MiniSheetRow({
-    required this.values,
-    this.highlight = false,
-  });
+  const _MiniSheetRow({required this.values, this.highlight = false});
 
   final List<String> values;
   final bool highlight;
@@ -428,7 +438,10 @@ class _MiniSheetRow extends StatelessWidget {
             (value) => Expanded(
               child: Container(
                 margin: const EdgeInsets.only(right: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: highlight
                       ? const Color(0xFFE36A44)
@@ -439,9 +452,7 @@ class _MiniSheetRow extends StatelessWidget {
                   value,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: highlight
-                        ? Colors.white
-                        : const Color(0xFFF4F1EB),
+                    color: highlight ? Colors.white : const Color(0xFFF4F1EB),
                     fontWeight: highlight ? FontWeight.w700 : FontWeight.w600,
                   ),
                 ),
@@ -501,9 +512,9 @@ class _StoreCard extends StatelessWidget {
           const SizedBox(height: 18),
           Text(
             title,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontFamily: 'Georgia',
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontFamily: 'Georgia'),
           ),
           const SizedBox(height: 8),
           Text(subtitle),
@@ -538,10 +549,7 @@ class _StoreCard extends StatelessWidget {
 }
 
 class _FeaturePill extends StatelessWidget {
-  const _FeaturePill({
-    required this.title,
-    required this.text,
-  });
+  const _FeaturePill({required this.title, required this.text});
 
   final String title;
   final String text;
@@ -559,10 +567,7 @@ class _FeaturePill extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(
-            title,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Text(text),
         ],
