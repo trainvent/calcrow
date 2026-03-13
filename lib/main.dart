@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'core/constants/internal_constants.dart';
 import 'core/data/di/service_locator.dart';
+import 'core/data/services/diagnostics_service.dart';
 import 'core/data/services/purchases_service.dart';
 
 // ...
@@ -13,6 +14,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   ServiceLocator.setup();
+  await ServiceLocator.diagnosticsService.init();
+  await installDiagnosticsErrorHandlers();
   await PurchasesService.instance.init(
     apiKey: IConst.revenueCatTestAPIKey,
     appUserId: ServiceLocator.authService.currentSession?.uid,

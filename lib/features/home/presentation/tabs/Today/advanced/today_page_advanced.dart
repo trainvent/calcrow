@@ -1506,7 +1506,7 @@ class _TodayPageAdvancedState extends State<TodayPageAdvanced> {
       }
       return 'Get Started';
     }
-    return _setupDone ? 'CSVrow Daily Editor' : 'Get Started';
+    return _setupDone ? 'Calcrow Daily Editor' : 'Get Started';
   }
 
   void _handleBack() {

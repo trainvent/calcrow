@@ -14,6 +14,7 @@ import '../../../../../core/data/services/purchases_service.dart';
 import '../../../../../core/data/services/simple_sheet_persistence_service.dart';
 import '../../../../../core/data/services/user_repository.dart';
 import '../../../../../core/data/services/webdav_service.dart';
+import 'data_collection_page.dart';
 import 'entitlement_page.dart';
 import '../../../../auth/presentation/sign_in_sheet.dart';
 
@@ -56,6 +57,18 @@ class _SettingsTabState extends State<SettingsTab> {
               style: theme.textTheme.bodyLarge,
             ),
             const SizedBox(height: 18),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.privacy_tip_outlined),
+                title: const Text('Data collection'),
+                subtitle: const Text(
+                  'Manage separate consent for usage analytics and crash or performance diagnostics.',
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: _openDataCollectionPage,
+              ),
+            ),
+            const SizedBox(height: 12),
             if (session == null)
               Card(
                 child: ListTile(
@@ -778,6 +791,13 @@ class _SettingsTabState extends State<SettingsTab> {
     await Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (context) => const EntitlementPage()));
+  }
+
+  Future<void> _openDataCollectionPage() async {
+    if (!mounted) return;
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => const DataCollectionPage()));
   }
 
   Future<void> _setSafFolder({AuthSession? session}) async {
