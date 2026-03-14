@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -17,8 +18,18 @@ Future<void> main() async {
   await ServiceLocator.diagnosticsService.init();
   await installDiagnosticsErrorHandlers();
   await PurchasesService.instance.init(
-    apiKey: IConst.revenueCatTestAPIKey,
+    apiKey: _revenueCatApiKeyForCurrentBuild(),
     appUserId: ServiceLocator.authService.currentSession?.uid,
   );
   runApp(const CalcrowApp());
+}
+
+String _revenueCatApiKeyForCurrentBuild() {
+  if (!kIsWeb &&
+      kReleaseMode &&
+      defaultTargetPlatform == TargetPlatform.android) {
+    return IConst.revenueCatGoogleAPIKey;
+  }
+
+  return IConst.revenueCatTestAPIKey;
 }

@@ -1,3 +1,4 @@
 {
-	"cmake.sourceDirectory": "/home/leonmarq/Code/calcrow/linux"
+	"cmake.sourceDirectory": "/home/leonmarq/Code/calcrow/linux",
+	"cmake.ignoreCMakeListsMissing": true
 }

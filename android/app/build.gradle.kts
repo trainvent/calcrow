@@ -1,3 +1,4 @@
+import org.gradle.api.tasks.compile.JavaCompile
 import java.util.Properties
 
 plugins {
@@ -63,4 +64,9 @@ android {
 
 flutter {
     source = "../.."
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.compilerArgs.add("-Xlint:deprecation")
+    options.compilerArgs.add("-Xlint:unchecked")
 }

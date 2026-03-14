@@ -133,6 +133,11 @@ class MarketingLandingPage extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         TextButton(
+                          onPressed: () => openSameTabUrl('/support/'),
+                          child: const Text('Support'),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton(
                           onPressed: () => openSameTabUrl('/delete-account/'),
                           child: const Text('Delete Account'),
                         ),

@@ -93,44 +93,31 @@ class _SettingsTabState extends State<SettingsTab> {
                     ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: _isUpdatingSafFolder
-                                  ? null
-                                  : () => _setSafFolder(),
-                              child: const Text('Set'),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: _isUpdatingSafFolder
-                                  ? null
-                                  : () => _testSafFolder(settings: null),
-                              child: const Text('Test'),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: _isUpdatingSafFolder
-                                  ? null
-                                  : () => _revertSafTest(settings: null),
-                              child: const Text('Untest'),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextButton(
-                              onPressed: _isUpdatingSafFolder
-                                  ? null
-                                  : () => _clearSafFolder(),
-                              child: const Text('Clear'),
-                            ),
-                          ),
-                        ],
+                      child: _buildSafActionGrid(
+                        testButton: OutlinedButton(
+                          onPressed: _isUpdatingSafFolder
+                              ? null
+                              : () => _testSafFolder(settings: null),
+                          child: const Text('Test'),
+                        ),
+                        setButton: OutlinedButton(
+                          onPressed: _isUpdatingSafFolder
+                              ? null
+                              : () => _setSafFolder(),
+                          child: const Text('Set'),
+                        ),
+                        revertButton: OutlinedButton(
+                          onPressed: _isUpdatingSafFolder
+                              ? null
+                              : () => _revertSafTest(settings: null),
+                          child: const Text('Untest'),
+                        ),
+                        clearButton: TextButton(
+                          onPressed: _isUpdatingSafFolder
+                              ? null
+                              : () => _clearSafFolder(),
+                          child: const Text('Clear'),
+                        ),
                       ),
                     ),
                     if (_isUpdatingSafFolder)
@@ -301,46 +288,31 @@ class _SettingsTabState extends State<SettingsTab> {
                         ),
                         Padding(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton(
-                                  onPressed: _isUpdatingSafFolder
-                                      ? null
-                                      : () => _setSafFolder(session: session),
-                                  child: const Text('Set'),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: OutlinedButton(
-                                  onPressed: _isUpdatingSafFolder
-                                      ? null
-                                      : () =>
-                                            _testSafFolder(settings: settings),
-                                  child: const Text('Test'),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: OutlinedButton(
-                                  onPressed: _isUpdatingSafFolder
-                                      ? null
-                                      : () =>
-                                            _revertSafTest(settings: settings),
-                                  child: const Text('Test Revert'),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: TextButton(
-                                  onPressed: _isUpdatingSafFolder
-                                      ? null
-                                      : () => _clearSafFolder(session: session),
-                                  child: const Text('Clear'),
-                                ),
-                              ),
-                            ],
+                          child: _buildSafActionGrid(
+                            setButton: OutlinedButton(
+                              onPressed: _isUpdatingSafFolder
+                                  ? null
+                                  : () => _setSafFolder(session: session),
+                              child: const Text('Set'),
+                            ),
+                            testButton: OutlinedButton(
+                              onPressed: _isUpdatingSafFolder
+                                  ? null
+                                  : () => _testSafFolder(settings: settings),
+                              child: const Text('Test'),
+                            ),
+                            revertButton: OutlinedButton(
+                              onPressed: _isUpdatingSafFolder
+                                  ? null
+                                  : () => _revertSafTest(settings: settings),
+                              child: const Text('Test Revert'),
+                            ),
+                            clearButton: TextButton(
+                              onPressed: _isUpdatingSafFolder
+                                  ? null
+                                  : () => _clearSafFolder(session: session),
+                              child: const Text('Clear'),
+                            ),
                           ),
                         ),
                         if (_isUpdatingSafFolder)
@@ -487,6 +459,33 @@ class _SettingsTabState extends State<SettingsTab> {
       return 'No SAF folder configured.';
     }
     return effectiveUri;
+  }
+
+  Widget _buildSafActionGrid({
+    required Widget setButton,
+    required Widget testButton,
+    required Widget revertButton,
+    required Widget clearButton,
+  }) {
+    return Column(
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(child: testButton),
+            const SizedBox(width: 8),
+            Expanded(child: setButton),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: <Widget>[
+            Expanded(child: revertButton),
+            const SizedBox(width: 8),
+            Expanded(child: clearButton),
+          ],
+        ),
+      ],
+    );
   }
 
   Future<void> _toggleGoogleLink({

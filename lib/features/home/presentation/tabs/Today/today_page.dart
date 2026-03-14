@@ -1199,11 +1199,11 @@ class _TodayPageState extends State<TodayPage> {
   String _debugFixtureAssetPath(SimpleFileFormat format) {
     switch (format) {
       case SimpleFileFormat.csv:
-        return 'test_objects/manipulate/Arbeitszeiten_2026.csv';
+        return 'assets/test_objects/manipulate/Arbeitszeiten_2026.csv';
       case SimpleFileFormat.xlsx:
-        return 'test_objects/manipulate/Arbeitszeiten_2026.xlsx';
+        return 'assets/test_objects/manipulate/Arbeitszeiten_2026.xlsx';
       case SimpleFileFormat.ods:
-        return 'test_objects/manipulate/Arbeitszeiten_2026.ods';
+        return 'assets/test_objects/manipulate/Arbeitszeiten_2026.ods';
     }
   }
 
