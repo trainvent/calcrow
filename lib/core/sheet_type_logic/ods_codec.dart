@@ -5,6 +5,7 @@ import 'package:archive/archive.dart';
 import 'package:xml/xml.dart';
 
 import 'sheet_file_models.dart';
+import 'simple_sheet_logic.dart';
 
 Map<String, Object?> parseOdsSheetDataTransfer(Map<String, Object?> message) {
   final bytes = message['bytes'];
@@ -15,7 +16,7 @@ Map<String, Object?> parseOdsSheetDataTransfer(Map<String, Object?> message) {
     throw ArgumentError('Invalid ODS parse request.');
   }
 
-  final parsed = OdsSheetLogic.parse(
+  final parsed = OdsSheetCodec.parse(
     bytes: bytes,
     fileName: fileName,
     path: path as String?,
@@ -82,8 +83,8 @@ SimpleSheetData simpleSheetDataFromTransfer(Map<String, Object?> message) {
   );
 }
 
-class OdsSheetLogic {
-  const OdsSheetLogic._();
+class OdsSheetCodec {
+  const OdsSheetCodec._();
 
   static const String _nsOffice =
       'urn:oasis:names:tc:opendocument:xmlns:office:1.0';
@@ -146,7 +147,7 @@ class OdsSheetLogic {
       (maxWidth, row) => row.length > maxWidth ? row.length : maxWidth,
     );
     final normalizedRows = rawRows
-        .map((row) => _normalizeRowToWidth(row, width))
+        .map((row) => SimpleSheetLogic.normalizeRowToWidth(row, width))
         .toList();
     final normalizedReadOnly = rawReadOnlyRows
         .map((row) => _normalizeReadOnlyRow(row, width))
@@ -171,7 +172,7 @@ class OdsSheetLogic {
         .skip(1)
         .map((row) => row.take(headerCount).toList())
         .toList();
-    final trimmedRowCount = _trimTrailingFooterRows(
+    final trimmedRowCount = SimpleSheetLogic.trimTrailingFooterRows(
       headers: headers,
       rows: bodyRows,
     );
@@ -184,7 +185,7 @@ class OdsSheetLogic {
       }
       return false;
     });
-    final valueTypes = _inferSimpleTypes(
+    final valueTypes = SimpleSheetLogic.inferSimpleTypes(
       headerCount,
       rows.take(20).toList(),
       headers: headers,
@@ -692,13 +693,6 @@ class OdsSheetLogic {
     return parsed == null || parsed < 1 ? 1 : parsed;
   }
 
-  static List<String> _normalizeRowToWidth(List<String> row, int width) {
-    return List<String>.generate(
-      width,
-      (index) => index < row.length ? row[index] : '',
-    );
-  }
-
   static List<bool> _normalizeReadOnlyRow(List<bool> row, int width) {
     return List<bool>.generate(
       width,
@@ -706,184 +700,16 @@ class OdsSheetLogic {
     );
   }
 
-  static int _trimTrailingFooterRows({
-    required List<String> headers,
-    required List<List<String>> rows,
-  }) {
-    if (rows.isEmpty) return 0;
-    final dateColumnIndex = _findDateColumnIndex(headers: headers, rows: rows);
-    if (dateColumnIndex == null) {
-      return rows.length;
-    }
-
-    var lastDateRowIndex = -1;
-    for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-      final row = rows[rowIndex];
-      final value = dateColumnIndex < row.length ? row[dateColumnIndex] : '';
-      if (_looksLikeDateValue(value)) {
-        lastDateRowIndex = rowIndex;
-      }
-    }
-    if (lastDateRowIndex < 0) {
-      return rows.length;
-    }
-    return lastDateRowIndex + 1;
-  }
-
-  static int? _findDateColumnIndex({
-    required List<String> headers,
-    required List<List<String>> rows,
-  }) {
-    final headerIndex = headers.indexWhere(_isDateHeaderName);
-    if (headerIndex >= 0) return headerIndex;
-
-    for (var columnIndex = 0; columnIndex < headers.length; columnIndex++) {
-      var matches = 0;
-      var checked = 0;
-      for (final row in rows) {
-        if (columnIndex >= row.length) continue;
-        final value = row[columnIndex].trim();
-        if (value.isEmpty) continue;
-        checked++;
-        if (_looksLikeDateValue(value)) {
-          matches++;
-        }
-        if (checked >= 12) break;
-      }
-      if (matches >= 3) {
-        return columnIndex;
-      }
-    }
-    return null;
-  }
-
-  static List<String> _inferSimpleTypes(
-    int width,
-    List<List<String>> sampleRows, {
-    List<String>? headers,
-  }) {
-    return List<String>.generate(width, (index) {
-      final headerGuess = headers != null && index < headers.length
-          ? _typeFromHeader(headers[index])
-          : null;
-      if (headerGuess == 'date' ||
-          headerGuess == 'time' ||
-          headerGuess == 'duration') {
-        return headerGuess!;
-      }
-      for (final row in sampleRows) {
-        if (index >= row.length) continue;
-        final value = row[index].trim();
-        if (value.isEmpty) continue;
-        if (_looksLikeDateValue(value)) return 'date';
-        if (_looksLikeTimeValue(value)) return 'time';
-        if (_looksLikeDecimalValue(value)) return 'decimal';
-        if (_looksLikeIntegerValue(value)) return 'int';
-        return 'text';
-      }
-      return headerGuess ?? 'text';
-    });
-  }
-
-  static bool _looksLikeDateValue(String value) {
-    final compact = value.trim();
-    return RegExp(r'^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}$').hasMatch(compact) ||
-        RegExp(r'^\d{4}[./-]\d{1,2}[./-]\d{1,2}$').hasMatch(compact);
-  }
-
-  static bool _looksLikeTimeValue(String value) {
-    final compact = value.trim().toLowerCase();
-    return RegExp(r'^\d{1,2}:\d{2}(:\d{2})?(\s?(am|pm))?$').hasMatch(compact);
-  }
-
-  static bool _looksLikeIntegerValue(String value) {
-    return RegExp(r'^[+-]?\d+$').hasMatch(value.trim());
-  }
-
-  static bool _looksLikeDecimalValue(String value) {
-    final compact = value.trim();
-    return RegExp(r'^[+-]?\d+[.,]\d+$').hasMatch(compact);
-  }
-
-  static String? _typeFromHeader(String header) {
-    final value = header.trim().toLowerCase();
-    if (value.isEmpty) return null;
-    if (_isDateHeaderName(header)) {
-      return 'date';
-    }
-    if (value.contains('pause') ||
-        value.contains('break') ||
-        value.contains('minutes') ||
-        value.contains('minuten')) {
-      return 'duration';
-    }
-    if (value.contains('start') ||
-        value.contains('beginn') ||
-        value.contains('begin') ||
-        value.contains('end') ||
-        value.contains('ende') ||
-        value.contains('time') ||
-        value.contains('uhr')) {
-      return 'time';
-    }
-    return null;
-  }
-
-  static bool _isDateHeaderName(String header) {
-    final value = header.trim().toLowerCase();
-    return value == 'date' ||
-        value == 'datum' ||
-        value == 'tag' ||
-        value == 'data' ||
-        value == 'fecha';
-  }
-
   static String _selectBestSheetName(List<XmlElement> tables, DateTime now) {
-    final candidates = <String>{
-      ..._monthTokens(now.month),
-      '${now.month}',
-      now.month.toString().padLeft(2, '0'),
-      '${now.year}-${now.month.toString().padLeft(2, '0')}',
-      '${now.month.toString().padLeft(2, '0')}-${now.year}',
-    }.map((value) => value.toLowerCase()).toList();
-
-    for (final table in tables) {
-      final name = _attribute(table, 'name', namespace: _nsTable)?.trim() ?? '';
-      final lowered = name.toLowerCase();
-      if (candidates.contains(lowered)) {
-        return name;
-      }
-    }
-    for (final table in tables) {
-      final name = _attribute(table, 'name', namespace: _nsTable)?.trim() ?? '';
-      final lowered = name.toLowerCase();
-      if (candidates.any(lowered.contains)) {
-        return name;
-      }
-    }
+    final names = tables
+        .map((table) => _attribute(table, 'name', namespace: _nsTable) ?? '')
+        .toList(growable: false);
     final fallback = _attribute(tables.first, 'name', namespace: _nsTable);
-    if (fallback == null || fallback.trim().isEmpty) {
-      throw const FormatException('The selected ODS has no named sheets.');
-    }
-    return fallback;
-  }
-
-  static Iterable<String> _monthTokens(int month) {
-    const names = <int, List<String>>{
-      1: <String>['january', 'jan', 'januar'],
-      2: <String>['february', 'feb', 'februar'],
-      3: <String>['march', 'mar', 'maerz', 'marz'],
-      4: <String>['april', 'apr'],
-      5: <String>['may', 'mai'],
-      6: <String>['june', 'jun', 'juni'],
-      7: <String>['july', 'jul', 'juli'],
-      8: <String>['august', 'aug'],
-      9: <String>['september', 'sep'],
-      10: <String>['october', 'oct', 'oktober', 'okt'],
-      11: <String>['november', 'nov'],
-      12: <String>['december', 'dec', 'dezember', 'dez'],
-    };
-    return names[month] ?? const <String>[];
+    return SimpleSheetLogic.selectBestSheetName(
+      names,
+      now,
+      fallback: fallback,
+    );
   }
 
   static _OdsTimeParts? _parseTimeParts(String value) {

@@ -4,10 +4,10 @@ import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 
-import 'csv_logic.dart';
-import 'ods_logic.dart';
+import 'csv_codec.dart';
+import 'ods_codec.dart';
 import 'sheet_file_models.dart';
-import 'xlsx_logic.dart';
+import 'xlsx_codec.dart';
 
 class SimpleSheetFileService {
   const SimpleSheetFileService._();
@@ -20,13 +20,13 @@ class SimpleSheetFileService {
     final format = detectFormat(fileName: fileName, path: path, bytes: bytes);
     switch (format) {
       case SimpleFileFormat.csv:
-        return CsvSheetLogic.parse(
+        return CsvSheetCodec.parse(
           bytes: bytes,
           fileName: fileName,
           path: path,
         );
       case SimpleFileFormat.xlsx:
-        return XlsxSheetLogic.parse(
+        return XlsxSheetCodec.parse(
           bytes: bytes,
           fileName: fileName,
           path: path,
@@ -100,11 +100,11 @@ class SimpleSheetFileService {
   static Uint8List buildBytes(SimpleSheetData data) {
     switch (data.format) {
       case SimpleFileFormat.csv:
-        return CsvSheetLogic.buildBytes(data);
+        return CsvSheetCodec.buildBytes(data);
       case SimpleFileFormat.xlsx:
-        return XlsxSheetLogic.buildBytes(data);
+        return XlsxSheetCodec.buildBytes(data);
       case SimpleFileFormat.ods:
-        return OdsSheetLogic.buildBytes(data);
+        return OdsSheetCodec.buildBytes(data);
     }
   }
 
