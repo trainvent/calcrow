@@ -970,12 +970,7 @@ class _SettingsTabState extends State<SettingsTab> {
   }
 
   Future<void> _openSignInSheet(BuildContext context) async {
-    await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (context) => const SignInSheet(),
-    );
+    await showSignInSheet<bool>(context);
   }
 }
 

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../services/auth_service.dart';
@@ -31,7 +32,7 @@ class ServiceLocator {
 
   static void setup() {
     if (_isSetup) return;
-    authService = AuthService(FirebaseAuth.instance);
+    authService = AuthService(FirebaseAuth.instance, FirebaseFunctions.instance);
     dbService = DbService(FirebaseFirestore.instance);
     googleDriveAuthService = GoogleDriveAuthService();
     googleDriveSyncService = GoogleDriveSyncService();

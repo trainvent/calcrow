@@ -12,50 +12,60 @@ class CsvSheetLogic {
     required String? path,
   }) {
     final content = utf8.decode(bytes, allowMalformed: true);
-    final lines = content
-        .split(RegExp(r'\r?\n'))
-        .where((line) => line.trim().isNotEmpty)
-        .toList();
-    if (lines.length < 2) {
+    final rawLines = content.split(RegExp(r'\r?\n'));
+    if (rawLines.isNotEmpty && rawLines.last.trim().isEmpty) {
+      rawLines.removeLast();
+    }
+    final nonEmptyLines = rawLines.where((line) => line.trim().isNotEmpty).toList();
+    if (nonEmptyLines.length < 2) {
       throw const FormatException(
         'Simple mode expects line 1 headers and line 2 value types.',
       );
     }
 
-    final delimiter = _detectDelimiter(lines[0]);
-    final rawHeaders = _splitCsvLine(lines[0], delimiter: delimiter);
-    final firstEmptyHeaderIndex = rawHeaders.indexWhere(
-      (value) => value.trim().isEmpty,
+    final delimiter = _detectDelimiter(
+      nonEmptyLines.take(12).toList(growable: false),
     );
-    final headerCount = firstEmptyHeaderIndex >= 0
-        ? firstEmptyHeaderIndex
-        : rawHeaders.length;
-    if (headerCount == 0) {
-      throw const FormatException('CSV header row is empty.');
-    }
-    final headers = rawHeaders
-        .take(headerCount)
+    final parsedRows = rawLines
+        .map((line) => _splitCsvLine(line, delimiter: delimiter))
+        .toList();
+    final tableBounds = _detectTableBounds(parsedRows);
+    final headerRow = parsedRows[tableBounds.headerRowIndex];
+    final headers = headerRow
+        .skip(tableBounds.startColumnIndex)
+        .take(tableBounds.columnCount)
         .map((value) => value.trim())
         .toList();
-
-    final secondLineValues = _splitCsvLine(lines[1], delimiter: delimiter);
-    final hasTypeRow = _looksLikeTypeRow(secondLineValues);
-    final rows = lines
-        .skip(hasTypeRow ? 2 : 1)
+    final typeRowIndex = tableBounds.hasTypeRow
+        ? tableBounds.headerRowIndex + 1
+        : null;
+    final secondLineValues = typeRowIndex == null
+        ? const <String>[]
+        : _normalizeRowToWidth(
+            parsedRows[typeRowIndex]
+                .skip(tableBounds.startColumnIndex)
+                .take(tableBounds.columnCount)
+                .toList(),
+            tableBounds.columnCount,
+          );
+    final dataStartRowIndex =
+        tableBounds.headerRowIndex + (tableBounds.hasTypeRow ? 2 : 1);
+    final rows = parsedRows
+        .skip(dataStartRowIndex)
         .map(
-          (line) => _normalizeRowToWidth(
-            _splitCsvLine(
-              line,
-              delimiter: delimiter,
-            ).take(headerCount).toList(),
-            headerCount,
+          (row) => _normalizeRowToWidth(
+            row
+                .skip(tableBounds.startColumnIndex)
+                .take(tableBounds.columnCount)
+                .toList(),
+            tableBounds.columnCount,
           ),
         )
         .toList();
-    final readOnlyColumns = _detectReadOnlyColumns(headerCount, rows);
-    final typeInference = hasTypeRow
+    final readOnlyColumns = _detectReadOnlyColumns(tableBounds.columnCount, rows);
+    final typeInference = tableBounds.hasTypeRow
         ? _buildTypeInferenceFromTypeRow(
-            headerCount: headerCount,
+            headerCount: tableBounds.columnCount,
             secondLineValues: secondLineValues,
           )
         : _inferSimpleTypes(
@@ -63,9 +73,9 @@ class CsvSheetLogic {
             rows: rows.take(20).toList(),
             readOnlyColumns: readOnlyColumns,
           );
-    final pendingTypeSelectionColumns = hasTypeRow
+    final pendingTypeSelectionColumns = tableBounds.hasTypeRow
         ? const <int>[]
-        : List<int>.generate(headerCount, (index) => index).where((index) {
+        : List<int>.generate(tableBounds.columnCount, (index) => index).where((index) {
             if (readOnlyColumns[index]) return false;
             return !typeInference[index].confirmedFromData;
           }).toList();
@@ -80,34 +90,69 @@ class CsvSheetLogic {
       rows: rows,
       pendingTypeSelectionColumns: pendingTypeSelectionColumns,
       csvDelimiter: delimiter,
-      hasTypeRow: hasTypeRow,
+      hasTypeRow: tableBounds.hasTypeRow,
+      headerRowIndex: tableBounds.headerRowIndex,
+      startColumnIndex: tableBounds.startColumnIndex,
+      sourceBytes: bytes,
     );
   }
 
   static Uint8List buildBytes(SimpleSheetData sheetData) {
     final delimiter = sheetData.csvDelimiter;
-    final lines = <String>[];
-    lines.add(
-      sheetData.headers
-          .map((cell) => _escapeCsvCell(cell, delimiter))
-          .join(delimiter),
+    final originalContent = sheetData.sourceBytes == null
+        ? null
+        : utf8.decode(sheetData.sourceBytes!, allowMalformed: true);
+    final originalLines = originalContent == null
+        ? <String>[]
+        : originalContent.split(RegExp(r'\r?\n'));
+    if (originalLines.isNotEmpty && originalLines.last.trim().isEmpty) {
+      originalLines.removeLast();
+    }
+    final originalRows = originalLines
+        .map((line) => _splitCsvLine(line, delimiter: delimiter))
+        .toList();
+    final minRowCount =
+        sheetData.headerRowIndex + (sheetData.hasTypeRow ? 2 : 1) + sheetData.rows.length;
+    while (originalRows.length < minRowCount) {
+      originalRows.add(<String>[]);
+    }
+
+    _writeRowSegment(
+      rows: originalRows,
+      rowIndex: sheetData.headerRowIndex,
+      startColumnIndex: sheetData.startColumnIndex,
+      values: sheetData.headers,
     );
     if (sheetData.hasTypeRow) {
-      lines.add(
-        sheetData.valueTypes
-            .map((cell) => _escapeCsvCell(cell, delimiter))
-            .join(delimiter),
+      _writeRowSegment(
+        rows: originalRows,
+        rowIndex: sheetData.headerRowIndex + 1,
+        startColumnIndex: sheetData.startColumnIndex,
+        values: sheetData.valueTypes,
       );
     }
-    for (final row in sheetData.rows) {
-      final normalized = _normalizeRowToWidth(row, sheetData.headers.length);
-      lines.add(
-        normalized
-            .map((cell) => _escapeCsvCell(cell, delimiter))
-            .join(delimiter),
+
+    final dataStartRowIndex =
+        sheetData.headerRowIndex + (sheetData.hasTypeRow ? 2 : 1);
+    for (var rowIndex = 0; rowIndex < sheetData.rows.length; rowIndex++) {
+      final normalized = _normalizeRowToWidth(
+        sheetData.rows[rowIndex],
+        sheetData.headers.length,
+      );
+      _writeRowSegment(
+        rows: originalRows,
+        rowIndex: dataStartRowIndex + rowIndex,
+        startColumnIndex: sheetData.startColumnIndex,
+        values: normalized,
       );
     }
-    return Uint8List.fromList(utf8.encode('${lines.join('\n')}\n'));
+
+    final encodedLines = originalRows
+        .map(
+          (row) => row.map((cell) => _escapeCsvCell(cell, delimiter)).join(delimiter),
+        )
+        .toList();
+    return Uint8List.fromList(utf8.encode('${encodedLines.join('\n')}\n'));
   }
 
   static List<String> _splitCsvLine(String line, {required String delimiter}) {
@@ -137,18 +182,110 @@ class CsvSheetLogic {
     return cells;
   }
 
-  static String _detectDelimiter(String line) {
+  static String _detectDelimiter(List<String> lines) {
     const candidates = <String>[',', ';', '\t'];
     String best = ',';
     var bestCount = -1;
     for (final candidate in candidates) {
-      final count = _countDelimiterOutsideQuotes(line, candidate);
+      final count = lines.fold<int>(
+        0,
+        (sum, line) => sum + _countDelimiterOutsideQuotes(line, candidate),
+      );
       if (count > bestCount) {
         best = candidate;
         bestCount = count;
       }
     }
     return best;
+  }
+
+  static _CsvTableBounds _detectTableBounds(List<List<String>> rows) {
+    final width = rows.fold<int>(
+      0,
+      (maxWidth, row) => row.length > maxWidth ? row.length : maxWidth,
+    );
+    final normalizedRows = rows.map((row) => _normalizeRowToWidth(row, width)).toList();
+
+    for (var rowIndex = 1; rowIndex < normalizedRows.length; rowIndex++) {
+      final row = normalizedRows[rowIndex];
+      for (var columnIndex = 0; columnIndex < row.length; columnIndex++) {
+        if (!_looksLikeDateValue(row[columnIndex])) continue;
+        var dateMatches = 0;
+        for (var probeRow = rowIndex; probeRow < normalizedRows.length; probeRow++) {
+          final value = normalizedRows[probeRow][columnIndex].trim();
+          if (value.isEmpty) continue;
+          if (_looksLikeDateValue(value)) {
+            dateMatches++;
+          }
+          if (dateMatches >= 2) break;
+        }
+        if (dateMatches < 2) continue;
+
+        var candidateHeaderRowIndex = rowIndex - 1;
+        var hasTypeRow = false;
+        if (candidateHeaderRowIndex > 0 &&
+            _looksLikeTypeRow(normalizedRows[candidateHeaderRowIndex])) {
+          candidateHeaderRowIndex--;
+          hasTypeRow = true;
+        }
+        final headerRow = normalizedRows[candidateHeaderRowIndex];
+        var startColumnIndex = columnIndex;
+        while (startColumnIndex > 0 &&
+            headerRow[startColumnIndex - 1].trim().isNotEmpty) {
+          startColumnIndex--;
+        }
+        var endColumnIndex = columnIndex;
+        while (endColumnIndex < headerRow.length &&
+            headerRow[endColumnIndex].trim().isNotEmpty) {
+          endColumnIndex++;
+        }
+        final columnCount = endColumnIndex - startColumnIndex;
+        if (columnCount <= 0) continue;
+        if (headerRow
+            .skip(startColumnIndex)
+            .take(columnCount)
+            .every((value) => value.trim().isEmpty)) {
+          continue;
+        }
+        return _CsvTableBounds(
+          headerRowIndex: candidateHeaderRowIndex,
+          startColumnIndex: startColumnIndex,
+          columnCount: columnCount,
+          hasTypeRow: hasTypeRow,
+        );
+      }
+    }
+
+    final headerRow = normalizedRows.first;
+    final firstEmptyHeaderIndex = headerRow.indexWhere((value) => value.trim().isEmpty);
+    final headerCount = firstEmptyHeaderIndex >= 0
+        ? firstEmptyHeaderIndex
+        : headerRow.length;
+    if (headerCount == 0) {
+      throw const FormatException('CSV header row is empty.');
+    }
+    final hasTypeRow =
+        normalizedRows.length > 1 && _looksLikeTypeRow(normalizedRows[1]);
+    return _CsvTableBounds(
+      headerRowIndex: 0,
+      startColumnIndex: 0,
+      columnCount: headerCount,
+      hasTypeRow: hasTypeRow,
+    );
+  }
+
+  static void _writeRowSegment({
+    required List<List<String>> rows,
+    required int rowIndex,
+    required int startColumnIndex,
+    required List<String> values,
+  }) {
+    while (rows[rowIndex].length < startColumnIndex + values.length) {
+      rows[rowIndex].add('');
+    }
+    for (var columnOffset = 0; columnOffset < values.length; columnOffset++) {
+      rows[rowIndex][startColumnIndex + columnOffset] = values[columnOffset];
+    }
   }
 
   static int _countDelimiterOutsideQuotes(String line, String delimiter) {
@@ -373,6 +510,20 @@ class CsvSheetLogic {
         escaped.contains('\n');
     return mustQuote ? '"$escaped"' : escaped;
   }
+}
+
+class _CsvTableBounds {
+  const _CsvTableBounds({
+    required this.headerRowIndex,
+    required this.startColumnIndex,
+    required this.columnCount,
+    required this.hasTypeRow,
+  });
+
+  final int headerRowIndex;
+  final int startColumnIndex;
+  final int columnCount;
+  final bool hasTypeRow;
 }
 
 class _CsvTypeInference {

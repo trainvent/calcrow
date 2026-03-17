@@ -39,25 +39,23 @@ class XlsxSheetLogic {
     final normalizedRows = rawRows
         .map((row) => _normalizeRowToWidth(row, width))
         .toList();
-
-    final rawHeaders = normalizedRows.first;
-    final firstEmptyHeaderIndex = rawHeaders.indexWhere(
-      (value) => value.trim().isEmpty,
-    );
-    final headerCount = firstEmptyHeaderIndex >= 0
-        ? firstEmptyHeaderIndex
-        : rawHeaders.length;
-    if (headerCount == 0) {
-      throw const FormatException('First row has no header titles.');
-    }
-
-    final headers = rawHeaders
+    final tableBounds = _detectTableBounds(normalizedRows);
+    final headerCount = tableBounds.columnCount;
+    final headers = normalizedRows[tableBounds.headerRowIndex]
+        .skip(tableBounds.startColumnIndex)
         .take(headerCount)
         .map((value) => value.trim())
         .toList();
+    final dataStartRowIndex =
+        tableBounds.headerRowIndex + (tableBounds.hasTypeRow ? 2 : 1);
     final bodyRows = normalizedRows
-        .skip(1)
-        .map((row) => row.take(headerCount).toList())
+        .skip(dataStartRowIndex)
+        .map(
+          (row) => row
+              .skip(tableBounds.startColumnIndex)
+              .take(headerCount)
+              .toList(),
+        )
         .toList();
     final trimmedRowCount = _trimTrailingFooterRows(
       headers: headers,
@@ -70,9 +68,14 @@ class XlsxSheetLogic {
       headers: headers,
     );
     final readOnlyColumns = List<bool>.filled(headerCount, false);
-    for (final row in sheet.rows.skip(1)) {
-      for (var col = 0; col < headerCount && col < row.length; col++) {
-        final cell = row[col];
+    for (var rowIndex = dataStartRowIndex; rowIndex < sheet.rows.length; rowIndex++) {
+      final row = sheet.rows[rowIndex];
+      for (
+        var col = 0;
+        col < headerCount && tableBounds.startColumnIndex + col < row.length;
+        col++
+      ) {
+        final cell = row[tableBounds.startColumnIndex + col];
         final value = cell?.value;
         if (value is excel_pkg.FormulaCellValue) {
           readOnlyColumns[col] = true;
@@ -97,6 +100,9 @@ class XlsxSheetLogic {
       readOnlyColumns: readOnlyColumns,
       rows: rows,
       pendingTypeSelectionColumns: pendingTypeSelectionColumns,
+      hasTypeRow: tableBounds.hasTypeRow,
+      headerRowIndex: tableBounds.headerRowIndex,
+      startColumnIndex: tableBounds.startColumnIndex,
       xlsxSheetName: sheetName,
       workbook: excel,
     );
@@ -116,13 +122,32 @@ class XlsxSheetLogic {
     for (var col = 0; col < data.headers.length; col++) {
       sheet
           .cell(
-            excel_pkg.CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 0),
+            excel_pkg.CellIndex.indexByColumnRow(
+              columnIndex: data.startColumnIndex + col,
+              rowIndex: data.headerRowIndex,
+            ),
           )
           .value = excel_pkg.TextCellValue(
         data.headers[col],
       );
     }
 
+    if (data.hasTypeRow) {
+      for (var col = 0; col < data.valueTypes.length; col++) {
+        sheet
+            .cell(
+              excel_pkg.CellIndex.indexByColumnRow(
+                columnIndex: data.startColumnIndex + col,
+                rowIndex: data.headerRowIndex + 1,
+              ),
+            )
+            .value = excel_pkg.TextCellValue(
+          data.valueTypes[col],
+        );
+      }
+    }
+
+    final dataStartRowIndex = data.headerRowIndex + (data.hasTypeRow ? 2 : 1);
     for (var rowIndex = 0; rowIndex < data.rows.length; rowIndex++) {
       final row = data.rows[rowIndex];
       for (var col = 0; col < data.headers.length; col++) {
@@ -130,8 +155,8 @@ class XlsxSheetLogic {
         final value = col < row.length ? row[col].trim() : '';
         final cell = sheet.cell(
           excel_pkg.CellIndex.indexByColumnRow(
-            columnIndex: col,
-            rowIndex: rowIndex + 1,
+            columnIndex: data.startColumnIndex + col,
+            rowIndex: dataStartRowIndex + rowIndex,
           ),
         );
         cell.value = _xlsxCellValueFromSimple(
@@ -160,10 +185,10 @@ class XlsxSheetLogic {
       String? templateFormula;
       int? templateRowNumber;
       for (var rowIndex = 0; rowIndex < data.rows.length; rowIndex++) {
-        final rowNumber = rowIndex + 1;
+        final rowNumber = data.headerRowIndex + (data.hasTypeRow ? 2 : 1) + rowIndex;
         final cell = sheet.cell(
           excel_pkg.CellIndex.indexByColumnRow(
-            columnIndex: col,
+            columnIndex: data.startColumnIndex + col,
             rowIndex: rowNumber,
           ),
         );
@@ -181,7 +206,7 @@ class XlsxSheetLogic {
       }
 
       for (var rowIndex = 0; rowIndex < data.rows.length; rowIndex++) {
-        final rowNumber = rowIndex + 1;
+        final rowNumber = data.headerRowIndex + (data.hasTypeRow ? 2 : 1) + rowIndex;
         final sheetRowNumber = rowNumber + 1;
         if (!_rowHasAnyEditableValue(
           row: data.rows[rowIndex],
@@ -191,7 +216,7 @@ class XlsxSheetLogic {
         }
         final cell = sheet.cell(
           excel_pkg.CellIndex.indexByColumnRow(
-            columnIndex: col,
+            columnIndex: data.startColumnIndex + col,
             rowIndex: rowNumber,
           ),
         );
@@ -279,6 +304,108 @@ class XlsxSheetLogic {
       return defaultSheet;
     }
     return available.first;
+  }
+
+  static _XlsxTableBounds _detectTableBounds(List<List<String>> rows) {
+    for (var rowIndex = 1; rowIndex < rows.length; rowIndex++) {
+      final row = rows[rowIndex];
+      for (var columnIndex = 0; columnIndex < row.length; columnIndex++) {
+        if (!_looksLikeDateValue(row[columnIndex])) continue;
+        var dateMatches = 0;
+        for (var probeRow = rowIndex; probeRow < rows.length; probeRow++) {
+          final value = rows[probeRow][columnIndex].trim();
+          if (value.isEmpty) continue;
+          if (_looksLikeDateValue(value)) {
+            dateMatches++;
+          }
+          if (dateMatches >= 2) break;
+        }
+        if (dateMatches < 2) continue;
+
+        var candidateHeaderRowIndex = rowIndex - 1;
+        var hasTypeRow = false;
+        if (candidateHeaderRowIndex > 0 &&
+            _looksLikeTypeRow(rows[candidateHeaderRowIndex])) {
+          candidateHeaderRowIndex--;
+          hasTypeRow = true;
+        }
+        final headerRow = rows[candidateHeaderRowIndex];
+        var startColumnIndex = columnIndex;
+        while (startColumnIndex > 0 &&
+            headerRow[startColumnIndex - 1].trim().isNotEmpty) {
+          startColumnIndex--;
+        }
+        var endColumnIndex = columnIndex;
+        while (endColumnIndex < headerRow.length &&
+            headerRow[endColumnIndex].trim().isNotEmpty) {
+          endColumnIndex++;
+        }
+        final columnCount = endColumnIndex - startColumnIndex;
+        if (columnCount <= 0) continue;
+        if (headerRow
+            .skip(startColumnIndex)
+            .take(columnCount)
+            .every((value) => value.trim().isEmpty)) {
+          continue;
+        }
+        return _XlsxTableBounds(
+          headerRowIndex: candidateHeaderRowIndex,
+          startColumnIndex: startColumnIndex,
+          columnCount: columnCount,
+          hasTypeRow: hasTypeRow,
+        );
+      }
+    }
+
+    final rawHeaders = rows.first;
+    final firstEmptyHeaderIndex = rawHeaders.indexWhere(
+      (value) => value.trim().isEmpty,
+    );
+    final headerCount = firstEmptyHeaderIndex >= 0
+        ? firstEmptyHeaderIndex
+        : rawHeaders.length;
+    if (headerCount == 0) {
+      throw const FormatException('First row has no header titles.');
+    }
+    return _XlsxTableBounds(
+      headerRowIndex: 0,
+      startColumnIndex: 0,
+      columnCount: headerCount,
+      hasTypeRow: rows.length > 1 && _looksLikeTypeRow(rows[1]),
+    );
+  }
+
+  static bool _looksLikeTypeRow(List<String> values) {
+    if (values.isEmpty) return false;
+    var matches = 0;
+    for (final value in values) {
+      final normalized = value.trim().toLowerCase();
+      if (normalized.isEmpty) continue;
+      if (_isKnownTypeToken(normalized)) {
+        matches++;
+      }
+    }
+    return matches >= (values.length / 2).ceil();
+  }
+
+  static bool _isKnownTypeToken(String type) {
+    if (type.contains('date')) return true;
+    if (type.contains('time')) return true;
+    if (type.contains('duration')) return true;
+    if (type.contains('timespan')) return true;
+    if (type.contains('int')) return true;
+    if (type.contains('double')) return true;
+    if (type.contains('decimal')) return true;
+    if (type.contains('number')) return true;
+    if (type.contains('num')) return true;
+    if (type.contains('bool')) return true;
+    if (type.contains('text')) return true;
+    if (type.contains('string')) return true;
+    if (type.contains('currency')) return true;
+    if (type.contains('money')) return true;
+    if (type.contains('email')) return true;
+    if (type.contains('phone')) return true;
+    return false;
   }
 
   static String _selectBestSheetName(excel_pkg.Excel excel, DateTime now) {
@@ -615,4 +742,18 @@ class XlsxSheetLogic {
     final day = date.day.toString().padLeft(2, '0');
     return '$year-$month-$day';
   }
+}
+
+class _XlsxTableBounds {
+  const _XlsxTableBounds({
+    required this.headerRowIndex,
+    required this.startColumnIndex,
+    required this.columnCount,
+    required this.hasTypeRow,
+  });
+
+  final int headerRowIndex;
+  final int startColumnIndex;
+  final int columnCount;
+  final bool hasTypeRow;
 }

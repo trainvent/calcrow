@@ -43,12 +43,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _openAuthSheet() async {
-    final done = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (context) => const SignInSheet(),
-    );
+    final done = await showSignInSheet<bool>(context);
     if (!mounted) return;
     if (done ?? false) {
       ScaffoldMessenger.of(context).showSnackBar(

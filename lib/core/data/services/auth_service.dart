@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 class AuthServiceException implements Exception {
   const AuthServiceException({required this.code, this.message});
@@ -20,9 +21,10 @@ class AuthSession {
 }
 
 class AuthService {
-  AuthService(this._auth);
+  AuthService(this._auth, this._functions);
 
   final FirebaseAuth _auth;
+  final FirebaseFunctions _functions;
 
   Stream<AuthSession?> authStateChanges() {
     return _auth.authStateChanges().map(_toSession);
@@ -84,6 +86,41 @@ class AuthService {
     }
     try {
       await user.sendEmailVerification();
+    } on FirebaseAuthException catch (error) {
+      throw AuthServiceException(code: error.code, message: error.message);
+    }
+  }
+
+  Future<void> sendEmailVerificationCode() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw const AuthServiceException(
+        code: 'user-not-found',
+        message: 'No signed in user found.',
+      );
+    }
+
+    try {
+      await _functions.httpsCallable('sendVerificationCode').call();
+    } on FirebaseFunctionsException catch (error) {
+      throw AuthServiceException(code: error.code, message: error.message);
+    }
+  }
+
+  Future<void> verifyEmailCode({required String code}) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw const AuthServiceException(
+        code: 'user-not-found',
+        message: 'No signed in user found.',
+      );
+    }
+
+    try {
+      await _functions.httpsCallable('verifyCode').call({'code': code});
+      await user.reload();
+    } on FirebaseFunctionsException catch (error) {
+      throw AuthServiceException(code: error.code, message: error.message);
     } on FirebaseAuthException catch (error) {
       throw AuthServiceException(code: error.code, message: error.message);
     }

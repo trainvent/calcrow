@@ -10,6 +10,36 @@ import '../../../core/data/services/auth_service.dart';
 
 enum _AuthStep { signIn, register, verifyEmail, forgotPassword }
 
+Future<T?> showSignInSheet<T>(BuildContext context) {
+  return showGeneralDialog<T>(
+    context: context,
+    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    barrierDismissible: true,
+    barrierColor: Colors.black54,
+    transitionDuration: const Duration(milliseconds: 260),
+    pageBuilder: (context, animation, secondaryAnimation) {
+      return const _AuthSheetRoute();
+    },
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      final curvedAnimation = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+      return FadeTransition(
+        opacity: curvedAnimation,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, -0.08),
+            end: Offset.zero,
+          ).animate(curvedAnimation),
+          child: child,
+        ),
+      );
+    },
+  );
+}
+
 class SignInSheet extends StatefulWidget {
   const SignInSheet({super.key});
 
@@ -30,6 +60,7 @@ class _SignInSheetState extends State<SignInSheet> {
   String? _pendingUid;
   String? _pendingEmail;
   String? _debugCode;
+  bool _isUsingLocalDebugVerification = false;
 
   @override
   void dispose() {
@@ -147,18 +178,19 @@ class _SignInSheetState extends State<SignInSheet> {
     _pendingUid = session.uid;
     _pendingEmail = session.email;
 
-    try {
-      await ServiceLocator.authService.sendEmailVerification();
-    } catch (error, stackTrace) {
-      _reportError('Send verification email failed', error, stackTrace);
-      // Keep flow available even if default Firebase verification mail fails.
-    }
-
     String? code;
     if (issueNewCode) {
-      code = await ServiceLocator.dbService.issueEmailVerificationCode(
-        uid: session.uid,
-      );
+      try {
+        await ServiceLocator.authService.sendEmailVerificationCode();
+        _isUsingLocalDebugVerification = false;
+      } catch (error, stackTrace) {
+        _reportError('Send verification code failed', error, stackTrace);
+        if (!kDebugMode) rethrow;
+        code = await ServiceLocator.dbService.issueEmailVerificationCode(
+          uid: session.uid,
+        );
+        _isUsingLocalDebugVerification = true;
+      }
     }
 
     if (!mounted) return;
@@ -191,14 +223,18 @@ class _SignInSheetState extends State<SignInSheet> {
     });
 
     try {
-      final isValid = await ServiceLocator.dbService.verifyEmailCode(
-        uid: uid,
-        inputCode: code,
-      );
+      if (_isUsingLocalDebugVerification) {
+        final isValid = await ServiceLocator.dbService.verifyEmailCode(
+          uid: uid,
+          inputCode: code,
+        );
 
-      if (!isValid) {
-        setState(() => _errorText = 'Code is invalid or expired.');
-        return;
+        if (!isValid) {
+          setState(() => _errorText = 'Code is invalid or expired.');
+          return;
+        }
+      } else {
+        await ServiceLocator.authService.verifyEmailCode(code: code);
       }
 
       await ServiceLocator.dbService.markEmailVerified(uid: uid);
@@ -314,10 +350,11 @@ class _SignInSheetState extends State<SignInSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+        padding: EdgeInsets.fromLTRB(20, 10, 20, 20 + bottomInset),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -530,10 +567,20 @@ class _SignInSheetState extends State<SignInSheet> {
         return 'Auth setup issue (${error.code}). Check Firebase Auth provider and authorized domains.';
       case 'network-request-failed':
         return 'Network error. Check connection and try again.';
+      case 'unauthenticated':
+        return 'Your session expired. Sign in again and request a new code.';
+      case 'not-found':
+        return 'No active code was found. Request a new code.';
+      case 'deadline-exceeded':
+        return 'That code has expired. Request a new one.';
+      case 'resource-exhausted':
+        return 'Too many failed attempts. Request a new code.';
       case 'invalid-email':
         return 'Email address format is invalid.';
       case 'email-already-in-use':
         return 'This email is already in use.';
+      case 'invalid-argument':
+        return 'The code was not accepted. Check it and try again.';
       case 'weak-password':
         return 'Password is too weak.';
       case 'user-not-found':
@@ -596,5 +643,48 @@ class _SignInSheetState extends State<SignInSheet> {
       return 'FirebaseException(plugin: ${error.plugin}, code: ${error.code}, message: $message)';
     }
     return error.toString();
+  }
+}
+
+class _AuthSheetRoute extends StatelessWidget {
+  const _AuthSheetRoute();
+
+  @override
+  Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final availableHeight =
+        mediaQuery.size.height - mediaQuery.padding.top - 24;
+
+    return GestureDetector(
+      onTap: () => Navigator.of(context).maybePop(),
+      child: Material(
+        color: Colors.transparent,
+        child: SafeArea(
+          bottom: false,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 520,
+                  maxHeight: max(320, availableHeight),
+                ),
+                child: GestureDetector(
+                  onTap: () {},
+                  child: Material(
+                    color: Theme.of(context).colorScheme.surface,
+                    elevation: 14,
+                    borderRadius: BorderRadius.circular(28),
+                    clipBehavior: Clip.antiAlias,
+                    child: const SignInSheet(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

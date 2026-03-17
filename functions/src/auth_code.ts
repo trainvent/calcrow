@@ -3,11 +3,29 @@ import * as admin from 'firebase-admin';
 import * as nodemailer from 'nodemailer';
 import {defineSecret} from "firebase-functions/params";
 
+admin.initializeApp();
+
 const db = admin.firestore();
+const verificationCollection = 'email_verification_codes';
 
 const smtpMail = process.env.SMTP_MAIL || "noreply@calcrow.com";
+const smtpUser = process.env.SMTP_USER || smtpMail;
 const smtpPassword = defineSecret('SMTP_PASSWORD');
-const smtpHost = process.env.SMPT_SERVER || "smtp.ionos.de";
+const smtpHost = process.env.SMTP_SERVER || process.env.SMPT_SERVER || "smtp.ionos.de";
+const smtpPort = Number(process.env.SMTP_PORT || 465);
+const smtpSecure = process.env.SMTP_SECURE
+    ? process.env.SMTP_SECURE === 'true'
+    : smtpPort == 465;
+
+function normalizeEmail(email: string) {
+    return email.trim().toLowerCase();
+}
+
+function isDevEnvironment() {
+    const projectId = process.env.GCLOUD_PROJECT?.trim().toLowerCase() ?? '';
+    return projectId.endsWith('-dev');
+}
+
 // Generate a random 6-digit code
 function generateCode(): string {
     return Math.floor(100000 + Math.random() * 900000).toString();
@@ -15,7 +33,7 @@ function generateCode(): string {
 
 async function sendEmail(email: string, code: string, type: 'verification' | 'login') {
     const password = smtpPassword.value();
-    console.log(`[DEBUG] Preparing to send email to ${email}. Password present: ${!!password}`);
+    console.log(`[DEBUG] Preparing to send email to ${email}. Password present: ${!!password}. Host: ${smtpHost}. User: ${smtpUser}. Port: ${smtpPort}. Secure: ${smtpSecure}.`);
 
     if (!password) {
         console.error("SMTP_PASSWORD is not set in environment variables.");
@@ -24,11 +42,11 @@ async function sendEmail(email: string, code: string, type: 'verification' | 'lo
 
     const transporter = nodemailer.createTransport({
         host: smtpHost,
-        port: 587,
-        secure: false, // Explicitly false for STARTTLS
-        requireTLS: true, // Enforce STARTTLS
+        port: smtpPort,
+        secure: smtpSecure,
+        requireTLS: !smtpSecure,
         auth: {
-            user: smtpMail,
+            user: smtpUser,
             pass: password,
         },
     } as nodemailer.TransportOptions);
@@ -54,14 +72,16 @@ async function sendEmail(email: string, code: string, type: 'verification' | 'lo
 }
 
 async function storeCode(uid: string, email: string, type: 'verification' | 'login') {
+    const normalizedEmail = normalizeEmail(email);
     const code = generateCode();
     const expirationTime = Date.now() + 15 * 60 * 1000; // 15 minutes from now
 
     try {
-        await db.collection('verificationCodes').doc(uid).set({
+        await db.collection(verificationCollection).doc(uid).set({
             code: code,
-            email: email,
-            expiresAt: expirationTime,
+            email: normalizedEmail,
+            expiresAt: admin.firestore.Timestamp.fromMillis(expirationTime),
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
             attempts: 0,
             type: type
         });
@@ -76,7 +96,7 @@ async function storeCode(uid: string, email: string, type: 'verification' | 'log
 
 async function verifyCodeLogic(uid: string, code: string, email?: string) {
     console.log(`[VERIFY LOGIC] Verifying code for uid: ${uid}, email: ${email}`);
-    const docRef = db.collection('verificationCodes').doc(uid);
+    const docRef = db.collection(verificationCollection).doc(uid);
     
     let doc;
     try {
@@ -95,12 +115,16 @@ async function verifyCodeLogic(uid: string, code: string, email?: string) {
     if (!data) throw new HttpsError('not-found', 'No data found.');
 
     // Optional: Verify email matches if provided (crucial for login flow)
-    if (email && data.email !== email) {
-         console.warn(`Email mismatch. Expected: ${email}, Found: ${data.email}`);
+    if (email && data.email !== normalizeEmail(email)) {
+         console.warn(`Email mismatch. Expected: ${normalizeEmail(email)}, Found: ${data.email}`);
          throw new HttpsError('invalid-argument', 'Email mismatch.');
     }
 
-    if (Date.now() > data.expiresAt) {
+    const expiresAt = data.expiresAt instanceof admin.firestore.Timestamp
+        ? data.expiresAt.toMillis()
+        : data.expiresAt;
+
+    if (typeof expiresAt !== 'number' || Date.now() > expiresAt) {
         throw new HttpsError('deadline-exceeded', 'Code has expired.');
     }
 
@@ -143,21 +167,20 @@ export const sendVerificationCode = onCall({ secrets: [smtpPassword] }, async (r
  * Publicly callable.
  */
 export const sendLoginCode = onCall({ secrets: [smtpPassword] }, async (request) => {
-    const { email } = request.data;
-    if (!email) {
+    const rawEmail = request.data.email as string | undefined;
+    if (!rawEmail) {
         throw new HttpsError('invalid-argument', 'Email is required.');
     }
+    const email = normalizeEmail(rawEmail);
 
-    const isDevEnvironment = process.env.GCLOUD_PROJECT === 'stimmapp-dev';
     const testEmail = process.env.TEST_EMAIL;
 
     console.log(`[DEBUG] sendLoginCode: email='${email}'`);
-    if (isDevEnvironment && testEmail) {
-        const normalizedInput = email.trim().toLowerCase();
-        const normalizedTest = testEmail.trim().toLowerCase();
-        console.log(`[DEBUG] Checking backdoor: '${normalizedInput}' vs '${normalizedTest}'`);
+    if (isDevEnvironment() && testEmail) {
+        const normalizedTest = normalizeEmail(testEmail);
+        console.log(`[DEBUG] Checking backdoor: '${email}' vs '${normalizedTest}'`);
         
-        if (normalizedInput === normalizedTest) {
+        if (email === normalizedTest) {
             console.log(`[SEND LOGIN] Test Backdoor used for ${email}. Skipping email send.`);
             return { success: true, message: 'Login code sent (Test Backdoor).' };
         }
@@ -192,19 +215,18 @@ export const verifyCode = onCall(async (request) => {
 
     const uid = request.auth.uid;
     const email = request.auth.token.email;
-    const isDevEnvironment = process.env.GCLOUD_PROJECT === 'stimmapp-dev';
     
     const testEmail = process.env.TEST_EMAIL;
     const testCode = process.env.TEST_CODE;
 
     // Backdoor for testing, ONLY in Dev environment
-    if (isDevEnvironment && testEmail && testCode && email) {
-        const normalizedInput = email.trim().toLowerCase();
-        const normalizedTest = testEmail.trim().toLowerCase();
+    if (isDevEnvironment() && testEmail && testCode && email) {
+        const normalizedInput = normalizeEmail(email);
+        const normalizedTest = normalizeEmail(testEmail);
         
         if (normalizedInput === normalizedTest && code === testCode) {
             await admin.auth().updateUser(uid, { emailVerified: true });
-            await db.collection('verificationCodes').doc(uid).delete();
+            await db.collection(verificationCollection).doc(uid).delete();
             return { success: true, message: 'Email verified successfully (Test Backdoor).' };
         }
     }
@@ -222,10 +244,12 @@ export const verifyCode = onCall(async (request) => {
  * Verifies the login code and returns a custom auth token.
  */
 export const verifyLoginCode = onCall(async (request) => {
-    const { email, code } = request.data;
-    if (!email || !code) {
+    const rawEmail = request.data.email as string | undefined;
+    const code = request.data.code as string | undefined;
+    if (!rawEmail || !code) {
         throw new HttpsError('invalid-argument', 'Email and code are required.');
     }
+    const email = normalizeEmail(rawEmail);
 
     let uid;
     try {
@@ -236,19 +260,17 @@ export const verifyLoginCode = onCall(async (request) => {
         throw new HttpsError('not-found', 'User not found.');
     }
 
-    const isDevEnvironment = process.env.GCLOUD_PROJECT === 'stimmapp-dev';
     const testEmail = process.env.TEST_EMAIL;
     const testCode = process.env.TEST_CODE;
 
     console.log(`[DEBUG] verifyLoginCode: email='${email}', code='${code}'`);
     
     let isBackdoor = false;
-    if (isDevEnvironment && testEmail && testCode) {
-        const normalizedInput = email.trim().toLowerCase();
-        const normalizedTest = testEmail.trim().toLowerCase();
-        console.log(`[DEBUG] Checking backdoor: '${normalizedInput}' vs '${normalizedTest}'`);
+    if (isDevEnvironment() && testEmail && testCode) {
+        const normalizedTest = normalizeEmail(testEmail);
+        console.log(`[DEBUG] Checking backdoor: '${email}' vs '${normalizedTest}'`);
         
-        if (normalizedInput === normalizedTest && code === testCode) {
+        if (email === normalizedTest && code === testCode) {
             isBackdoor = true;
         }
     }

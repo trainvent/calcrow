@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'dart:isolate';
-import 'package:archive/archive.dart';
 import 'package:excel/excel.dart' as excel_pkg;
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
@@ -17,10 +15,8 @@ import 'package:calcrow/core/data/services/simple_cloud_document_service.dart';
 import 'package:calcrow/core/data/services/simple_local_document_service.dart';
 import 'package:calcrow/core/data/services/simple_sheet_persistence_service.dart';
 import 'package:calcrow/core/data/services/user_repository.dart';
-import 'package:calcrow/core/sheet_type_logic/csv_logic.dart';
-import 'package:calcrow/core/sheet_type_logic/ods_logic.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
-import 'package:calcrow/core/sheet_type_logic/xlsx_logic.dart';
+import 'package:calcrow/core/sheet_type_logic/simple_sheet_file_service.dart';
 import 'package:calcrow/features/home/presentation/tabs/Today/simple/widgets/select_time_widget.dart';
 import 'package:calcrow/features/home/presentation/tabs/Today/simple/widgets/timespan_widget.dart';
 
@@ -101,6 +97,8 @@ class _TodayPageState extends State<TodayPage> {
   SimpleFileFormat? _simpleImportedFormat;
   String _simpleCsvDelimiter = ',';
   bool _simpleHasTypeRow = false;
+  int _simpleHeaderRowIndex = 0;
+  int _simpleStartColumnIndex = 0;
   List<String> _simpleHeaders = const <String>[];
   List<String> _simpleValueTypes = const <String>[];
   List<bool> _simpleReadOnlyColumns = const <bool>[];
@@ -342,109 +340,16 @@ class _TodayPageState extends State<TodayPage> {
     return ServiceLocator.simpleCloudDocumentService.buildSubtitle();
   }
 
-  Future<SimpleSheetData> _parseOdsSheetData({
-    required Uint8List bytes,
-    required String fileName,
-    required String? path,
-  }) async {
-    final transfer = await Isolate.run<Map<String, Object?>>(
-      () => parseOdsSheetDataTransfer(<String, Object?>{
-        'bytes': bytes,
-        'fileName': fileName,
-        'path': path,
-        'nowMillisecondsSinceEpoch': DateTime.now().millisecondsSinceEpoch,
-      }),
-    );
-    return simpleSheetDataFromTransfer(transfer);
-  }
-
   Future<SimpleSheetData> _parseSimpleSheetData({
     required Uint8List bytes,
     required String fileName,
     required String? path,
   }) async {
-    final format = _detectSimpleFileFormat(
+    return SimpleSheetFileService.parse(
+      bytes: bytes,
       fileName: fileName,
       path: path,
-      bytes: bytes,
     );
-    switch (format) {
-      case SimpleFileFormat.csv:
-        return CsvSheetLogic.parse(
-          bytes: bytes,
-          fileName: fileName,
-          path: path,
-        );
-      case SimpleFileFormat.xlsx:
-        return XlsxSheetLogic.parse(
-          bytes: bytes,
-          fileName: fileName,
-          path: path,
-        );
-      case SimpleFileFormat.ods:
-        return _parseOdsSheetData(bytes: bytes, fileName: fileName, path: path);
-    }
-  }
-
-  SimpleFileFormat _detectSimpleFileFormat({
-    required String fileName,
-    required String? path,
-    required Uint8List bytes,
-  }) {
-    final normalizedName = fileName.trim().toLowerCase();
-    final normalizedPath = path?.trim().toLowerCase();
-    final extensionSource = normalizedName.isNotEmpty
-        ? normalizedName
-        : (normalizedPath ?? '');
-    if (extensionSource.endsWith('.csv')) return SimpleFileFormat.csv;
-    if (extensionSource.endsWith('.xlsx')) return SimpleFileFormat.xlsx;
-    if (extensionSource.endsWith('.ods')) return SimpleFileFormat.ods;
-    if (extensionSource.endsWith('.xls')) {
-      throw UnsupportedError(
-        'Legacy .xls files are not supported yet. Use .xlsx, .ods, or .csv.',
-      );
-    }
-
-    if (_looksLikeZipArchive(bytes)) {
-      try {
-        final archive = ZipDecoder().decodeBytes(bytes, verify: false);
-        if (archive.findFile('xl/workbook.xml') != null ||
-            archive.files.any((file) => file.name.startsWith('xl/'))) {
-          return SimpleFileFormat.xlsx;
-        }
-        final mimetypeFile = archive.findFile('mimetype');
-        final mimetype = mimetypeFile == null
-            ? null
-            : utf8
-                  .decode(
-                    mimetypeFile.content as List<int>,
-                    allowMalformed: true,
-                  )
-                  .trim()
-                  .toLowerCase();
-        if (mimetype == 'application/vnd.oasis.opendocument.spreadsheet' ||
-            archive.findFile('content.xml') != null) {
-          return SimpleFileFormat.ods;
-        }
-      } catch (_) {
-        throw UnsupportedError(
-          'Could not detect this document type. Use .xlsx, .ods, or .csv.',
-        );
-      }
-      throw UnsupportedError(
-        'This archive format is not supported. Use .xlsx, .ods, or .csv.',
-      );
-    }
-
-    return SimpleFileFormat.csv;
-  }
-
-  bool _looksLikeZipArchive(Uint8List bytes) {
-    if (bytes.length < 4) return false;
-    return bytes[0] == 0x50 &&
-        bytes[1] == 0x4B &&
-        (bytes[2] == 0x03 || bytes[2] == 0x05 || bytes[2] == 0x07) &&
-        (bytes[3] == 0x04 || bytes[3] == 0x06 || bytes[3] == 0x08);
   }
 
   bool _loadSimpleProfileData(
@@ -469,6 +374,8 @@ class _TodayPageState extends State<TodayPage> {
       _simpleImportedFormat = sheetData.format;
       _simpleCsvDelimiter = sheetData.csvDelimiter;
       _simpleHasTypeRow = sheetData.hasTypeRow;
+      _simpleHeaderRowIndex = sheetData.headerRowIndex;
+      _simpleStartColumnIndex = sheetData.startColumnIndex;
       _simpleImportedSheetName = sheetData.xlsxSheetName;
       _simpleHeaders = sheetData.headers;
       _simpleValueTypes = sheetData.valueTypes;
@@ -933,24 +840,12 @@ class _TodayPageState extends State<TodayPage> {
         .selectedSyncFileFromSettings(settings);
     if (existingCloudFile == null) return null;
 
-    final format = _simpleImportedFormat;
+    final format = _simpleImportedFormat ?? SimpleFileFormat.csv;
     final simpleData = _buildSimpleSheetDataForPersist();
-    final bytes = format == SimpleFileFormat.xlsx
-        ? XlsxSheetLogic.buildBytes(simpleData)
-        : format == SimpleFileFormat.ods
-        ? OdsSheetLogic.buildBytes(simpleData)
-        : CsvSheetLogic.buildBytes(simpleData);
-    final mimeType = format == SimpleFileFormat.xlsx
-        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        : format == SimpleFileFormat.ods
-        ? 'application/vnd.oasis.opendocument.spreadsheet'
-        : 'text/csv';
+    final bytes = SimpleSheetFileService.buildBytes(simpleData);
+    final mimeType = SimpleSheetFileService.mimeTypeForFormat(format);
     final fileName = _simpleSuggestedFileName(
-      defaultExtension: format == SimpleFileFormat.xlsx
-          ? 'xlsx'
-          : format == SimpleFileFormat.ods
-          ? 'ods'
-          : 'csv',
+      defaultExtension: SimpleSheetFileService.defaultExtensionForFormat(format),
     );
     final metadata = await ServiceLocator.simpleCloudDocumentService
         .persistDocument(
@@ -965,7 +860,9 @@ class _TodayPageState extends State<TodayPage> {
   Future<SimplePersistResult> _persistSimpleCsv({
     required SimplePersistMode mode,
   }) async {
-    final bytes = CsvSheetLogic.buildBytes(_buildSimpleSheetDataForPersist());
+    final bytes = SimpleSheetFileService.buildBytes(
+      _buildSimpleSheetDataForPersist(),
+    );
     final fileName = _simpleSuggestedFileName();
     return _persistSimpleBytes(
       bytes: bytes,
@@ -980,7 +877,9 @@ class _TodayPageState extends State<TodayPage> {
   Future<SimplePersistResult> _persistSimpleXlsx({
     required SimplePersistMode mode,
   }) async {
-    final bytes = XlsxSheetLogic.buildBytes(_buildSimpleSheetDataForPersist());
+    final bytes = SimpleSheetFileService.buildBytes(
+      _buildSimpleSheetDataForPersist(),
+    );
 
     final fileName = _simpleSuggestedFileName(defaultExtension: 'xlsx');
     return _persistSimpleBytes(
@@ -997,7 +896,9 @@ class _TodayPageState extends State<TodayPage> {
   Future<SimplePersistResult> _persistSimpleOds({
     required SimplePersistMode mode,
   }) async {
-    final bytes = OdsSheetLogic.buildBytes(_buildSimpleSheetDataForPersist());
+    final bytes = SimpleSheetFileService.buildBytes(
+      _buildSimpleSheetDataForPersist(),
+    );
 
     final fileName = _simpleSuggestedFileName(defaultExtension: 'ods');
     return _persistSimpleBytes(
@@ -1015,18 +916,10 @@ class _TodayPageState extends State<TodayPage> {
   }) async {
     final simpleData = _buildSimpleSheetDataForPersist();
     final format = _simpleImportedFormat ?? SimpleFileFormat.csv;
-    final bytes = format == SimpleFileFormat.xlsx
-        ? XlsxSheetLogic.buildBytes(simpleData)
-        : format == SimpleFileFormat.ods
-        ? OdsSheetLogic.buildBytes(simpleData)
-        : CsvSheetLogic.buildBytes(simpleData);
+    final bytes = SimpleSheetFileService.buildBytes(simpleData);
     final mimeType = _mimeTypeForFormat(format);
     final fileName = _simpleSuggestedFileName(
-      defaultExtension: format == SimpleFileFormat.xlsx
-          ? 'xlsx'
-          : format == SimpleFileFormat.ods
-          ? 'ods'
-          : 'csv',
+      defaultExtension: SimpleSheetFileService.defaultExtensionForFormat(format),
     );
 
     final metadata = await ServiceLocator.simpleCloudDocumentService
@@ -1073,6 +966,8 @@ class _TodayPageState extends State<TodayPage> {
       rows: _simpleRows,
       csvDelimiter: _simpleCsvDelimiter,
       hasTypeRow: _simpleHasTypeRow,
+      headerRowIndex: _simpleHeaderRowIndex,
+      startColumnIndex: _simpleStartColumnIndex,
       xlsxSheetName: _simpleImportedSheetName,
       workbook: _simpleImportedWorkbook,
       sourceBytes: _simpleImportedSourceBytes,
@@ -1080,14 +975,7 @@ class _TodayPageState extends State<TodayPage> {
   }
 
   String _mimeTypeForFormat(SimpleFileFormat format) {
-    switch (format) {
-      case SimpleFileFormat.csv:
-        return 'text/csv';
-      case SimpleFileFormat.xlsx:
-        return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-      case SimpleFileFormat.ods:
-        return 'application/vnd.oasis.opendocument.spreadsheet';
-    }
+    return SimpleSheetFileService.mimeTypeForFormat(format);
   }
 
   Future<SimplePersistResult> _persistSimpleBytes({
@@ -1233,11 +1121,9 @@ class _TodayPageState extends State<TodayPage> {
     final current = _simpleImportedFileName?.trim();
     final extension =
         defaultExtension ??
-        (_simpleImportedFormat == SimpleFileFormat.xlsx
-            ? 'xlsx'
-            : _simpleImportedFormat == SimpleFileFormat.ods
-            ? 'ods'
-            : 'csv');
+        SimpleSheetFileService.defaultExtensionForFormat(
+          _simpleImportedFormat ?? SimpleFileFormat.csv,
+        );
     if (current == null || current.isEmpty) {
       return 'calcrow_simple.$extension';
     }
@@ -2449,6 +2335,8 @@ class _TodayPageState extends State<TodayPage> {
       _simpleImportedFormat = null;
       _simpleCsvDelimiter = ',';
       _simpleHasTypeRow = false;
+      _simpleHeaderRowIndex = 0;
+      _simpleStartColumnIndex = 0;
       _simpleHeaders = const <String>[];
       _simpleValueTypes = const <String>[];
       _simpleReadOnlyColumns = const <bool>[];

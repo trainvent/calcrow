@@ -165,3 +165,8 @@ app.*.symbols
 .gclient_previous_sync_commits
 
 docs/keys/
+
+# Firebase Functions
+functions/node_modules/
+functions/lib/
+functions/.env*
