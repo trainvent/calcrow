@@ -31,7 +31,7 @@ function generateCode(): string {
     return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-async function sendEmail(email: string, code: string, type: 'verification' | 'login') {
+async function sendCodeEmail(email: string, code: string, type: 'verification' | 'login') {
     const password = smtpPassword.value();
     console.log(`[DEBUG] Preparing to send email to ${email}. Password present: ${!!password}. Host: ${smtpHost}. User: ${smtpUser}. Port: ${smtpPort}. Secure: ${smtpSecure}.`);
 
@@ -71,6 +71,51 @@ async function sendEmail(email: string, code: string, type: 'verification' | 'lo
     }
 }
 
+async function sendPasswordResetMessage(email: string, resetLink: string) {
+    const password = smtpPassword.value();
+    console.log(`[DEBUG] Preparing password reset email to ${email}. Password present: ${!!password}. Host: ${smtpHost}. User: ${smtpUser}. Port: ${smtpPort}. Secure: ${smtpSecure}.`);
+
+    if (!password) {
+        console.error("SMTP_PASSWORD is not set in environment variables.");
+        throw new HttpsError('internal', 'Email configuration error.');
+    }
+
+    const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpSecure,
+        requireTLS: !smtpSecure,
+        auth: {
+            user: smtpUser,
+            pass: password,
+        },
+    } as nodemailer.TransportOptions);
+
+    const mailOptions = {
+        from: `"CalcRow Team" <${smtpMail}>`,
+        to: email,
+        subject: 'Setze dein Passwort zuruck',
+        text:
+            `Hallo!\n\n` +
+            `du kannst dein CalcRow-Passwort uber diesen Link zurucksetzen:\n` +
+            `${resetLink}\n\n` +
+            `Falls du das nicht angefordert hast, kannst du diese E-Mail ignorieren.`,
+        html:
+            `<p>Hallo!</p>` +
+            `<p>du kannst dein CalcRow-Passwort uber diesen Link zurucksetzen:</p>` +
+            `<p><a href="${resetLink}">Passwort zurucksetzen</a></p>` +
+            `<p>Falls du das nicht angefordert hast, kannst du diese E-Mail ignorieren.</p>`,
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log(`Password reset email sent to ${email}`);
+    } catch (error) {
+        console.error('Error sending password reset email:', error);
+        throw new HttpsError('internal', `Failed to send password reset email: ${error}`);
+    }
+}
+
 async function storeCode(uid: string, email: string, type: 'verification' | 'login') {
     const normalizedEmail = normalizeEmail(email);
     const code = generateCode();
@@ -91,7 +136,7 @@ async function storeCode(uid: string, email: string, type: 'verification' | 'log
     }
 
     console.log(`[${type.toUpperCase()}] Code for ${email}: ${code}`);
-    await sendEmail(email, code, type);
+    await sendCodeEmail(email, code, type);
 }
 
 async function verifyCodeLogic(uid: string, code: string, email?: string) {
@@ -308,4 +353,34 @@ export const verifyLoginCode = onCall(async (request) => {
     }
 
     return { success: true, token: token };
+});
+
+/**
+ * Sends a password reset email through the same SMTP channel used for auth codes.
+ * Publicly callable.
+ */
+export const sendPasswordResetLinkEmail = onCall({ secrets: [smtpPassword] }, async (request) => {
+    const rawEmail = request.data.email as string | undefined;
+    if (!rawEmail) {
+        throw new HttpsError('invalid-argument', 'Email is required.');
+    }
+    const email = normalizeEmail(rawEmail);
+
+    try {
+        await admin.auth().getUserByEmail(email);
+    } catch (error) {
+        console.error("User lookup failed in password reset:", error);
+        throw new HttpsError('not-found', 'No user found with this email.');
+    }
+
+    let resetLink: string;
+    try {
+        resetLink = await admin.auth().generatePasswordResetLink(email);
+    } catch (error) {
+        console.error('Failed to generate password reset link:', error);
+        throw new HttpsError('internal', 'Could not generate password reset link.');
+    }
+
+    await sendPasswordResetMessage(email, resetLink);
+    return { success: true, message: 'Password reset email sent.' };
 });
