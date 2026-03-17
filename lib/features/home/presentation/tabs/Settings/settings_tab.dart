@@ -146,19 +146,193 @@ class _SettingsTabState extends State<SettingsTab> {
                 ),
                 builder: (context, snapshot) {
                   final settings = snapshot.data;
-                  final dateFormat =
-                      settings?.defaultDateFormat ?? 'YYYY-MM-DD';
 
-                  return Card(
-                    child: Column(
-                      children: [
-                        ListTile(
-                          leading: const Icon(Icons.date_range_outlined),
-                          title: const Text('Default date format'),
-                          subtitle: Text(dateFormat),
+                  return Column(
+                    children: [
+                      Card(
+                        child: Column(
+                          children: [
+                            ListTile(
+                              leading: const Icon(
+                                Icons.workspace_premium_outlined,
+                              ),
+                              title: const Text('Entitlement'),
+                              subtitle: Text(
+                                settings?.isPro == true
+                                    ? 'Pro enabled.'
+                                    : 'Open subscription and purchase options.',
+                              ),
+                              trailing: const Icon(Icons.chevron_right_rounded),
+                              onTap: () =>
+                                  _openEntitlementScreen(session: session),
+                            ),
+                            const Divider(height: 1),
+                            ListTile(
+                              leading: const Icon(Icons.folder_special_outlined),
+                              title: const Text('Manage SAF folder'),
+                              subtitle: Text(_safFolderSubtitle(settings)),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                              child: _buildSafActionGrid(
+                                setButton: OutlinedButton(
+                                  onPressed: _isUpdatingSafFolder
+                                      ? null
+                                      : () => _setSafFolder(session: session),
+                                  child: const Text('Set'),
+                                ),
+                                testButton: OutlinedButton(
+                                  onPressed: _isUpdatingSafFolder
+                                      ? null
+                                      : () => _testSafFolder(
+                                          settings: settings,
+                                        ),
+                                  child: const Text('Test'),
+                                ),
+                                revertButton: OutlinedButton(
+                                  onPressed: _isUpdatingSafFolder
+                                      ? null
+                                      : () => _revertSafTest(
+                                          settings: settings,
+                                        ),
+                                  child: const Text('Test Revert'),
+                                ),
+                                clearButton: TextButton(
+                                  onPressed: _isUpdatingSafFolder
+                                      ? null
+                                      : () => _clearSafFolder(
+                                          session: session,
+                                        ),
+                                  child: const Text('Clear'),
+                                ),
+                              ),
+                            ),
+                            if (_isUpdatingSafFolder)
+                              const Padding(
+                                padding: EdgeInsets.only(bottom: 12),
+                                child: SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              ),
+                            const Divider(height: 1),
+                            ListTile(
+                              leading: const Icon(Icons.logout_rounded),
+                              title: const Text('Sign out'),
+                              onTap: () => ServiceLocator.authService.signOut(),
+                            ),
+                          ],
                         ),
-                        const Divider(height: 1),
-                        SwitchListTile(
+                      ),
+                      const SizedBox(height: 12),
+                      Card(
+                        child: Column(
+                          children: [
+                            _buildSectionHeader(
+                              context,
+                              title: 'Cloud Settings',
+                              subtitle:
+                                  'Manage Google Drive and WebDAV connections.',
+                            ),
+                            const Divider(height: 1),
+                            ListTile(
+                              leading: const Icon(Icons.cloud_sync_outlined),
+                              title: const Text('Active cloud provider'),
+                              subtitle: Text(
+                                _activeCloudProviderSubtitle(settings),
+                              ),
+                              trailing: DropdownButtonHideUnderline(
+                                child: DropdownButton<CloudSyncProvider>(
+                                  value: _selectedCloudProvider(settings),
+                                  hint: const Text('Choose'),
+                                  onChanged:
+                                      _availableCloudProviders(settings).isEmpty
+                                      ? null
+                                      : (value) {
+                                          if (value == null) return;
+                                          _setCloudSyncProvider(
+                                            session: session,
+                                            provider: value,
+                                          );
+                                        },
+                                  items: _availableCloudProviders(settings)
+                                      .map(
+                                        (provider) =>
+                                            DropdownMenuItem<CloudSyncProvider>(
+                                              value: provider,
+                                              child: Text(
+                                                _cloudProviderLabel(provider),
+                                              ),
+                                            ),
+                                      )
+                                      .toList(),
+                                ),
+                              ),
+                            ),
+                            const Divider(height: 1),
+                            ListTile(
+                              leading: const Icon(Icons.link_rounded),
+                              title: const Text('Link Google account'),
+                              subtitle: Text(_googleDriveSubtitle(settings)),
+                              trailing: _isLinkingGoogle
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : TextButton(
+                                      onPressed: () => _toggleGoogleLink(
+                                        session: session,
+                                        currentlyLinked: _isGoogleDriveLinked(
+                                          settings,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        _isGoogleDriveLinked(settings)
+                                            ? 'Unlink'
+                                            : 'Link',
+                                      ),
+                                    ),
+                            ),
+                            const Divider(height: 1),
+                            ListTile(
+                              leading: const Icon(Icons.storage_rounded),
+                              title: const Text('Link WebDAV / Nextcloud'),
+                              subtitle: Text(_webDavSubtitle(settings)),
+                              trailing: _isLinkingWebDav
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : TextButton(
+                                      onPressed: () => _toggleWebDavLink(
+                                        session: session,
+                                        currentlyLinked: _isWebDavLinked(
+                                          settings,
+                                        ),
+                                        settings: settings,
+                                      ),
+                                      child: Text(
+                                        _isWebDavLinked(settings)
+                                            ? 'Unlink'
+                                            : 'Link',
+                                      ),
+                                    ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Card(
+                        child: SwitchListTile(
                           secondary: const Icon(Icons.tune_rounded),
                           title: const Text('Advanced features'),
                           subtitle: const Text(
@@ -172,171 +346,8 @@ class _SettingsTabState extends State<SettingsTab> {
                                   enabled: value,
                                 ),
                         ),
-                        const Divider(height: 1),
-                        const ListTile(
-                          leading: Icon(Icons.cloud_done_outlined),
-                          title: Text('Cloud backup'),
-                          subtitle: Text(
-                            'Manage Google Drive and WebDAV connections.',
-                          ),
-                        ),
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.workspace_premium_outlined),
-                          title: const Text('Entitlement'),
-                          subtitle: Text(
-                            settings?.isPro == true
-                                ? 'Pro enabled.'
-                                : 'Open subscription and purchase options.',
-                          ),
-                          trailing: const Icon(Icons.chevron_right_rounded),
-                          onTap: () => _openEntitlementScreen(session: session),
-                        ),
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.link_rounded),
-                          title: const Text('Link Google account'),
-                          subtitle: Text(_googleDriveSubtitle(settings)),
-                          trailing: _isLinkingGoogle
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : TextButton(
-                                  onPressed: () => _toggleGoogleLink(
-                                    session: session,
-                                    currentlyLinked: _isGoogleDriveLinked(
-                                      settings,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    _isGoogleDriveLinked(settings)
-                                        ? 'Unlink'
-                                        : 'Link',
-                                  ),
-                                ),
-                        ),
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.storage_rounded),
-                          title: const Text('Link WebDAV / Nextcloud'),
-                          subtitle: Text(_webDavSubtitle(settings)),
-                          trailing: _isLinkingWebDav
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : TextButton(
-                                  onPressed: () => _toggleWebDavLink(
-                                    session: session,
-                                    currentlyLinked: _isWebDavLinked(settings),
-                                    settings: settings,
-                                  ),
-                                  child: Text(
-                                    _isWebDavLinked(settings)
-                                        ? 'Unlink'
-                                        : 'Link',
-                                  ),
-                                ),
-                        ),
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.cloud_sync_outlined),
-                          title: const Text('Active cloud provider'),
-                          subtitle: Text(
-                            _activeCloudProviderSubtitle(settings),
-                          ),
-                          trailing: DropdownButtonHideUnderline(
-                            child: DropdownButton<CloudSyncProvider>(
-                              value: _selectedCloudProvider(settings),
-                              hint: const Text('Choose'),
-                              onChanged:
-                                  _availableCloudProviders(settings).isEmpty
-                                  ? null
-                                  : (value) {
-                                      if (value == null) return;
-                                      _setCloudSyncProvider(
-                                        session: session,
-                                        provider: value,
-                                      );
-                                    },
-                              items: _availableCloudProviders(settings)
-                                  .map(
-                                    (provider) =>
-                                        DropdownMenuItem<CloudSyncProvider>(
-                                          value: provider,
-                                          child: Text(
-                                            _cloudProviderLabel(provider),
-                                          ),
-                                        ),
-                                  )
-                                  .toList(),
-                            ),
-                          ),
-                        ),
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.folder_special_outlined),
-                          title: const Text('Manage SAF folder'),
-                          subtitle: Text(_safFolderSubtitle(settings)),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                          child: _buildSafActionGrid(
-                            setButton: OutlinedButton(
-                              onPressed: _isUpdatingSafFolder
-                                  ? null
-                                  : () => _setSafFolder(session: session),
-                              child: const Text('Set'),
-                            ),
-                            testButton: OutlinedButton(
-                              onPressed: _isUpdatingSafFolder
-                                  ? null
-                                  : () => _testSafFolder(settings: settings),
-                              child: const Text('Test'),
-                            ),
-                            revertButton: OutlinedButton(
-                              onPressed: _isUpdatingSafFolder
-                                  ? null
-                                  : () => _revertSafTest(settings: settings),
-                              child: const Text('Test Revert'),
-                            ),
-                            clearButton: TextButton(
-                              onPressed: _isUpdatingSafFolder
-                                  ? null
-                                  : () => _clearSafFolder(session: session),
-                              child: const Text('Clear'),
-                            ),
-                          ),
-                        ),
-                        if (_isUpdatingSafFolder)
-                          const Padding(
-                            padding: EdgeInsets.only(bottom: 12),
-                            child: SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          ),
-                        const Divider(height: 1),
-                        const ListTile(
-                          leading: Icon(Icons.lock_outline_rounded),
-                          title: Text('Privacy policy'),
-                        ),
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.logout_rounded),
-                          title: const Text('Sign out'),
-                          onTap: () => ServiceLocator.authService.signOut(),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   );
                 },
               ),
@@ -459,6 +470,25 @@ class _SettingsTabState extends State<SettingsTab> {
       return 'No SAF folder configured.';
     }
     return effectiveUri;
+  }
+
+  Widget _buildSectionHeader(
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+  }) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: theme.textTheme.titleMedium),
+          const SizedBox(height: 4),
+          Text(subtitle, style: theme.textTheme.bodyMedium),
+        ],
+      ),
+    );
   }
 
   Widget _buildSafActionGrid({
