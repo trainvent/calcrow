@@ -92,6 +92,11 @@ class _EntitlementPageState extends State<EntitlementPage> {
           ),
         ),
       );
+    } on PurchasesServiceException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     } finally {
       if (mounted) {
         setState(() => _isBusy = false);

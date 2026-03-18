@@ -7,6 +7,15 @@ import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 
 enum EntitlementTier { free, pro }
 
+class PurchasesServiceException implements Exception {
+  const PurchasesServiceException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class PurchasesService {
   PurchasesService._internal();
 
@@ -68,14 +77,38 @@ class PurchasesService {
   }
 
   Future<bool> presentPaywall() async {
-    if (!_isInitialized || kIsWeb) return false;
+    if (kIsWeb) {
+      throw const PurchasesServiceException(
+        'RevenueCat paywalls are not supported on web builds.',
+      );
+    }
+    if (!_isInitialized) {
+      throw const PurchasesServiceException(
+        'RevenueCat is not initialized for this build.',
+      );
+    }
     try {
-      await RevenueCatUI.presentPaywall();
+      final offerings = await Purchases.getOfferings();
+      final offering = offerings.current;
+      if (offering == null) {
+        throw const PurchasesServiceException(
+          'No current RevenueCat offering is configured. Set one in the RevenueCat dashboard first.',
+        );
+      }
+      if (offering.availablePackages.isEmpty) {
+        throw PurchasesServiceException(
+          'The current RevenueCat offering "${offering.identifier}" has no packages.',
+        );
+      }
+
+      await RevenueCatUI.presentPaywall(offering: offering);
       await refreshCustomerInfo();
       return true;
+    } on PurchasesServiceException {
+      rethrow;
     } catch (error, stackTrace) {
       log('presentPaywall error: $error\n$stackTrace');
-      return false;
+      throw PurchasesServiceException('Could not open paywall: $error');
     }
   }
 
