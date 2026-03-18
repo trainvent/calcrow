@@ -108,6 +108,7 @@ class _TodayPageState extends State<TodayPage> {
       const <TextEditingController>[];
   excel_pkg.Excel? _simpleImportedWorkbook;
   Uint8List? _simpleImportedSourceBytes;
+  bool _rememberLocalDocumentForReopen = false;
   int _simpleEditingRowIndex = 0;
   String? _importedFileName;
   List<List<String>> _allRows = const <List<String>>[];
@@ -150,6 +151,12 @@ class _TodayPageState extends State<TodayPage> {
   bool get _hasSimpleControllersReady =>
       _simpleControllers.length == _simpleHeaders.length &&
       _simpleReadOnlyColumns.length == _simpleHeaders.length;
+
+  bool get _hasRememberedLocalDocument =>
+      _rememberLocalDocumentForReopen &&
+      (_simpleImportedPath?.trim().isNotEmpty == true ||
+          (_simpleImportedSourceBytes?.isNotEmpty ?? false)) &&
+      (_simpleImportedFileName?.trim().isNotEmpty == true);
 
   Future<void> _runWithDocumentOpeningIndicator(
     Future<void> Function() action,
@@ -218,7 +225,63 @@ class _TodayPageState extends State<TodayPage> {
     });
   }
 
-  Future<void> _openCloudDocument({required CloudFileMetadata file}) async {
+  Future<void> _openOrChooseLocalDocumentForSimple() async {
+    final canReopenRememberedLocal =
+        _rememberLocalDocumentForReopen &&
+        (_simpleImportedPath?.trim().isNotEmpty == true ||
+            (_simpleImportedSourceBytes?.isNotEmpty ?? false)) &&
+        (_simpleImportedFileName?.trim().isNotEmpty == true);
+    if (!canReopenRememberedLocal) {
+      await _importLocalDocumentForSimple();
+      return;
+    }
+
+    await _runWithDocumentOpeningIndicator(() async {
+      try {
+        final messenger = ScaffoldMessenger.of(context);
+        final result = await ServiceLocator.simpleLocalDocumentService
+            .reopenDocumentForSimpleEditor(
+              fileName: _simpleImportedFileName!,
+              existingPath: _simpleImportedPath,
+              cachedBytes: _simpleImportedSourceBytes,
+              parseSheetData: _parseSimpleSheetData,
+            );
+        if (!mounted) return;
+
+        final loaded = _loadSimpleProfileData(
+          result.sheetData,
+          target: _LocalSimpleDocumentTarget(existingPath: result.existingPath),
+        );
+        if (!loaded) return;
+
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              'Opened local document ${result.sheetData.fileName}.',
+            ),
+          ),
+        );
+      } on LocalSimpleDocumentException {
+        if (!mounted) return;
+        setState(() => _rememberLocalDocumentForReopen = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not reopen the remembered local file. Choose it again.',
+            ),
+          ),
+        );
+        await _importLocalDocumentForSimple();
+      } catch (_) {
+        if (!mounted) return;
+        setState(() => _rememberLocalDocumentForReopen = false);
+        await _importLocalDocumentForSimple();
+      }
+    });
+  }
+
+  Future<bool> _openCloudDocument({required CloudFileMetadata file}) async {
+    var opened = false;
     await _runWithDocumentOpeningIndicator(() async {
       final messenger = ScaffoldMessenger.of(context);
       try {
@@ -235,6 +298,7 @@ class _TodayPageState extends State<TodayPage> {
           ),
         );
         if (!loaded) return;
+        opened = true;
         messenger.showSnackBar(
           SnackBar(
             content: Text(
@@ -257,6 +321,41 @@ class _TodayPageState extends State<TodayPage> {
         );
       }
     });
+    return opened;
+  }
+
+  Future<void> _openOrChooseCloudSyncFile() async {
+    final session = ServiceLocator.authService.currentSession;
+    if (session == null) {
+      await _chooseCloudSyncFile();
+      return;
+    }
+
+    try {
+      final settings = await ServiceLocator.userRepository.getUserSettings(
+        session.uid,
+      );
+      final selectedFile = ServiceLocator.simpleCloudDocumentService
+          .selectedSyncFileFromSettings(settings);
+      if (selectedFile == null) {
+        await _chooseCloudSyncFile();
+        return;
+      }
+
+      final opened = await _openCloudDocument(file: selectedFile);
+      if (!opened && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not open saved sync file. Choose another one.',
+            ),
+          ),
+        );
+        await _chooseCloudSyncFile();
+      }
+    } catch (_) {
+      await _chooseCloudSyncFile();
+    }
   }
 
   Future<void> _chooseCloudSyncFile() async {
@@ -340,6 +439,27 @@ class _TodayPageState extends State<TodayPage> {
     return ServiceLocator.simpleCloudDocumentService.buildSubtitle();
   }
 
+  Future<_CloudDocumentPromptData> _cloudDocumentPromptData() async {
+    final subtitle = await _cloudDocumentSubtitle();
+    final session = ServiceLocator.authService.currentSession;
+    if (session == null) {
+      return const _CloudDocumentPromptData(
+        subtitle: 'Connect a cloud provider in Settings first.',
+        hasSelectedFile: false,
+      );
+    }
+    final settings = await ServiceLocator.userRepository.getUserSettings(
+      session.uid,
+    );
+    return _CloudDocumentPromptData(
+      subtitle: subtitle,
+      hasSelectedFile:
+          ServiceLocator.simpleCloudDocumentService
+              .selectedSyncFileFromSettings(settings) !=
+          null,
+    );
+  }
+
   Future<SimpleSheetData> _parseSimpleSheetData({
     required Uint8List bytes,
     required String fileName,
@@ -385,6 +505,7 @@ class _TodayPageState extends State<TodayPage> {
       _simpleRows = sheetData.rows;
       _simpleImportedWorkbook = sheetData.workbook;
       _simpleImportedSourceBytes = sheetData.sourceBytes;
+      _rememberLocalDocumentForReopen = target is! _CloudSimpleDocumentTarget;
       _simpleDocumentTarget =
           target ?? _LocalSimpleDocumentTarget(existingPath: sheetData.path);
     });
@@ -845,7 +966,9 @@ class _TodayPageState extends State<TodayPage> {
     final bytes = SimpleSheetFileService.buildBytes(simpleData);
     final mimeType = SimpleSheetFileService.mimeTypeForFormat(format);
     final fileName = _simpleSuggestedFileName(
-      defaultExtension: SimpleSheetFileService.defaultExtensionForFormat(format),
+      defaultExtension: SimpleSheetFileService.defaultExtensionForFormat(
+        format,
+      ),
     );
     final metadata = await ServiceLocator.simpleCloudDocumentService
         .persistDocument(
@@ -919,7 +1042,9 @@ class _TodayPageState extends State<TodayPage> {
     final bytes = SimpleSheetFileService.buildBytes(simpleData);
     final mimeType = _mimeTypeForFormat(format);
     final fileName = _simpleSuggestedFileName(
-      defaultExtension: SimpleSheetFileService.defaultExtensionForFormat(format),
+      defaultExtension: SimpleSheetFileService.defaultExtensionForFormat(
+        format,
+      ),
     );
 
     final metadata = await ServiceLocator.simpleCloudDocumentService
@@ -937,6 +1062,7 @@ class _TodayPageState extends State<TodayPage> {
     setState(() {
       _simpleImportedFileName = metadata.name;
       _simpleImportedPath = null;
+      _rememberLocalDocumentForReopen = false;
       _simpleDocumentTarget = _CloudSimpleDocumentTarget(
         provider: metadata.provider,
         fileId: metadata.id,
@@ -1002,6 +1128,7 @@ class _TodayPageState extends State<TodayPage> {
     setState(() {
       _simpleImportedPath = result.savedPath;
       _simpleImportedFileName = result.resolvedFileName;
+      _rememberLocalDocumentForReopen = true;
       _simpleDocumentTarget = _LocalSimpleDocumentTarget(
         existingPath: result.savedPath,
       );
@@ -1025,6 +1152,41 @@ class _TodayPageState extends State<TodayPage> {
       return SimpleSheetPersistenceService.runtimeSafTreeUri;
     }
     return uri;
+  }
+
+  void _forgetRememberedLocalDocument() {
+    setState(() {
+      _rememberLocalDocumentForReopen = false;
+      _simpleImportedPath = null;
+      if (_simpleDocumentTarget is _LocalSimpleDocumentTarget) {
+        _simpleDocumentTarget = const _LocalSimpleDocumentTarget(
+          existingPath: null,
+        );
+      }
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Remembered local file cleared. Pick a file again anytime.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _clearSelectedCloudSyncFile() async {
+    try {
+      await ServiceLocator.simpleCloudDocumentService.clearSelectedSyncFile();
+      if (!mounted) return;
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Remembered cloud sync file cleared.')),
+      );
+    } on CloudSimpleDocumentException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
   }
 
   Future<void> _openSafDebugFixture(SimpleFileFormat format) async {
@@ -1783,11 +1945,20 @@ class _TodayPageState extends State<TodayPage> {
         children: [
           _SetupCard(
             title: 'Edit Local Document',
-            subtitle: !kIsWeb && defaultTargetPlatform == TargetPlatform.android
+            subtitle: _hasRememberedLocalDocument
+                ? 'Remembered local file: ${_simpleImportedFileName!}'
+                : !kIsWeb && defaultTargetPlatform == TargetPlatform.android
                 ? 'Open a CSV, XLSX, or ODS document via Android SAF for direct save-back when available'
                 : 'Open CSV, XLSX, or ODS. Calcrow detects the file type automatically.',
             icon: Icons.folder_open_rounded,
-            onTap: _importLocalDocumentForSimple,
+            onTap: _openOrChooseLocalDocumentForSimple,
+            subtitleAction: _hasRememberedLocalDocument
+                ? _InlineSetupAction(
+                    icon: Icons.clear,
+                    tooltip: 'Clear remembered local file',
+                    onTap: _forgetRememberedLocalDocument,
+                  )
+                : null,
           ),
           if (kDebugMode &&
               !kIsWeb &&
@@ -1842,16 +2013,23 @@ class _TodayPageState extends State<TodayPage> {
             ),
           ],
           const SizedBox(height: 14),
-          FutureBuilder<String>(
-            future: _cloudDocumentSubtitle(),
+          FutureBuilder<_CloudDocumentPromptData>(
+            future: _cloudDocumentPromptData(),
             builder: (context, snapshot) {
               final subtitle =
-                  snapshot.data ??
+                  snapshot.data?.subtitle ??
                   'Choose or create the active cloud sync file.';
               return _SetupCard(
                 title: 'Edit Cloud Document',
                 subtitle: subtitle,
                 icon: Icons.cloud_outlined,
+                subtitleAction: snapshot.data?.hasSelectedFile == true
+                    ? _InlineSetupAction(
+                        icon: Icons.clear,
+                        tooltip: 'Clear remembered cloud file',
+                        onTap: _clearSelectedCloudSyncFile,
+                      )
+                    : null,
                 trailing: _isChoosingCloudFile
                     ? const SizedBox(
                         width: 22,
@@ -1859,7 +2037,7 @@ class _TodayPageState extends State<TodayPage> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : null,
-                onTap: _isChoosingCloudFile ? null : _chooseCloudSyncFile,
+                onTap: _isChoosingCloudFile ? null : _openOrChooseCloudSyncFile,
               );
             },
           ),
@@ -1908,6 +2086,11 @@ class _TodayPageState extends State<TodayPage> {
     final pendingTypeSelectionMessage = isSheetDocumentSource
         ? 'Set Datatypes and bear in mind that calculated fields are read-only.'
         : 'This file has no usable type row yet. Pick the editable field formats once before saving.';
+    final canForgetRememberedLocal =
+        _rememberLocalDocumentForReopen &&
+        _simpleDocumentTarget is _LocalSimpleDocumentTarget &&
+        (_simpleImportedPath?.trim().isNotEmpty == true ||
+            (_simpleImportedSourceBytes?.isNotEmpty ?? false));
 
     return Column(
       children: [
@@ -1922,11 +2105,26 @@ class _TodayPageState extends State<TodayPage> {
                     children: [
                       Text('Current File', style: theme.textTheme.titleMedium),
                       const SizedBox(height: 6),
-                      Text(
-                        _simpleImportedFileName == null
-                            ? targetLabel
-                            : '${_simpleImportedFileName!} - $targetLabel',
-                        style: theme.textTheme.bodyMedium,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          if (canForgetRememberedLocal) ...[
+                            _InlineSetupAction(
+                              icon: Icons.clear,
+                              tooltip: 'Clear remembered local file',
+                              onTap: _forgetRememberedLocalDocument,
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          Expanded(
+                            child: Text(
+                              _simpleImportedFileName == null
+                                  ? targetLabel
+                                  : '${_simpleImportedFileName!} - $targetLabel',
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                          ),
+                        ],
                       ),
                       if (activeSheetLabel != null) ...[
                         const SizedBox(height: 4),
@@ -1939,7 +2137,7 @@ class _TodayPageState extends State<TodayPage> {
                   ),
                 ),
                 TextButton(
-                  onPressed: _importLocalDocumentForSimple,
+                  onPressed: _openOrChooseLocalDocumentForSimple,
                   child: const Text('Open Document'),
                 ),
               ],
@@ -2345,6 +2543,7 @@ class _TodayPageState extends State<TodayPage> {
       _simpleEditingRowIndex = 0;
       _simpleImportedWorkbook = null;
       _simpleImportedSourceBytes = null;
+      _rememberLocalDocumentForReopen = false;
       _simpleDocumentTarget = null;
     });
 
@@ -2416,6 +2615,16 @@ class _CloudFolderNode {
 
   final String? id;
   final String name;
+}
+
+class _CloudDocumentPromptData {
+  const _CloudDocumentPromptData({
+    required this.subtitle,
+    required this.hasSelectedFile,
+  });
+
+  final String subtitle;
+  final bool hasSelectedFile;
 }
 
 class _CloudFilePickerDialog extends StatefulWidget {
@@ -2698,6 +2907,7 @@ class _SetupCard extends StatelessWidget {
     required this.icon,
     required this.onTap,
     this.trailing,
+    this.subtitleAction,
   });
 
   final String title;
@@ -2705,6 +2915,7 @@ class _SetupCard extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onTap;
   final Widget? trailing;
+  final Widget? subtitleAction;
 
   @override
   Widget build(BuildContext context) {
@@ -2723,13 +2934,58 @@ class _SetupCard extends StatelessWidget {
                   children: [
                     Text(title, style: theme.textTheme.titleMedium),
                     const SizedBox(height: 5),
-                    Text(subtitle, style: theme.textTheme.bodyMedium),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        if (subtitleAction != null) ...[
+                          subtitleAction!,
+                          const SizedBox(width: 8),
+                        ],
+                        Expanded(
+                          child: Text(
+                            subtitle,
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
               const SizedBox(width: 10),
               trailing ?? Icon(icon),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InlineSetupAction extends StatelessWidget {
+  const _InlineSetupAction({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Tooltip(
+        message: tooltip,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+            child: Icon(icon, size: 22, color: theme.colorScheme.primary),
           ),
         ),
       ),

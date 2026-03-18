@@ -8,7 +8,13 @@ import 'package:flutter/material.dart';
 import '../../../core/data/di/service_locator.dart';
 import '../../../core/data/services/auth_service.dart';
 
-enum _AuthStep { signIn, register, verifyEmail, forgotPassword }
+enum _AuthStep {
+  signIn,
+  register,
+  verifyEmail,
+  forgotPassword,
+  resetPasswordConfirm,
+}
 
 Future<T?> showSignInSheet<T>(BuildContext context) {
   return showGeneralDialog<T>(
@@ -53,6 +59,10 @@ class _SignInSheetState extends State<SignInSheet> {
   final TextEditingController _confirmPasswordController =
       TextEditingController();
   final TextEditingController _codeController = TextEditingController();
+  final TextEditingController _resetPasswordController =
+      TextEditingController();
+  final TextEditingController _resetConfirmPasswordController =
+      TextEditingController();
 
   _AuthStep _step = _AuthStep.signIn;
   bool _isLoading = false;
@@ -68,6 +78,8 @@ class _SignInSheetState extends State<SignInSheet> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _codeController.dispose();
+    _resetPasswordController.dispose();
+    _resetConfirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -291,7 +303,7 @@ class _SignInSheetState extends State<SignInSheet> {
     }
   }
 
-  Future<void> _sendPasswordReset() async {
+  Future<void> _sendPasswordResetCode() async {
     if (_isLoading) return;
 
     final email = _emailController.text.trim();
@@ -300,16 +312,63 @@ class _SignInSheetState extends State<SignInSheet> {
       return;
     }
 
-    if (kDebugMode) {
-      final inputCode = _codeController.text.trim();
-      if (inputCode.length != 6) {
-        setState(() => _errorText = 'Enter the 6-digit code.');
-        return;
+    setState(() {
+      _isLoading = true;
+      _errorText = null;
+    });
+
+    try {
+      await ServiceLocator.authService.sendPasswordResetCode(email: email);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Password reset code sent to $email.')),
+      );
+      setState(() {
+        _step = _AuthStep.resetPasswordConfirm;
+        _codeController.clear();
+        _resetPasswordController.clear();
+        _resetConfirmPasswordController.clear();
+      });
+    } on AuthServiceException catch (error, stackTrace) {
+      _reportError('Password reset code failed', error, stackTrace);
+      setState(() => _errorText = _readablePasswordResetError(error));
+    } catch (error, stackTrace) {
+      _reportError('Password reset code failed', error, stackTrace);
+      setState(() => _errorText = 'Could not send password reset code.');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
-      if (_debugCode == null || inputCode != _debugCode) {
-        setState(() => _errorText = 'Code is invalid or expired.');
-        return;
-      }
+    }
+  }
+
+  Future<void> _confirmPasswordReset() async {
+    if (_isLoading) return;
+
+    final email = _emailController.text.trim();
+    final code = _codeController.text.trim();
+    final newPassword = _resetPasswordController.text.trim();
+    final confirmPassword = _resetConfirmPasswordController.text.trim();
+
+    if (email.isEmpty) {
+      setState(() => _errorText = 'Email is required.');
+      return;
+    }
+    if (code.length != 6) {
+      setState(() => _errorText = 'Enter the 6-digit code.');
+      return;
+    }
+    if (newPassword.isEmpty || confirmPassword.isEmpty) {
+      setState(() => _errorText = 'New password and confirmation are required.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setState(() => _errorText = 'Password must be at least 6 characters.');
+      return;
+    }
+    if (newPassword != confirmPassword) {
+      setState(() => _errorText = 'Passwords do not match.');
+      return;
     }
 
     setState(() {
@@ -318,33 +377,34 @@ class _SignInSheetState extends State<SignInSheet> {
     });
 
     try {
-      await ServiceLocator.authService.sendPasswordResetEmail(email: email);
+      await ServiceLocator.authService.resetPasswordWithCode(
+        email: email,
+        code: code,
+        newPassword: newPassword,
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Password reset email sent to $email.')),
+        const SnackBar(content: Text('Password updated. You can sign in now.')),
       );
       setState(() {
         _step = _AuthStep.signIn;
-        _debugCode = null;
         _codeController.clear();
+        _resetPasswordController.clear();
+        _resetConfirmPasswordController.clear();
+        _passwordController.clear();
+        _confirmPasswordController.clear();
       });
     } on AuthServiceException catch (error, stackTrace) {
-      _reportError('Password reset failed', error, stackTrace);
-      setState(() => _errorText = _readableAuthError(error));
+      _reportError('Password reset confirm failed', error, stackTrace);
+      setState(() => _errorText = _readablePasswordResetError(error));
     } catch (error, stackTrace) {
-      _reportError('Password reset failed', error, stackTrace);
-      setState(() => _errorText = 'Could not send password reset email.');
+      _reportError('Password reset confirm failed', error, stackTrace);
+      setState(() => _errorText = 'Could not reset password right now.');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
-  }
-
-  String _newDebugSixDigitCode() {
-    final random = Random.secure();
-    final value = random.nextInt(1000000);
-    return value.toString().padLeft(6, '0');
   }
 
   @override
@@ -371,7 +431,8 @@ class _SignInSheetState extends State<SignInSheet> {
                   autofillHints: const [AutofillHints.email],
                   decoration: const InputDecoration(labelText: 'Email'),
                 ),
-                if (_step != _AuthStep.forgotPassword) ...[
+                if (_step != _AuthStep.forgotPassword &&
+                    _step != _AuthStep.resetPasswordConfirm) ...[
                   const SizedBox(height: 10),
                   TextField(
                     controller: _passwordController,
@@ -408,22 +469,33 @@ class _SignInSheetState extends State<SignInSheet> {
                     style: theme.textTheme.bodySmall,
                   ),
               ],
-              if (_step == _AuthStep.forgotPassword && kDebugMode) ...[
+              if (_step == _AuthStep.resetPasswordConfirm) ...[
                 const SizedBox(height: 10),
                 TextField(
                   controller: _codeController,
                   keyboardType: TextInputType.number,
                   maxLength: 6,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: '6-digit code',
-                    hintText: 'Use the debug code below',
+                    hintText: 'Sent to ${_emailController.text.trim()}',
                   ),
                 ),
-                if (_debugCode != null)
-                  Text(
-                    'Debug code: $_debugCode',
-                    style: theme.textTheme.bodySmall,
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _resetPasswordController,
+                  obscureText: true,
+                  autofillHints: const [AutofillHints.newPassword],
+                  decoration: const InputDecoration(labelText: 'New password'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _resetConfirmPasswordController,
+                  obscureText: true,
+                  autofillHints: const [AutofillHints.newPassword],
+                  decoration: const InputDecoration(
+                    labelText: 'Confirm new password',
                   ),
+                ),
               ],
               if (_errorText != null) ...[
                 const SizedBox(height: 10),
@@ -444,7 +516,9 @@ class _SignInSheetState extends State<SignInSheet> {
                           _AuthStep.signIn => _signIn,
                           _AuthStep.register => _register,
                           _AuthStep.verifyEmail => _verifyCode,
-                          _AuthStep.forgotPassword => _sendPasswordReset,
+                          _AuthStep.forgotPassword => _sendPasswordResetCode,
+                          _AuthStep.resetPasswordConfirm =>
+                            _confirmPasswordReset,
                         },
                   child: Text(_primaryButtonLabel),
                 ),
@@ -470,7 +544,9 @@ class _SignInSheetState extends State<SignInSheet> {
                           _step = _AuthStep.forgotPassword;
                           _errorText = null;
                           _codeController.clear();
-                          _debugCode = kDebugMode ? _newDebugSixDigitCode() : null;
+                          _debugCode = null;
+                          _resetPasswordController.clear();
+                          _resetConfirmPasswordController.clear();
                         }),
                   child: const Text('Forgot password?'),
                 ),
@@ -491,7 +567,13 @@ class _SignInSheetState extends State<SignInSheet> {
                   onPressed: _isLoading ? null : _resendCode,
                   child: const Text('Resend code'),
                 ),
-              if (_step == _AuthStep.forgotPassword)
+              if (_step == _AuthStep.resetPasswordConfirm)
+                TextButton(
+                  onPressed: _isLoading ? null : _sendPasswordResetCode,
+                  child: const Text('Resend code'),
+                ),
+              if (_step == _AuthStep.forgotPassword ||
+                  _step == _AuthStep.resetPasswordConfirm)
                 TextButton(
                   onPressed: _isLoading
                       ? null
@@ -500,6 +582,8 @@ class _SignInSheetState extends State<SignInSheet> {
                           _errorText = null;
                           _debugCode = null;
                           _codeController.clear();
+                          _resetPasswordController.clear();
+                          _resetConfirmPasswordController.clear();
                         }),
                   child: const Text('Back to sign in'),
                 ),
@@ -519,6 +603,7 @@ class _SignInSheetState extends State<SignInSheet> {
       case _AuthStep.verifyEmail:
         return 'Verify email';
       case _AuthStep.forgotPassword:
+      case _AuthStep.resetPasswordConfirm:
         return 'Reset password';
     }
   }
@@ -532,9 +617,9 @@ class _SignInSheetState extends State<SignInSheet> {
       case _AuthStep.verifyEmail:
         return 'Enter the 6-digit verification code.';
       case _AuthStep.forgotPassword:
-        return kDebugMode
-            ? 'Use your debug 6-digit code, then we will send a reset link.'
-            : 'We will send a password reset link to your email.';
+        return 'We will send a 6-digit password reset code to your email.';
+      case _AuthStep.resetPasswordConfirm:
+        return 'Enter the code from your email and choose a new password.';
     }
   }
 
@@ -547,7 +632,22 @@ class _SignInSheetState extends State<SignInSheet> {
       case _AuthStep.verifyEmail:
         return 'Verify';
       case _AuthStep.forgotPassword:
-        return 'Send reset email';
+        return 'Send reset code';
+      case _AuthStep.resetPasswordConfirm:
+        return 'Set new password';
+    }
+  }
+
+  String _readablePasswordResetError(AuthServiceException error) {
+    switch (error.code) {
+      case 'user-not-found':
+        return 'No account found for that email.';
+      case 'not-found':
+        return 'No active reset code was found. Request a new one.';
+      case 'failed-precondition':
+        return 'That reset code is no longer valid. Request a new one.';
+      default:
+        return _readableAuthError(error);
     }
   }
 

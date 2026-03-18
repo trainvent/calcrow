@@ -130,10 +130,40 @@ class AuthService {
     await _auth.currentUser?.reload();
   }
 
-  Future<void> sendPasswordResetEmail({required String email}) async {
+  Future<void> sendPasswordResetCode({required String email}) async {
     try {
-      await _auth.sendPasswordResetEmail(email: email);
-    } on FirebaseAuthException catch (error) {
+      await _functions.httpsCallable('sendPasswordResetCode').call({
+        'email': email,
+      });
+    } on FirebaseFunctionsException catch (error) {
+      if (error.code == 'not-found') {
+        throw const AuthServiceException(
+          code: 'user-not-found',
+          message: 'No user found with this email.',
+        );
+      }
+      throw AuthServiceException(code: error.code, message: error.message);
+    }
+  }
+
+  Future<void> resetPasswordWithCode({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    try {
+      await _functions.httpsCallable('resetPasswordWithCode').call({
+        'email': email,
+        'code': code,
+        'newPassword': newPassword,
+      });
+    } on FirebaseFunctionsException catch (error) {
+      if (error.code == 'not-found') {
+        throw const AuthServiceException(
+          code: 'user-not-found',
+          message: 'No user found with this email.',
+        );
+      }
       throw AuthServiceException(code: error.code, message: error.message);
     }
   }

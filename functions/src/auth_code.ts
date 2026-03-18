@@ -7,6 +7,7 @@ admin.initializeApp();
 
 const db = admin.firestore();
 const verificationCollection = 'email_verification_codes';
+type AuthCodeType = 'verification' | 'login' | 'passwordReset';
 
 const smtpMail = process.env.SMTP_MAIL || "noreply@calcrow.com";
 const smtpUser = process.env.SMTP_USER || smtpMail;
@@ -31,7 +32,7 @@ function generateCode(): string {
     return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-async function sendCodeEmail(email: string, code: string, type: 'verification' | 'login') {
+async function sendCodeEmail(email: string, code: string, type: AuthCodeType) {
     const password = smtpPassword.value();
     console.log(`[DEBUG] Preparing to send email to ${email}. Password present: ${!!password}. Host: ${smtpHost}. User: ${smtpUser}. Port: ${smtpPort}. Secure: ${smtpSecure}.`);
 
@@ -51,15 +52,23 @@ async function sendCodeEmail(email: string, code: string, type: 'verification' |
         },
     } as nodemailer.TransportOptions);
 
-    const subject = type === 'login' ? 'Dein Login-Code' : 'Dein Bestätigungscode';
-    const actionText = type === 'login' ? 'um dich bei CalcRow anzumelden' : 'um deine E-Mail zu bestätigen';
+    const subject = type === 'login'
+        ? 'Dein Login-Code'
+        : type === 'passwordReset'
+            ? 'Dein Passwort-Reset-Code'
+            : 'Dein Bestätigungscode';
+    const actionText = type === 'login'
+        ? 'um dich bei CalcRow anzumelden'
+        : type === 'passwordReset'
+            ? 'um dein Passwort zurückzusetzen'
+            : 'um deine E-Mail zu bestätigen';
 
     const mailOptions = {
         from: `"CalcRow Team" <${smtpMail}>`,
         to: email,
         subject: subject,
-        text: `Willkommen bei CalcRow!\n\nDein Code, ${actionText}, lautet: ${code}\n\nDieser Code läuft in 15 Minuten ab.`,
-        html: `<p>Willkommen bei CalcRow!</p><p>Dein Code, ${actionText}, lautet: <strong>${code}</strong></p><p>Dieser Code läuft in 15 Minuten ab.</p>`,
+        text: `Hallo!\n\nDein Code, ${actionText}, lautet: ${code}\n\nDieser Code läuft in 15 Minuten ab.`,
+        html: `<p>Hallo!</p><p>Dein Code, ${actionText}, lautet: <strong>${code}</strong></p><p>Dieser Code läuft in 15 Minuten ab.</p>`,
     };
 
     try {
@@ -71,52 +80,7 @@ async function sendCodeEmail(email: string, code: string, type: 'verification' |
     }
 }
 
-async function sendPasswordResetMessage(email: string, resetLink: string) {
-    const password = smtpPassword.value();
-    console.log(`[DEBUG] Preparing password reset email to ${email}. Password present: ${!!password}. Host: ${smtpHost}. User: ${smtpUser}. Port: ${smtpPort}. Secure: ${smtpSecure}.`);
-
-    if (!password) {
-        console.error("SMTP_PASSWORD is not set in environment variables.");
-        throw new HttpsError('internal', 'Email configuration error.');
-    }
-
-    const transporter = nodemailer.createTransport({
-        host: smtpHost,
-        port: smtpPort,
-        secure: smtpSecure,
-        requireTLS: !smtpSecure,
-        auth: {
-            user: smtpUser,
-            pass: password,
-        },
-    } as nodemailer.TransportOptions);
-
-    const mailOptions = {
-        from: `"CalcRow Team" <${smtpMail}>`,
-        to: email,
-        subject: 'Setze dein Passwort zuruck',
-        text:
-            `Hallo!\n\n` +
-            `du kannst dein CalcRow-Passwort uber diesen Link zurucksetzen:\n` +
-            `${resetLink}\n\n` +
-            `Falls du das nicht angefordert hast, kannst du diese E-Mail ignorieren.`,
-        html:
-            `<p>Hallo!</p>` +
-            `<p>du kannst dein CalcRow-Passwort uber diesen Link zurucksetzen:</p>` +
-            `<p><a href="${resetLink}">Passwort zurucksetzen</a></p>` +
-            `<p>Falls du das nicht angefordert hast, kannst du diese E-Mail ignorieren.</p>`,
-    };
-
-    try {
-        await transporter.sendMail(mailOptions);
-        console.log(`Password reset email sent to ${email}`);
-    } catch (error) {
-        console.error('Error sending password reset email:', error);
-        throw new HttpsError('internal', `Failed to send password reset email: ${error}`);
-    }
-}
-
-async function storeCode(uid: string, email: string, type: 'verification' | 'login') {
+async function storeCode(uid: string, email: string, type: AuthCodeType) {
     const normalizedEmail = normalizeEmail(email);
     const code = generateCode();
     const expirationTime = Date.now() + 15 * 60 * 1000; // 15 minutes from now
@@ -139,8 +103,20 @@ async function storeCode(uid: string, email: string, type: 'verification' | 'log
     await sendCodeEmail(email, code, type);
 }
 
-async function verifyCodeLogic(uid: string, code: string, email?: string) {
-    console.log(`[VERIFY LOGIC] Verifying code for uid: ${uid}, email: ${email}`);
+async function verifyCodeLogic(
+    uid: string,
+    code: string,
+    options?: {
+        email?: string;
+        expectedType?: AuthCodeType;
+        deleteOnSuccess?: boolean;
+    }
+) {
+    const email = options?.email;
+    const expectedType = options?.expectedType;
+    const deleteOnSuccess = options?.deleteOnSuccess ?? true;
+
+    console.log(`[VERIFY LOGIC] Verifying code for uid: ${uid}, email: ${email}, type: ${expectedType}`);
     const docRef = db.collection(verificationCollection).doc(uid);
     
     let doc;
@@ -159,7 +135,12 @@ async function verifyCodeLogic(uid: string, code: string, email?: string) {
     const data = doc.data();
     if (!data) throw new HttpsError('not-found', 'No data found.');
 
-    // Optional: Verify email matches if provided (crucial for login flow)
+    if (expectedType && data.type !== expectedType) {
+         console.warn(`Code type mismatch. Expected: ${expectedType}, Found: ${data.type}`);
+         throw new HttpsError('failed-precondition', 'Code type mismatch.');
+    }
+
+    // Optional: Verify email matches if provided (crucial for login and reset flows)
     if (email && data.email !== normalizeEmail(email)) {
          console.warn(`Email mismatch. Expected: ${normalizeEmail(email)}, Found: ${data.email}`);
          throw new HttpsError('invalid-argument', 'Email mismatch.');
@@ -184,8 +165,9 @@ async function verifyCodeLogic(uid: string, code: string, email?: string) {
         throw new HttpsError('invalid-argument', 'Invalid code.');
     }
 
-    // Code is valid. Clean up.
-    await docRef.delete();
+    if (deleteOnSuccess) {
+        await docRef.delete();
+    }
     return true;
 }
 
@@ -276,7 +258,7 @@ export const verifyCode = onCall(async (request) => {
         }
     }
 
-    await verifyCodeLogic(uid, code);
+    await verifyCodeLogic(uid, code, { expectedType: 'verification' });
 
     await admin.auth().updateUser(uid, {
         emailVerified: true
@@ -325,7 +307,7 @@ export const verifyLoginCode = onCall(async (request) => {
         console.log(`[VERIFY] Test Backdoor used for ${email}. Creating custom token...`);
         // Skip verifyCodeLogic and proceed to token creation
     } else {
-        await verifyCodeLogic(uid, code, email);
+        await verifyCodeLogic(uid, code, { email, expectedType: 'login' });
     }
 
     console.log(`[VERIFY] Code valid for ${email}. Creating custom token...`);
@@ -355,32 +337,63 @@ export const verifyLoginCode = onCall(async (request) => {
     return { success: true, token: token };
 });
 
-/**
- * Sends a password reset email through the same SMTP channel used for auth codes.
- * Publicly callable.
- */
-export const sendPasswordResetLinkEmail = onCall({ secrets: [smtpPassword] }, async (request) => {
+export const sendPasswordResetCode = onCall({ secrets: [smtpPassword] }, async (request) => {
     const rawEmail = request.data.email as string | undefined;
     if (!rawEmail) {
         throw new HttpsError('invalid-argument', 'Email is required.');
     }
     const email = normalizeEmail(rawEmail);
 
+    let userRecord;
     try {
-        await admin.auth().getUserByEmail(email);
+        userRecord = await admin.auth().getUserByEmail(email);
     } catch (error) {
         console.error("User lookup failed in password reset:", error);
         throw new HttpsError('not-found', 'No user found with this email.');
     }
 
-    let resetLink: string;
-    try {
-        resetLink = await admin.auth().generatePasswordResetLink(email);
-    } catch (error) {
-        console.error('Failed to generate password reset link:', error);
-        throw new HttpsError('internal', 'Could not generate password reset link.');
+    await storeCode(userRecord.uid, email, 'passwordReset');
+    return { success: true, message: 'Password reset code sent.' };
+});
+
+export const resetPasswordWithCode = onCall(async (request) => {
+    const rawEmail = request.data.email as string | undefined;
+    const code = request.data.code as string | undefined;
+    const newPassword = request.data.newPassword as string | undefined;
+
+    if (!rawEmail || !code || !newPassword) {
+        throw new HttpsError('invalid-argument', 'Email, code, and newPassword are required.');
     }
 
-    await sendPasswordResetMessage(email, resetLink);
-    return { success: true, message: 'Password reset email sent.' };
+    if (newPassword.length < 6) {
+        throw new HttpsError('invalid-argument', 'Password must be at least 6 characters long.');
+    }
+
+    const email = normalizeEmail(rawEmail);
+
+    let userRecord;
+    try {
+        userRecord = await admin.auth().getUserByEmail(email);
+    } catch (error) {
+        console.error("User lookup failed in password reset confirm:", error);
+        throw new HttpsError('not-found', 'No user found with this email.');
+    }
+
+    await verifyCodeLogic(userRecord.uid, code, {
+        email,
+        expectedType: 'passwordReset',
+        deleteOnSuccess: false,
+    });
+
+    try {
+        await admin.auth().updateUser(userRecord.uid, {
+            password: newPassword,
+        });
+    } catch (error) {
+        console.error('Failed to update password:', error);
+        throw new HttpsError('internal', 'Could not update password.');
+    }
+
+    await db.collection(verificationCollection).doc(userRecord.uid).delete();
+    return { success: true, message: 'Password updated successfully.' };
 });

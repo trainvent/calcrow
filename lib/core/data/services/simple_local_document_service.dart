@@ -100,6 +100,49 @@ class SimpleLocalDocumentService {
       hasSafTarget: hasSafTarget,
     );
   }
+
+  Future<LocalSimpleDocumentOpenResult> reopenDocumentForSimpleEditor({
+    required String fileName,
+    required String? existingPath,
+    required Uint8List? cachedBytes,
+    required ParseSimpleSheetData parseSheetData,
+  }) async {
+    final normalizedPath = existingPath?.trim();
+    final normalizedName = fileName.trim().isEmpty ? 'imported_document' : fileName.trim();
+
+    Uint8List bytes = Uint8List(0);
+    if (normalizedPath != null && normalizedPath.isNotEmpty) {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        bytes = await _safStream.readFileBytes(normalizedPath);
+      } else {
+        bytes = await XFile(normalizedPath).readAsBytes();
+      }
+    } else if (cachedBytes != null && cachedBytes.isNotEmpty) {
+      bytes = cachedBytes;
+    }
+
+    if (bytes.isEmpty) {
+      throw const LocalSimpleDocumentException(
+        'Could not reopen the remembered local document.',
+      );
+    }
+
+    final sheetData = await parseSheetData(
+      bytes: bytes,
+      fileName: normalizedName,
+      path: normalizedPath,
+    );
+    final hasSafTarget =
+        !kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.android &&
+        normalizedPath != null &&
+        _persistenceService.canUseDirectSafUri(normalizedPath);
+    return LocalSimpleDocumentOpenResult(
+      sheetData: sheetData,
+      existingPath: normalizedPath,
+      hasSafTarget: hasSafTarget,
+    );
+  }
 }
 
 class LocalSimpleDocumentException implements Exception {

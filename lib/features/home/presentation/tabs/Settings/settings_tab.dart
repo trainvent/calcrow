@@ -17,6 +17,8 @@ import '../../../../../core/data/services/webdav_service.dart';
 import 'data_collection_page.dart';
 import 'entitlement_page.dart';
 import '../../../../auth/presentation/sign_in_sheet.dart';
+import '../../../../../app/presentation/web_link_opener_stub.dart'
+    if (dart.library.html) '../../../../../app/presentation/web_link_opener_web.dart';
 
 class SettingsTab extends StatefulWidget {
   const SettingsTab({super.key});
@@ -55,18 +57,6 @@ class _SettingsTabState extends State<SettingsTab> {
             Text(
               'Use calcrow offline without login. Sign in only when you want sync.',
               style: theme.textTheme.bodyLarge,
-            ),
-            const SizedBox(height: 18),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.privacy_tip_outlined),
-                title: const Text('Data collection'),
-                subtitle: const Text(
-                  'Manage separate consent for usage analytics and crash or performance diagnostics.',
-                ),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: _openDataCollectionPage,
-              ),
             ),
             const SizedBox(height: 12),
             if (session == null)
@@ -149,85 +139,6 @@ class _SettingsTabState extends State<SettingsTab> {
 
                   return Column(
                     children: [
-                      Card(
-                        child: Column(
-                          children: [
-                            ListTile(
-                              leading: const Icon(
-                                Icons.workspace_premium_outlined,
-                              ),
-                              title: const Text('Entitlement'),
-                              subtitle: Text(
-                                settings?.isPro == true
-                                    ? 'Pro enabled.'
-                                    : 'Open subscription and purchase options.',
-                              ),
-                              trailing: const Icon(Icons.chevron_right_rounded),
-                              onTap: () =>
-                                  _openEntitlementScreen(session: session),
-                            ),
-                            const Divider(height: 1),
-                            ListTile(
-                              leading: const Icon(Icons.folder_special_outlined),
-                              title: const Text('Manage SAF folder'),
-                              subtitle: Text(_safFolderSubtitle(settings)),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                              child: _buildSafActionGrid(
-                                setButton: OutlinedButton(
-                                  onPressed: _isUpdatingSafFolder
-                                      ? null
-                                      : () => _setSafFolder(session: session),
-                                  child: const Text('Set'),
-                                ),
-                                testButton: OutlinedButton(
-                                  onPressed: _isUpdatingSafFolder
-                                      ? null
-                                      : () => _testSafFolder(
-                                          settings: settings,
-                                        ),
-                                  child: const Text('Test'),
-                                ),
-                                revertButton: OutlinedButton(
-                                  onPressed: _isUpdatingSafFolder
-                                      ? null
-                                      : () => _revertSafTest(
-                                          settings: settings,
-                                        ),
-                                  child: const Text('Test Revert'),
-                                ),
-                                clearButton: TextButton(
-                                  onPressed: _isUpdatingSafFolder
-                                      ? null
-                                      : () => _clearSafFolder(
-                                          session: session,
-                                        ),
-                                  child: const Text('Clear'),
-                                ),
-                              ),
-                            ),
-                            if (_isUpdatingSafFolder)
-                              const Padding(
-                                padding: EdgeInsets.only(bottom: 12),
-                                child: SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                              ),
-                            const Divider(height: 1),
-                            ListTile(
-                              leading: const Icon(Icons.logout_rounded),
-                              title: const Text('Sign out'),
-                              onTap: () => ServiceLocator.authService.signOut(),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
                       Card(
                         child: Column(
                           children: [
@@ -332,25 +243,141 @@ class _SettingsTabState extends State<SettingsTab> {
                       ),
                       const SizedBox(height: 12),
                       Card(
-                        child: SwitchListTile(
-                          secondary: const Icon(Icons.tune_rounded),
-                          title: const Text('Advanced features'),
-                          subtitle: const Text(
-                            'Show the advanced Today layout for power-user tools.',
-                          ),
-                          value: _advancedFeaturesEnabled(settings),
-                          onChanged: _isUpdatingAdvancedFeatures
-                              ? null
-                              : (value) => _setAdvancedFeaturesEnabled(
-                                  session: session,
-                                  enabled: value,
+                        child: Column(
+                          children: [
+                            ListTile(
+                              leading: const Icon(
+                                Icons.workspace_premium_outlined,
+                              ),
+                              title: const Text('Entitlement'),
+                              subtitle: Text(
+                                settings?.isPro == true
+                                    ? 'Pro enabled.'
+                                    : 'Open subscription and purchase options.',
+                              ),
+                              trailing: const Icon(Icons.chevron_right_rounded),
+                              onTap: () =>
+                                  _openEntitlementScreen(session: session),
+                            ),
+                            const Divider(height: 1),
+                            ListTile(
+                              leading: const Icon(Icons.folder_special_outlined),
+                              title: const Text('Manage SAF folder'),
+                              subtitle: Text(_safFolderSubtitle(settings)),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                              child: _buildSafActionGrid(
+                                setButton: OutlinedButton(
+                                  onPressed: _isUpdatingSafFolder
+                                      ? null
+                                      : () => _setSafFolder(session: session),
+                                  child: const Text('Set'),
                                 ),
+                                testButton: OutlinedButton(
+                                  onPressed: _isUpdatingSafFolder
+                                      ? null
+                                      : () => _testSafFolder(
+                                          settings: settings,
+                                        ),
+                                  child: const Text('Test'),
+                                ),
+                                revertButton: OutlinedButton(
+                                  onPressed: _isUpdatingSafFolder
+                                      ? null
+                                      : () => _revertSafTest(
+                                          settings: settings,
+                                        ),
+                                  child: const Text('Test Revert'),
+                                ),
+                                clearButton: TextButton(
+                                  onPressed: _isUpdatingSafFolder
+                                      ? null
+                                      : () => _clearSafFolder(
+                                          session: session,
+                                        ),
+                                  child: const Text('Clear'),
+                                ),
+                              ),
+                            ),
+                            if (_isUpdatingSafFolder)
+                              const Padding(
+                                padding: EdgeInsets.only(bottom: 12),
+                                child: SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                            ),
+                            const Divider(height: 1),
+                            SwitchListTile(
+                              secondary: const Icon(Icons.tune_rounded),
+                              title: const Text('Advanced features'),
+                              subtitle: const Text(
+                                'Show the advanced Today layout for power-user tools.',
+                              ),
+                              value: _advancedFeaturesEnabled(settings),
+                              onChanged: _isUpdatingAdvancedFeatures
+                                  ? null
+                                  : (value) => _setAdvancedFeaturesEnabled(
+                                      session: session,
+                                      enabled: value,
+                                    ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Card(
+                        child: Column(
+                          children: [
+                            ListTile(
+                              leading: const Icon(Icons.privacy_tip_outlined),
+                              title: const Text('Data collection'),
+                              subtitle: const Text(
+                                'Manage separate consent for usage analytics and crash or performance diagnostics.',
+                              ),
+                              trailing: const Icon(Icons.chevron_right_rounded),
+                              onTap: _openDataCollectionPage,
+                            ),
+                            const Divider(height: 1),
+                            ListTile(
+                              leading: const Icon(Icons.logout_rounded),
+                              title: const Text('Sign out'),
+                              onTap: () => ServiceLocator.authService.signOut(),
+                            ),
+                            const Divider(height: 1),
+                            ListTile(
+                              leading: const Icon(Icons.delete_outline_rounded),
+                              title: const Text('Delete account'),
+                              subtitle: const Text(
+                                'Open the permanent account deletion flow.',
+                              ),
+                              onTap: _openDeleteAccountPage,
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   );
                 },
               ),
+            if (session == null) ...[
+              const SizedBox(height: 12),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.privacy_tip_outlined),
+                  title: const Text('Data collection'),
+                  subtitle: const Text(
+                    'Manage separate consent for usage analytics and crash or performance diagnostics.',
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: _openDataCollectionPage,
+                ),
+              ),
+            ],
           ],
         );
       },
@@ -827,6 +854,18 @@ class _SettingsTabState extends State<SettingsTab> {
     await Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (context) => const DataCollectionPage()));
+  }
+
+  void _openDeleteAccountPage() {
+    if (kIsWeb) {
+      openSameTabUrl('/delete-account/');
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Open calcrow.com/delete-account in a browser to continue.'),
+      ),
+    );
   }
 
   Future<void> _setSafFolder({AuthSession? session}) async {
