@@ -73,11 +73,14 @@ class _CalcrowAppState extends State<CalcrowApp> {
         title: 'Calcrow',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
-        home: _DiagnosticsConsentHost(
+        home: _AdsConsentHost(
           enabled: !_showMarketingLanding(),
-          child: _AppEntry(
-            didCompleteOnboarding: _didCompleteOnboarding,
-            onCompleteOnboarding: _completeOnboarding,
+          child: _DiagnosticsConsentHost(
+            enabled: !_showMarketingLanding(),
+            child: _AppEntry(
+              didCompleteOnboarding: _didCompleteOnboarding,
+              onCompleteOnboarding: _completeOnboarding,
+            ),
           ),
         ),
       );
@@ -92,12 +95,15 @@ class _CalcrowAppState extends State<CalcrowApp> {
           title: 'Calcrow',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light(),
-          home: _DiagnosticsConsentHost(
+          home: _AdsConsentHost(
             enabled: !_showMarketingLanding(),
-            child: _AppEntry(
-              isSignedIn: isSignedIn,
-              didCompleteOnboarding: _didCompleteOnboarding,
-              onCompleteOnboarding: _completeOnboarding,
+            child: _DiagnosticsConsentHost(
+              enabled: !_showMarketingLanding(),
+              child: _AppEntry(
+                isSignedIn: isSignedIn,
+                didCompleteOnboarding: _didCompleteOnboarding,
+                onCompleteOnboarding: _completeOnboarding,
+              ),
             ),
           ),
         );
@@ -115,6 +121,58 @@ class _CalcrowAppState extends State<CalcrowApp> {
     setState(() {
       _didCompleteOnboarding = true;
     });
+  }
+}
+
+class _AdsConsentHost extends StatefulWidget {
+  const _AdsConsentHost({
+    required this.child,
+    required this.enabled,
+  });
+
+  final Widget child;
+  final bool enabled;
+
+  @override
+  State<_AdsConsentHost> createState() => _AdsConsentHostState();
+}
+
+class _AdsConsentHostState extends State<_AdsConsentHost> {
+  bool _hasChecked = false;
+  bool _isRefreshing = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeRefreshAdsConsent();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.child;
+  }
+
+  Future<void> _maybeRefreshAdsConsent() async {
+    if (!mounted || !widget.enabled || !ServiceLocator.isSetup) return;
+    if (_hasChecked || _isRefreshing) return;
+
+    final adsConsent = ServiceLocator.adsConsentService;
+    if (!adsConsent.isSupported) {
+      _hasChecked = true;
+      return;
+    }
+
+    _hasChecked = true;
+    _isRefreshing = true;
+    try {
+      await adsConsent.refreshConsentInfo();
+    } catch (_) {
+      // Keep app startup resilient if UMP is unavailable.
+    } finally {
+      _isRefreshing = false;
+    }
   }
 }
 

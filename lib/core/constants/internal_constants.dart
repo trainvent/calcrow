@@ -1,7 +1,8 @@
 class IConst {
   static const String appName = 'Calcrow';
   static const String adMobAndroidAppId =
-      'Calcrowca-app-pub-6799570171188466~4514817548';
+      'ca-app-pub-6799570171188466~4514817548';
+  static const String adMobIosAppId = '';
   static const String adMobAndroidInterstitialId =
       'ca-app-pub-6799570171188466/5226307567';
   static const String adMobAndroidBannerId =

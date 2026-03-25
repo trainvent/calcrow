@@ -3,6 +3,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../services/auth_service.dart';
+import '../services/ads_consent_service.dart';
 import '../services/diagnostics_service.dart';
 import '../services/db_service.dart';
 import '../services/google_drive_auth_service.dart';
@@ -21,6 +22,7 @@ class ServiceLocator {
   static late final GoogleDriveAuthService googleDriveAuthService;
   static late final GoogleDriveSyncService googleDriveSyncService;
   static late final WebDavService webDavService;
+  static AdsConsentService get adsConsentService => AdsConsentService.instance;
   static DiagnosticsService get diagnosticsService => DiagnosticsService.instance;
   static PurchasesService get purchasesService => PurchasesService.instance;
   static late final SimpleLocalDocumentService simpleLocalDocumentService;
