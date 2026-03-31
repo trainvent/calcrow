@@ -12,6 +12,7 @@ import 'package:calcrow/features/home/presentation/tabs/Today/advanced/advanced_
 import 'package:calcrow/features/home/presentation/tabs/Today/advanced/advanced_widgets/wellbeing_widget.dart';
 import 'package:calcrow/features/home/presentation/tabs/Today/advanced/advanced_widgets/workhours_widget.dart';
 import 'package:calcrow/core/data/services/simple_cloud_document_service.dart';
+import 'package:calcrow/core/data/services/google_drive_sync_service.dart';
 import 'package:calcrow/core/data/services/simple_local_document_service.dart';
 import 'package:calcrow/core/data/services/simple_sheet_persistence_service.dart';
 import 'package:calcrow/core/data/services/user_repository.dart';
@@ -23,6 +24,8 @@ import 'package:calcrow/features/home/presentation/tabs/Today/simple/widgets/tim
 import '../Sheet/sheet_preview_store.dart';
 
 enum _WidgetBlock { rowDefinement, workhours, smartData, wellbeing, notes }
+
+enum _SimpleOpenMode { dateBased, textBased }
 
 class TodayPage extends StatefulWidget {
   const TodayPage({super.key});
@@ -123,6 +126,9 @@ class _TodayPageState extends State<TodayPage> {
   bool _isOpeningDocument = false;
   bool _isChoosingCloudFile = false;
   _SimpleDocumentTarget? _simpleDocumentTarget;
+  _SimpleOpenMode _simpleOpenMode = _SimpleOpenMode.dateBased;
+  int? _simpleTextSelectionColumnIndex;
+  String? _simpleTextSelectionValue;
 
   @override
   void initState() {
@@ -191,7 +197,7 @@ class _TodayPageState extends State<TodayPage> {
         final sheetData = result.sheetData;
         if (!mounted) return;
 
-        final loaded = _loadSimpleProfileData(
+        final loaded = await _loadSimpleProfileData(
           sheetData,
           target: _LocalSimpleDocumentTarget(existingPath: result.existingPath),
         );
@@ -204,6 +210,8 @@ class _TodayPageState extends State<TodayPage> {
             'Loaded ${sheetData.fileName} (${sheetData.rows.length} entries) from tab ${sheetData.xlsxSheetName ?? 'default'}.${result.hasSafTarget ? ' SAF target ready.' : ' SAF target not detected.'}',
           SimpleFileFormat.ods =>
             'Loaded ${sheetData.fileName} (${sheetData.rows.length} entries) from sheet ${sheetData.xlsxSheetName ?? 'default'}.${result.hasSafTarget ? ' SAF target ready.' : ' SAF target not detected.'}',
+          SimpleFileFormat.gsheet =>
+            'Loaded Google Sheet ${sheetData.fileName} (${sheetData.rows.length} entries) from tab ${sheetData.xlsxSheetName ?? 'default'}.',
         };
         messenger.showSnackBar(SnackBar(content: Text(sourceLabel)));
       } on LocalSimpleDocumentException catch (error) {
@@ -248,7 +256,7 @@ class _TodayPageState extends State<TodayPage> {
             );
         if (!mounted) return;
 
-        final loaded = _loadSimpleProfileData(
+        final loaded = await _loadSimpleProfileData(
           result.sheetData,
           target: _LocalSimpleDocumentTarget(existingPath: result.existingPath),
         );
@@ -288,7 +296,7 @@ class _TodayPageState extends State<TodayPage> {
         final result = await ServiceLocator.simpleCloudDocumentService
             .openDocument(file: file, parseSheetData: _parseSimpleSheetData);
         if (!mounted) return;
-        final loaded = _loadSimpleProfileData(
+        final loaded = await _loadSimpleProfileData(
           result.sheetData,
           target: _CloudSimpleDocumentTarget(
             provider: result.file.provider,
@@ -464,29 +472,22 @@ class _TodayPageState extends State<TodayPage> {
     required Uint8List bytes,
     required String fileName,
     required String? path,
+    String? mimeType,
   }) async {
     return SimpleSheetFileService.parse(
       bytes: bytes,
       fileName: fileName,
       path: path,
+      mimeType: mimeType,
     );
   }
 
-  bool _loadSimpleProfileData(
+  Future<bool> _loadSimpleProfileData(
     SimpleSheetData sheetData, {
     _SimpleDocumentTarget? target,
-  }) {
-    final selection = _selectSimpleEditorTargetRowForSheetData(sheetData);
-    if (selection.usedDateColumn && !selection.foundMatchingDateRow) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Access denied: no row for ${_formatDate(DateTime.now())} was found in this sheet.',
-          ),
-        ),
-      );
-      return false;
-    }
+  }) async {
+    final selection = await _resolveSimpleOpeningSelection(sheetData);
+    if (!mounted || selection == null) return false;
 
     setState(() {
       _simpleImportedFileName = sheetData.fileName;
@@ -508,9 +509,14 @@ class _TodayPageState extends State<TodayPage> {
       _rememberLocalDocumentForReopen = target is! _CloudSimpleDocumentTarget;
       _simpleDocumentTarget =
           target ?? _LocalSimpleDocumentTarget(existingPath: sheetData.path);
+      _simpleTextSelectionColumnIndex = selection.textColumnIndex;
+      _simpleTextSelectionValue = selection.textValue;
     });
 
-    _selectSimpleEditorTargetRow();
+    _selectSimpleEditorTargetRow(
+      preferredRowIndex: selection.targetRowIndex,
+      preserveSelectedTextTarget: true,
+    );
     _publishSimpleRowsToPreview();
     return true;
   }
@@ -546,11 +552,47 @@ class _TodayPageState extends State<TodayPage> {
     return null;
   }
 
-  _SimpleEditorTargetSelection _selectSimpleEditorTargetRow() {
+  Future<_SimpleOpeningSelection?> _resolveSimpleOpeningSelection(
+    SimpleSheetData sheetData,
+  ) async {
+    switch (_simpleOpenMode) {
+      case _SimpleOpenMode.dateBased:
+        final selection = _selectSimpleEditorTargetRowForSheetData(sheetData);
+        if (!selection.usedDateColumn || !selection.foundMatchingDateRow) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Date-based opening is blocked because ${_formatDate(DateTime.now())} was not found in the detected date column.',
+              ),
+            ),
+          );
+          return null;
+        }
+        return _SimpleOpeningSelection(
+          targetRowIndex: selection.targetRowIndex,
+          textColumnIndex: null,
+          textValue: null,
+        );
+      case _SimpleOpenMode.textBased:
+        final textSelection = await _showSimpleTextEntryPicker(sheetData);
+        if (textSelection == null) return null;
+        return _SimpleOpeningSelection(
+          targetRowIndex: textSelection.rowIndex,
+          textColumnIndex: textSelection.columnIndex,
+          textValue: textSelection.value,
+        );
+    }
+  }
+
+  _SimpleEditorTargetSelection _selectSimpleEditorTargetRow({
+    int? preferredRowIndex,
+    bool preserveSelectedTextTarget = false,
+  }) {
     if (!_hasSimpleSchema) {
       return const _SimpleEditorTargetSelection(
         usedDateColumn: false,
         foundMatchingDateRow: false,
+        targetRowIndex: 0,
       );
     }
 
@@ -559,7 +601,20 @@ class _TodayPageState extends State<TodayPage> {
     int targetRowIndex = _simpleRows.length;
     var foundMatchingDateRow = false;
 
-    if (dateColumn != null) {
+    if (preferredRowIndex != null &&
+        preferredRowIndex >= 0 &&
+        preferredRowIndex < _simpleRows.length) {
+      targetRowIndex = preferredRowIndex;
+      foundMatchingDateRow =
+          dateColumn != null &&
+          dateColumn < _simpleRows[preferredRowIndex].length &&
+          (() {
+            final rowDate = _parseDateFromCellValue(
+              _simpleRows[preferredRowIndex][dateColumn],
+            );
+            return rowDate != null && _isSameCalendarDate(rowDate, today);
+          })();
+    } else if (dateColumn != null) {
       int? fallbackMatchIndex;
       for (var i = _simpleRows.length - 1; i >= 0; i--) {
         final row = _simpleRows[i];
@@ -592,10 +647,15 @@ class _TodayPageState extends State<TodayPage> {
     _replaceSimpleControllers(draft);
     setState(() {
       _simpleEditingRowIndex = targetRowIndex;
+      if (!preserveSelectedTextTarget) {
+        _simpleTextSelectionColumnIndex = null;
+        _simpleTextSelectionValue = null;
+      }
     });
     return _SimpleEditorTargetSelection(
       usedDateColumn: dateColumn != null,
       foundMatchingDateRow: foundMatchingDateRow,
+      targetRowIndex: targetRowIndex,
     );
   }
 
@@ -606,6 +666,7 @@ class _TodayPageState extends State<TodayPage> {
       return const _SimpleEditorTargetSelection(
         usedDateColumn: false,
         foundMatchingDateRow: false,
+        targetRowIndex: 0,
       );
     }
 
@@ -619,30 +680,254 @@ class _TodayPageState extends State<TodayPage> {
       return const _SimpleEditorTargetSelection(
         usedDateColumn: false,
         foundMatchingDateRow: false,
+        targetRowIndex: 0,
       );
     }
 
     final today = DateTime.now();
-    for (final row in sheetData.rows) {
+    int? fallbackMatchIndex;
+    for (var rowIndex = 0; rowIndex < sheetData.rows.length; rowIndex++) {
+      final row = sheetData.rows[rowIndex];
       if (dateColumn >= row.length) continue;
       final rowDate = _parseDateFromCellValue(row[dateColumn]);
       if (rowDate != null && _isSameCalendarDate(rowDate, today)) {
-        return const _SimpleEditorTargetSelection(
-          usedDateColumn: true,
-          foundMatchingDateRow: true,
-        );
+        fallbackMatchIndex ??= rowIndex;
+        if (_rowHasEditableEmptyCellForSheetData(
+          row,
+          dateColumn: dateColumn,
+          readOnlyColumns: sheetData.readOnlyColumns,
+          width: sheetData.headers.length,
+        )) {
+          return _SimpleEditorTargetSelection(
+            usedDateColumn: true,
+            foundMatchingDateRow: true,
+            targetRowIndex: rowIndex,
+          );
+        }
       }
     }
 
-    return const _SimpleEditorTargetSelection(
+    return _SimpleEditorTargetSelection(
       usedDateColumn: true,
-      foundMatchingDateRow: false,
+      foundMatchingDateRow: fallbackMatchIndex != null,
+      targetRowIndex: fallbackMatchIndex ?? sheetData.rows.length,
+    );
+  }
+
+  List<int> _simpleTextSelectableColumnsForSheetData(
+    SimpleSheetData sheetData,
+  ) {
+    final indexes = <int>[];
+    for (var index = 0; index < sheetData.headers.length; index++) {
+      if (index >= sheetData.readOnlyColumns.length ||
+          sheetData.readOnlyColumns[index]) {
+        continue;
+      }
+      final type = index < sheetData.valueTypes.length
+          ? sheetData.valueTypes[index]
+          : 'text';
+      if (_supportsTextBasedOpening(type)) {
+        indexes.add(index);
+      }
+    }
+    return indexes;
+  }
+
+  bool _supportsTextBasedOpening(String rawType) {
+    final type = rawType.trim().toLowerCase();
+    return type.isEmpty ||
+        type.contains('text') ||
+        type.contains('email') ||
+        type.contains('phone');
+  }
+
+  List<String> _simpleDistinctTextValuesForSheetData(
+    SimpleSheetData sheetData, {
+    required int columnIndex,
+  }) {
+    final values = <String>{};
+    for (final row in sheetData.rows) {
+      if (columnIndex >= row.length) continue;
+      final value = row[columnIndex].trim();
+      if (value.isNotEmpty) {
+        values.add(value);
+      }
+    }
+    final sorted = values.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return sorted;
+  }
+
+  int? _findSimpleRowIndexForTextValue(
+    SimpleSheetData sheetData, {
+    required int columnIndex,
+    required String value,
+  }) {
+    for (var rowIndex = 0; rowIndex < sheetData.rows.length; rowIndex++) {
+      final row = sheetData.rows[rowIndex];
+      if (columnIndex >= row.length) continue;
+      if (row[columnIndex].trim() == value) {
+        return rowIndex;
+      }
+    }
+    return null;
+  }
+
+  Future<_SimpleTextTargetSelection?> _showSimpleTextEntryPicker(
+    SimpleSheetData sheetData,
+  ) async {
+    final candidateColumns = _simpleTextSelectableColumnsForSheetData(
+      sheetData,
+    );
+    if (candidateColumns.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Text-based opening needs at least one editable text column with entry names.',
+          ),
+        ),
+      );
+      return null;
+    }
+
+    final initialColumnIndex =
+        (_simpleTextSelectionColumnIndex != null &&
+            candidateColumns.contains(_simpleTextSelectionColumnIndex))
+        ? _simpleTextSelectionColumnIndex!
+        : candidateColumns.first;
+
+    return showDialog<_SimpleTextTargetSelection>(
+      context: context,
+      builder: (dialogContext) {
+        var selectedColumnIndex = initialColumnIndex;
+        var availableValues = _simpleDistinctTextValuesForSheetData(
+          sheetData,
+          columnIndex: selectedColumnIndex,
+        );
+        String? selectedValue =
+            (_simpleTextSelectionValue != null &&
+                availableValues.contains(_simpleTextSelectionValue))
+            ? _simpleTextSelectionValue
+            : (availableValues.isEmpty ? null : availableValues.first);
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Open by entry name'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DropdownButtonFormField<int>(
+                    initialValue: selectedColumnIndex,
+                    decoration: const InputDecoration(labelText: 'Entry field'),
+                    items: candidateColumns
+                        .map(
+                          (index) => DropdownMenuItem<int>(
+                            value: index,
+                            child: Text(sheetData.headers[index]),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setDialogState(() {
+                        selectedColumnIndex = value;
+                        availableValues = _simpleDistinctTextValuesForSheetData(
+                          sheetData,
+                          columnIndex: selectedColumnIndex,
+                        );
+                        selectedValue = availableValues.isEmpty
+                            ? null
+                            : availableValues.first;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  if (availableValues.isEmpty)
+                    const Text('No non-empty entries were found in this field.')
+                  else
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedValue,
+                      decoration: const InputDecoration(
+                        labelText: 'Entry name',
+                      ),
+                      items: availableValues
+                          .map(
+                            (value) => DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(value),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        setDialogState(() {
+                          selectedValue = value;
+                        });
+                      },
+                    ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: selectedValue == null
+                      ? null
+                      : () {
+                          final rowIndex = _findSimpleRowIndexForTextValue(
+                            sheetData,
+                            columnIndex: selectedColumnIndex,
+                            value: selectedValue!,
+                          );
+                          if (rowIndex == null) {
+                            Navigator.of(dialogContext).pop();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'The selected entry could not be found anymore.',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+                          Navigator.of(dialogContext).pop(
+                            _SimpleTextTargetSelection(
+                              columnIndex: selectedColumnIndex,
+                              rowIndex: rowIndex,
+                              value: selectedValue!,
+                            ),
+                          );
+                        },
+                  child: const Text('Open Entry'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
   bool _rowHasEditableEmptyCell(List<String> row, {required int dateColumn}) {
     for (var i = 0; i < _simpleHeaders.length; i++) {
       if (i == dateColumn || _simpleReadOnlyColumns[i]) continue;
+      final value = i < row.length ? row[i].trim() : '';
+      if (value.isEmpty) return true;
+    }
+    return false;
+  }
+
+  bool _rowHasEditableEmptyCellForSheetData(
+    List<String> row, {
+    required int dateColumn,
+    required List<bool> readOnlyColumns,
+    required int width,
+  }) {
+    for (var i = 0; i < width; i++) {
+      if (i == dateColumn || readOnlyColumns[i]) continue;
       final value = i < row.length ? row[i].trim() : '';
       if (value.isEmpty) return true;
     }
@@ -711,6 +996,17 @@ class _TodayPageState extends State<TodayPage> {
       _simpleEditingRowIndex = effectiveTargetIndex;
       if (_simpleEditingRowIndex >= _simpleRows.length) {
         _simpleEditingRowIndex = _simpleRows.length - 1;
+      }
+      if (_simpleTextSelectionColumnIndex != null &&
+          _simpleTextSelectionColumnIndex! < _simpleHeaders.length &&
+          _simpleEditingRowIndex >= 0 &&
+          _simpleEditingRowIndex < _simpleRows.length &&
+          _simpleTextSelectionColumnIndex! <
+              _simpleRows[_simpleEditingRowIndex].length) {
+        final nextValue =
+            _simpleRows[_simpleEditingRowIndex][_simpleTextSelectionColumnIndex!]
+                .trim();
+        _simpleTextSelectionValue = nextValue.isEmpty ? null : nextValue;
       }
     });
     _publishSimpleRowsToPreview();
@@ -849,6 +1145,9 @@ class _TodayPageState extends State<TodayPage> {
   }
 
   int? _findBestExistingRowForSave(List<String> updatedRow) {
+    if (_simpleOpenMode == _SimpleOpenMode.textBased) {
+      return null;
+    }
     final dateColumn = _simpleDateColumnIndex();
     if (dateColumn == null || dateColumn >= updatedRow.length) {
       return null;
@@ -928,6 +1227,21 @@ class _TodayPageState extends State<TodayPage> {
         );
   }
 
+  Future<void> _pickSimpleTextEntryFromCurrentSheet() async {
+    final selection = await _showSimpleTextEntryPicker(
+      _buildSimpleSheetDataForPersist(),
+    );
+    if (!mounted || selection == null) return;
+    setState(() {
+      _simpleTextSelectionColumnIndex = selection.columnIndex;
+      _simpleTextSelectionValue = selection.value;
+    });
+    _selectSimpleEditorTargetRow(
+      preferredRowIndex: selection.rowIndex,
+      preserveSelectedTextTarget: true,
+    );
+  }
+
   Future<SimplePersistResult> _persistSimpleSheet({
     required SimplePersistMode mode,
   }) async {
@@ -941,6 +1255,11 @@ class _TodayPageState extends State<TodayPage> {
     }
     if (format == SimpleFileFormat.ods) {
       return _persistSimpleOds(mode: mode);
+    }
+    if (format == SimpleFileFormat.gsheet) {
+      return _persistSimpleCloud(
+        target: _simpleDocumentTarget as _CloudSimpleDocumentTarget,
+      );
     }
     return _persistSimpleCsv(mode: mode);
   }
@@ -963,7 +1282,11 @@ class _TodayPageState extends State<TodayPage> {
 
     final format = _simpleImportedFormat ?? SimpleFileFormat.csv;
     final simpleData = _buildSimpleSheetDataForPersist();
-    final bytes = SimpleSheetFileService.buildBytes(simpleData);
+    final bytes =
+        existingCloudFile.mimeType ==
+            GoogleDriveSyncService.googleSheetsMimeType
+        ? Uint8List(0)
+        : SimpleSheetFileService.buildBytes(simpleData);
     final mimeType = SimpleSheetFileService.mimeTypeForFormat(format);
     final fileName = _simpleSuggestedFileName(
       defaultExtension: SimpleSheetFileService.defaultExtensionForFormat(
@@ -976,6 +1299,7 @@ class _TodayPageState extends State<TodayPage> {
           fileName: fileName,
           bytes: bytes,
           outputMimeType: mimeType,
+          simpleData: simpleData,
         );
     return metadata.name;
   }
@@ -1039,7 +1363,9 @@ class _TodayPageState extends State<TodayPage> {
   }) async {
     final simpleData = _buildSimpleSheetDataForPersist();
     final format = _simpleImportedFormat ?? SimpleFileFormat.csv;
-    final bytes = SimpleSheetFileService.buildBytes(simpleData);
+    final bytes = target.mimeType == GoogleDriveSyncService.googleSheetsMimeType
+        ? Uint8List(0)
+        : SimpleSheetFileService.buildBytes(simpleData);
     final mimeType = _mimeTypeForFormat(format);
     final fileName = _simpleSuggestedFileName(
       defaultExtension: SimpleSheetFileService.defaultExtensionForFormat(
@@ -1058,6 +1384,7 @@ class _TodayPageState extends State<TodayPage> {
           fileName: fileName,
           bytes: bytes,
           outputMimeType: mimeType,
+          simpleData: simpleData,
         );
     setState(() {
       _simpleImportedFileName = metadata.name;
@@ -1224,7 +1551,7 @@ class _TodayPageState extends State<TodayPage> {
         path: persistResult.savedPath,
       );
       if (!mounted) return;
-      final loaded = _loadSimpleProfileData(
+      final loaded = await _loadSimpleProfileData(
         sheetData,
         target: _LocalSimpleDocumentTarget(
           existingPath: persistResult.savedPath,
@@ -1254,6 +1581,10 @@ class _TodayPageState extends State<TodayPage> {
         return 'assets/test_objects/manipulate/Arbeitszeiten_2026.xlsx';
       case SimpleFileFormat.ods:
         return 'assets/test_objects/manipulate/Arbeitszeiten_2026.ods';
+      case SimpleFileFormat.gsheet:
+        throw UnsupportedError(
+          'Debug fixtures are not available for native Google Sheets.',
+        );
     }
   }
 
@@ -1265,6 +1596,8 @@ class _TodayPageState extends State<TodayPage> {
         return 'Arbeitszeiten_2026.xlsx';
       case SimpleFileFormat.ods:
         return 'Arbeitszeiten_2026.ods';
+      case SimpleFileFormat.gsheet:
+        return 'Arbeitszeiten_2026';
     }
   }
 
@@ -1276,16 +1609,23 @@ class _TodayPageState extends State<TodayPage> {
         return _xlsxTypeGroup;
       case SimpleFileFormat.ods:
         return _odsTypeGroup;
+      case SimpleFileFormat.gsheet:
+        return _xlsxTypeGroup;
     }
   }
 
   String _simpleSuggestedFileName({String? defaultExtension}) {
     final current = _simpleImportedFileName?.trim();
+    final currentFormat = _simpleImportedFormat ?? SimpleFileFormat.csv;
+    if (currentFormat == SimpleFileFormat.gsheet) {
+      if (current == null || current.isEmpty) {
+        return 'calcrow_sheet';
+      }
+      return current;
+    }
     final extension =
         defaultExtension ??
-        SimpleSheetFileService.defaultExtensionForFormat(
-          _simpleImportedFormat ?? SimpleFileFormat.csv,
-        );
+        SimpleSheetFileService.defaultExtensionForFormat(currentFormat);
     if (current == null || current.isEmpty) {
       return 'calcrow_simple.$extension';
     }
@@ -1523,7 +1863,11 @@ class _TodayPageState extends State<TodayPage> {
 
     DateTime? tryBuild(int year, int month, int day) {
       if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-      return DateTime(year, month, day);
+      final parsed = DateTime(year, month, day);
+      if (parsed.year != year || parsed.month != month || parsed.day != day) {
+        return null;
+      }
+      return parsed;
     }
 
     final iso = RegExp(
@@ -1943,6 +2287,52 @@ class _TodayPageState extends State<TodayPage> {
     if (!_hasSimpleSchema) {
       return Column(
         children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Opening Mode', style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<_SimpleOpenMode>(
+                    initialValue: _simpleOpenMode,
+                    decoration: const InputDecoration(
+                      labelText: 'How to open the sheet',
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: _SimpleOpenMode.dateBased,
+                        child: Text('Date based'),
+                      ),
+                      DropdownMenuItem(
+                        value: _SimpleOpenMode.textBased,
+                        child: Text('Text based'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() {
+                        _simpleOpenMode = value;
+                        if (value != _SimpleOpenMode.textBased) {
+                          _simpleTextSelectionColumnIndex = null;
+                          _simpleTextSelectionValue = null;
+                        }
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _simpleOpenMode == _SimpleOpenMode.dateBased
+                        ? 'Open the row for today only. If today is missing, the file stays blocked.'
+                        : 'Pick a text field and then choose a specific entry name to open.',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
           _SetupCard(
             title: 'Edit Local Document',
             subtitle: _hasRememberedLocalDocument
@@ -2043,7 +2433,9 @@ class _TodayPageState extends State<TodayPage> {
           ),
           const SizedBox(height: 14),
           Text(
-            'Simple mode will auto-jump to today\'s row if a date column exists, otherwise it opens a new row at the bottom.',
+            _simpleOpenMode == _SimpleOpenMode.dateBased
+                ? 'Date-based opening is strict: today must exist in the detected date column.'
+                : 'Text-based opening lets you choose a row from a text field such as name, email, or phone.',
             style: theme.textTheme.bodyMedium,
           ),
         ],
@@ -2076,9 +2468,19 @@ class _TodayPageState extends State<TodayPage> {
     final targetLabel = isEditingExisting
         ? 'Editing row ${_simpleEditingRowIndex + 1} of ${_simpleRows.length}'
         : 'Editing new row at bottom';
+    final selectedTextFieldLabel =
+        _simpleTextSelectionColumnIndex != null &&
+            _simpleTextSelectionColumnIndex! < _simpleHeaders.length
+        ? _simpleHeaders[_simpleTextSelectionColumnIndex!]
+        : null;
+    final selectedTextTargetLabel =
+        selectedTextFieldLabel != null && _simpleTextSelectionValue != null
+        ? '$selectedTextFieldLabel: ${_simpleTextSelectionValue!}'
+        : null;
     final isSheetDocumentSource =
         _simpleImportedFormat == SimpleFileFormat.xlsx ||
-        _simpleImportedFormat == SimpleFileFormat.ods;
+        _simpleImportedFormat == SimpleFileFormat.ods ||
+        _simpleImportedFormat == SimpleFileFormat.gsheet;
     final sheetName = _simpleImportedSheetName?.trim();
     final activeSheetLabel = isSheetDocumentSource
         ? ((sheetName == null || sheetName.isEmpty) ? 'default' : sheetName)
@@ -2130,6 +2532,13 @@ class _TodayPageState extends State<TodayPage> {
                         const SizedBox(height: 4),
                         Text(
                           'Active sheet: $activeSheetLabel',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ],
+                      if (selectedTextTargetLabel != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Selected entry: $selectedTextTargetLabel',
                           style: theme.textTheme.bodySmall,
                         ),
                       ],
@@ -2279,8 +2688,14 @@ class _TodayPageState extends State<TodayPage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: _selectSimpleEditorTargetRow,
-                    child: const Text('Jump Today'),
+                    onPressed: _simpleOpenMode == _SimpleOpenMode.textBased
+                        ? _pickSimpleTextEntryFromCurrentSheet
+                        : _selectSimpleEditorTargetRow,
+                    child: Text(
+                      _simpleOpenMode == _SimpleOpenMode.textBased
+                          ? 'Pick Entry'
+                          : 'Jump Today',
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -2520,6 +2935,8 @@ class _TodayPageState extends State<TodayPage> {
       _isAdvancedMode = !_isAdvancedMode;
       if (_isAdvancedMode) {
         _setupDone = false;
+        _simpleTextSelectionColumnIndex = null;
+        _simpleTextSelectionValue = null;
       }
     });
   }
@@ -2545,6 +2962,8 @@ class _TodayPageState extends State<TodayPage> {
       _simpleImportedSourceBytes = null;
       _rememberLocalDocumentForReopen = false;
       _simpleDocumentTarget = null;
+      _simpleTextSelectionColumnIndex = null;
+      _simpleTextSelectionValue = null;
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2580,10 +2999,36 @@ class _SimpleEditorTargetSelection {
   const _SimpleEditorTargetSelection({
     required this.usedDateColumn,
     required this.foundMatchingDateRow,
+    required this.targetRowIndex,
   });
 
   final bool usedDateColumn;
   final bool foundMatchingDateRow;
+  final int targetRowIndex;
+}
+
+class _SimpleOpeningSelection {
+  const _SimpleOpeningSelection({
+    required this.targetRowIndex,
+    required this.textColumnIndex,
+    required this.textValue,
+  });
+
+  final int targetRowIndex;
+  final int? textColumnIndex;
+  final String? textValue;
+}
+
+class _SimpleTextTargetSelection {
+  const _SimpleTextTargetSelection({
+    required this.columnIndex,
+    required this.rowIndex,
+    required this.value,
+  });
+
+  final int columnIndex;
+  final int rowIndex;
+  final String value;
 }
 
 abstract class _SimpleDocumentTarget {
@@ -2808,6 +3253,8 @@ class _CloudFilePickerDialogState extends State<_CloudFilePickerDialog> {
         return 'XLSX';
       case 'application/vnd.oasis.opendocument.spreadsheet':
         return 'ODS';
+      case GoogleDriveSyncService.googleSheetsMimeType:
+        return 'Google Sheets';
       default:
         return mimeType;
     }

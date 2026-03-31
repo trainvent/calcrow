@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 
 import 'csv_codec.dart';
+import 'gsheet_codec.dart';
 import 'ods_codec.dart';
 import 'sheet_file_models.dart';
 import 'xlsx_codec.dart';
@@ -16,8 +17,14 @@ class SimpleSheetFileService {
     required Uint8List bytes,
     required String fileName,
     required String? path,
+    String? mimeType,
   }) async {
-    final format = detectFormat(fileName: fileName, path: path, bytes: bytes);
+    final format = detectFormat(
+      fileName: fileName,
+      path: path,
+      bytes: bytes,
+      mimeType: mimeType,
+    );
     switch (format) {
       case SimpleFileFormat.csv:
         return CsvSheetCodec.parse(
@@ -41,6 +48,13 @@ class SimpleSheetFileService {
           }),
         );
         return simpleSheetDataFromTransfer(transfer);
+      case SimpleFileFormat.gsheet:
+        return GSheetCodec.parse(
+          bytes: bytes,
+          fileName: fileName,
+          path: path,
+          now: DateTime.now(),
+        );
     }
   }
 
@@ -48,7 +62,12 @@ class SimpleSheetFileService {
     required String fileName,
     required String? path,
     required Uint8List bytes,
+    String? mimeType,
   }) {
+    final normalizedMimeType = mimeType?.trim().toLowerCase();
+    if (normalizedMimeType == GSheetCodec.googleSheetsMimeType) {
+      return SimpleFileFormat.gsheet;
+    }
     final normalizedName = fileName.trim().toLowerCase();
     final normalizedPath = path?.trim().toLowerCase();
     final extensionSource = normalizedName.isNotEmpty
@@ -105,6 +124,8 @@ class SimpleSheetFileService {
         return XlsxSheetCodec.buildBytes(data);
       case SimpleFileFormat.ods:
         return OdsSheetCodec.buildBytes(data);
+      case SimpleFileFormat.gsheet:
+        return GSheetCodec.buildBytes(data);
     }
   }
 
@@ -116,6 +137,8 @@ class SimpleSheetFileService {
         return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
       case SimpleFileFormat.ods:
         return 'application/vnd.oasis.opendocument.spreadsheet';
+      case SimpleFileFormat.gsheet:
+        return GSheetCodec.googleSheetsMimeType;
     }
   }
 
@@ -127,6 +150,8 @@ class SimpleSheetFileService {
         return 'xlsx';
       case SimpleFileFormat.ods:
         return 'ods';
+      case SimpleFileFormat.gsheet:
+        return 'xlsx';
     }
   }
 

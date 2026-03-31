@@ -174,6 +174,7 @@ class SimpleCloudDocumentService {
     final bytes = switch (file.provider) {
       CloudSyncProvider.googleDrive => await _downloadGoogleDriveFile(
         fileId: file.id,
+        mimeType: file.mimeType,
       ),
       CloudSyncProvider.webDav => await _downloadWebDavFile(
         sessionUid: session.uid,
@@ -189,6 +190,7 @@ class SimpleCloudDocumentService {
       bytes: bytes,
       fileName: file.name,
       path: null,
+      mimeType: file.mimeType,
     );
     return CloudSimpleDocumentOpenResult(sheetData: sheetData, file: file);
   }
@@ -198,6 +200,7 @@ class SimpleCloudDocumentService {
     required String fileName,
     required Uint8List bytes,
     required String outputMimeType,
+    required SimpleSheetData simpleData,
   }) async {
     final session = _requireSession();
     final metadata = switch (existingFile.provider) {
@@ -206,6 +209,7 @@ class SimpleCloudDocumentService {
         fileName: fileName,
         bytes: bytes,
         outputMimeType: outputMimeType,
+        simpleData: simpleData,
       ),
       CloudSyncProvider.webDav => await _persistWebDavDocument(
         sessionUid: session.uid,
@@ -406,9 +410,18 @@ class SimpleCloudDocumentService {
     );
   }
 
-  Future<Uint8List> _downloadGoogleDriveFile({required String fileId}) async {
+  Future<Uint8List> _downloadGoogleDriveFile({
+    required String fileId,
+    required String mimeType,
+  }) async {
     final client = await _googleDriveAuthService.getAuthenticatedClient();
     try {
+      if (mimeType == GoogleDriveSyncService.googleSheetsMimeType) {
+        return await _googleDriveSyncService.exportGoogleSheetAsXlsx(
+          authenticatedClient: client,
+          fileId: fileId,
+        );
+      }
       return await _googleDriveSyncService.downloadFileBytes(
         authenticatedClient: client,
         fileId: fileId,
@@ -441,10 +454,18 @@ class SimpleCloudDocumentService {
     required String fileName,
     required Uint8List bytes,
     required String outputMimeType,
+    required SimpleSheetData simpleData,
   }) async {
     final client = await _googleDriveAuthService.getAuthenticatedClient();
     try {
-      final metadata = existingFile.mimeType != outputMimeType
+      final metadata =
+          existingFile.mimeType == GoogleDriveSyncService.googleSheetsMimeType
+          ? await _googleDriveSyncService.updateGoogleSheet(
+              authenticatedClient: client,
+              fileId: existingFile.id,
+              data: simpleData,
+            )
+          : existingFile.mimeType != outputMimeType
           ? await _googleDriveSyncService.createSyncFile(
               authenticatedClient: client,
               fileName: fileName,

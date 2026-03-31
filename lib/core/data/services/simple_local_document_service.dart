@@ -11,6 +11,7 @@ typedef ParseSimpleSheetData =
       required Uint8List bytes,
       required String fileName,
       required String? path,
+      String? mimeType,
     });
 
 class LocalSimpleDocumentOpenResult {
@@ -88,6 +89,7 @@ class SimpleLocalDocumentService {
       bytes: bytes,
       fileName: fileName,
       path: sourcePath,
+      mimeType: null,
     );
     final hasSafTarget =
         !kIsWeb &&
@@ -108,7 +110,9 @@ class SimpleLocalDocumentService {
     required ParseSimpleSheetData parseSheetData,
   }) async {
     final normalizedPath = existingPath?.trim();
-    final normalizedName = fileName.trim().isEmpty ? 'imported_document' : fileName.trim();
+    final normalizedName = fileName.trim().isEmpty
+        ? 'imported_document'
+        : fileName.trim();
 
     Uint8List bytes = Uint8List(0);
     if (normalizedPath != null && normalizedPath.isNotEmpty) {
@@ -131,6 +135,7 @@ class SimpleLocalDocumentService {
       bytes: bytes,
       fileName: normalizedName,
       path: normalizedPath,
+      mimeType: null,
     );
     final hasSafTarget =
         !kIsWeb &&

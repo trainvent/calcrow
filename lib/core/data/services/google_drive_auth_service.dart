@@ -12,10 +12,7 @@ class GoogleDriveAuthException implements Exception {
 }
 
 class GoogleDriveLinkResult {
-  const GoogleDriveLinkResult({
-    required this.email,
-    required this.accessToken,
-  });
+  const GoogleDriveLinkResult({required this.email, required this.accessToken});
 
   final String email;
   final String accessToken;
@@ -73,9 +70,10 @@ class GoogleDriveAuthService {
       final signIn = _googleSignIn ??= _buildGoogleSignIn();
       var account = signIn.currentUser;
       account ??= await signIn.signInSilently();
+      account ??= await signIn.signIn();
       if (account == null) {
         throw const GoogleDriveAuthException(
-          'Google account is not linked in this session.',
+          'Google account is not linked in this session. Sign in to Google Drive again to refresh access.',
         );
       }
       final headers = await account.authHeaders;
@@ -104,13 +102,16 @@ class GoogleDriveAuthService {
   }
 
   GoogleSignIn _buildGoogleSignIn() {
-    const configuredWebClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
+    const configuredWebClientId = String.fromEnvironment(
+      'GOOGLE_WEB_CLIENT_ID',
+    );
     final webClientId = configuredWebClientId.trim();
     return GoogleSignIn(
       clientId: kIsWeb && webClientId.isNotEmpty ? webClientId : null,
       scopes: const <String>[
         'email',
         'https://www.googleapis.com/auth/drive',
+        'https://www.googleapis.com/auth/spreadsheets',
       ],
     );
   }

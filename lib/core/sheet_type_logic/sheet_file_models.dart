@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:excel/excel.dart' as excel_pkg;
 
-enum SimpleFileFormat { csv, xlsx, ods }
+enum SimpleFileFormat { csv, xlsx, ods, gsheet }
 
 class SimpleSheetData {
   const SimpleSheetData({
