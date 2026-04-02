@@ -1242,6 +1242,35 @@ class _TodayPageState extends State<TodayPage> {
     );
   }
 
+  void _createNewSimpleTextEntry() {
+    final candidateColumns = _simpleTextSelectableColumnsForSheetData(
+      _buildSimpleSheetDataForPersist(),
+    );
+    if (candidateColumns.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Text-based opening needs at least one editable text column for new entries.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final textColumnIndex =
+        (_simpleTextSelectionColumnIndex != null &&
+            candidateColumns.contains(_simpleTextSelectionColumnIndex))
+        ? _simpleTextSelectionColumnIndex!
+        : candidateColumns.first;
+    final draft = List<String>.filled(_simpleHeaders.length, '');
+    _replaceSimpleControllers(draft);
+    setState(() {
+      _simpleEditingRowIndex = _simpleRows.length;
+      _simpleTextSelectionColumnIndex = textColumnIndex;
+      _simpleTextSelectionValue = null;
+    });
+  }
+
   Future<SimplePersistResult> _persistSimpleSheet({
     required SimplePersistMode mode,
   }) async {
@@ -2621,13 +2650,12 @@ class _TodayPageState extends State<TodayPage> {
                 if (isFormulaField) {
                   return const SizedBox.shrink();
                 }
-                final isReadOnly = isDateField;
+                final isReadOnly = _isFixedSimpleDateField(index);
                 final isDurationField =
                     _isSimpleDurationType(type) ||
                     _isSimpleTimespanField(header);
                 final keyboardType = _keyboardForSimpleType(type);
-                final helperText =
-                    'Type: $type${isDateField ? ' (fixed)' : ''}';
+                final helperText = 'Type: $type${isReadOnly ? ' (fixed)' : ''}';
                 return Padding(
                   padding: EdgeInsets.only(
                     bottom: index == _simpleHeaders.length - 1 ? 0 : 10,
@@ -2648,6 +2676,25 @@ class _TodayPageState extends State<TodayPage> {
                             isDateField: isDateField,
                           ),
                           helperText: helperText,
+                        )
+                      : !isReadOnly && type.trim().toLowerCase() == 'date'
+                      ? TextField(
+                          controller: _simpleControllers[index],
+                          readOnly: true,
+                          onTap: () => _pickSimpleDateValue(index),
+                          decoration: InputDecoration(
+                            labelText: header,
+                            hintText: _hintForSimpleType(
+                              type,
+                              isDateField: isDateField,
+                            ),
+                            helperText: helperText,
+                            suffixIcon: IconButton(
+                              tooltip: 'Select date',
+                              onPressed: () => _pickSimpleDateValue(index),
+                              icon: const Icon(Icons.calendar_today_rounded),
+                            ),
+                          ),
                         )
                       : TextField(
                           controller: _simpleControllers[index],
@@ -2698,12 +2745,24 @@ class _TodayPageState extends State<TodayPage> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: _clearSimpleEditableFields,
-                  tooltip: 'Clear editable fields',
-                  icon: const Icon(Icons.delete_outline_rounded),
-                ),
+                if (_simpleOpenMode == _SimpleOpenMode.textBased) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: hasPendingTypeSelection
+                          ? null
+                          : _createNewSimpleTextEntry,
+                      child: const Text('New Entry'),
+                    ),
+                  ),
+                ] else ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: _clearSimpleEditableFields,
+                    tooltip: 'Clear editable fields',
+                    icon: const Icon(Icons.delete_outline_rounded),
+                  ),
+                ],
               ],
             ),
           ),
@@ -2747,6 +2806,36 @@ class _TodayPageState extends State<TodayPage> {
   bool _isSimpleTimespanField(String header) {
     final value = header.trim().toLowerCase();
     return value.contains('pause') || value.contains('break');
+  }
+
+  bool _isFixedSimpleDateField(int columnIndex) {
+    return _simpleOpenMode == _SimpleOpenMode.dateBased &&
+        columnIndex == _simpleDateColumnIndex();
+  }
+
+  Future<void> _pickSimpleDateValue(int columnIndex) async {
+    if (columnIndex < 0 || columnIndex >= _simpleControllers.length) return;
+
+    final currentValue = _simpleControllers[columnIndex].text.trim();
+    final initialDate = _parseDateFromCellValue(currentValue) ?? DateTime.now();
+    final firstDate = DateTime(1900);
+    final lastDate = DateTime(2100);
+    final safeInitialDate = initialDate.isBefore(firstDate)
+        ? firstDate
+        : initialDate.isAfter(lastDate)
+        ? lastDate
+        : initialDate;
+
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: safeInitialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
+    );
+    if (!mounted || selectedDate == null) return;
+
+    _simpleControllers[columnIndex].text = _formatDate(selectedDate);
+    setState(() {});
   }
 
   String? _hintForSimpleType(String rawType, {required bool isDateField}) {
