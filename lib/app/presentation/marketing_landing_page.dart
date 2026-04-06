@@ -9,7 +9,7 @@ class MarketingLandingPage extends StatelessWidget {
   static const String playStoreUrl =
       'https://play.google.com/store/apps/details?id=de.lemarq.calcrow';
   static const String appStoreUrl = '';
-  static const String webClientPath = '/app';
+  static const String webClientPath = '/?app=1';
 
   bool get _hasAppStoreUrl => appStoreUrl.trim().isNotEmpty;
 

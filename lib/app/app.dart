@@ -113,7 +113,10 @@ class _CalcrowAppState extends State<CalcrowApp> {
 
   bool _showMarketingLanding() {
     if (!kIsWeb) return false;
-    final path = Uri.base.path.trim();
+    final uri = Uri.base;
+    final path = uri.path.trim();
+    final wantsApp = uri.queryParameters['app'] == '1' || uri.fragment == '/app';
+    if (wantsApp) return false;
     return path.isEmpty || path == '/';
   }
 
