@@ -15,6 +15,22 @@ A tool to display a line of CSV in a visually appealing way. The line gets picke
 flutter run
 ```
 
+## Web Deploy
+
+This repo deploys the web build to GitHub Pages with GitHub Actions.
+
+- Workflow: `.github/workflows/deploy-pages.yml`
+- Branch trigger: `main`
+- GitHub Pages path mode: `/calcrow/`
+
+Local web build for GitHub Pages:
+
+```bash
+flutter build web --release --base-href /calcrow/
+```
+
+Before the first deploy, set the repository Pages source to `GitHub Actions`.
+
 ## Firebase Recommendation
 
 Yes, Firebase is a strong fit for your mobile app:
