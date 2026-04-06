@@ -21,15 +21,16 @@ This repo deploys the web build to GitHub Pages with GitHub Actions.
 
 - Workflow: `.github/workflows/deploy-pages.yml`
 - Branch trigger: `main`
-- GitHub Pages path mode: `/calcrow/`
+- GitHub Pages path mode: root custom domain (`calcrow.com`)
 
 Local web build for GitHub Pages:
 
 ```bash
-flutter build web --release --base-href /calcrow/
+flutter build web --release --base-href /
 ```
 
 Before the first deploy, set the repository Pages source to `GitHub Actions`.
+If you are using the custom domain, make sure GitHub Pages is configured for `calcrow.com` and DNS points to GitHub Pages.
 
 ## Firebase Recommendation
 
