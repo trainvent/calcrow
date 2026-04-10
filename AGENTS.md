@@ -29,9 +29,9 @@
 - “Open via link” should be treated as a separate integration path (Drive/API/auth), not local file overwrite.
 
 ## Quick Commands
-- Run app: `flutter run`
-- Run web: `flutter run -d chrome`
-- Tests: `flutter test`
+- Run app: `./ci_scripts/run.sh`
+- Run web: `./ci_scripts/run.sh -d chrome`
+- Tests: `flutter test --dart-define-from-file=.env`
 - Analyze: `flutter analyze`
 
 ## Change Checklist (Before finishing)

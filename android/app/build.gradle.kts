@@ -1,5 +1,6 @@
 import org.gradle.api.tasks.compile.JavaCompile
 import java.util.Properties
+import java.util.Base64
 
 plugins {
     id("com.android.application")
@@ -17,6 +18,22 @@ val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
     keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
 }
+
+val dartDefines =
+    (project.findProperty("dart-defines") as String?)
+        ?.split(",")
+        ?.mapNotNull { encoded ->
+            runCatching {
+                String(Base64.getDecoder().decode(encoded), Charsets.UTF_8)
+            }.getOrNull()
+        }
+        ?.associate { entry ->
+            val parts = entry.split("=", limit = 2)
+            val key = parts.firstOrNull().orEmpty()
+            val value = parts.getOrNull(1).orEmpty()
+            key to value
+        }
+        ?: emptyMap()
 
 android {
     namespace = "de.lemarq.calcrow"
@@ -41,6 +58,8 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["adMobApplicationId"] =
+            dartDefines["ADMOB_ANDROID_APP_ID"].orEmpty()
     }
 
     signingConfigs {

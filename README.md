@@ -12,7 +12,7 @@ A tool to display a line of CSV in a visually appealing way. The line gets picke
 ## Run
 
 ```bash
-flutter run
+./ci_scripts/run.sh
 ```
 
 ## Web Deploy
@@ -26,8 +26,11 @@ This repo deploys the web build to GitHub Pages with GitHub Actions.
 Local web build for GitHub Pages:
 
 ```bash
-flutter build web --release --base-href /
+./ci_scripts/build_web.sh
 ```
+
+Create `.env` from `.env.example` before running local builds.
+For GitHub Pages, set the `DART_DEFINE_ENV` repository secret to the full `.env` file content if you want the deployed build to include real keys.
 
 Before the first deploy, set the repository Pages source to `GitHub Actions`.
 If you are using the custom domain, make sure GitHub Pages is configured for `calcrow.com` and DNS points to GitHub Pages.

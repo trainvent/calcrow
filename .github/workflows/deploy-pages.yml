@@ -34,8 +34,16 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Prepare env file
+        run: |
+          if [ -n "${{ secrets.DART_DEFINE_ENV }}" ]; then
+            printf '%s' "${{ secrets.DART_DEFINE_ENV }}" > .env
+          else
+            cp .env.example .env
+          fi
+
       - name: Build web app
-        run: flutter build web --release --base-href /
+        run: ./ci_scripts/build_web.sh
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
