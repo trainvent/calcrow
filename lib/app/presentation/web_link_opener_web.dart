@@ -2,10 +2,12 @@
 
 import 'dart:html' as html;
 
-void openExternalUrl(String url) {
+Future<bool> openExternalUrl(String url) async {
   html.window.open(url, '_blank');
+  return true;
 }
 
-void openSameTabUrl(String url) {
+Future<bool> openSameTabUrl(String url) async {
   html.window.open(url, '_self');
+  return true;
 }

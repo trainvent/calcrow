@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
+import '../../../../../app/presentation/web_link_opener_stub.dart'
+    if (dart.library.html) '../../../../../app/presentation/web_link_opener_web.dart';
+import '../../../../../core/constants/internal_constants.dart';
 import '../../../../../core/data/di/service_locator.dart';
 
 class DataCollectionPage extends StatefulWidget {
@@ -14,6 +17,8 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
   bool _isUpdatingAnalytics = false;
   bool _isUpdatingCrashReports = false;
   bool _isOpeningAdsPrivacyChoices = false;
+  bool _isOpeningAdsPolicy = false;
+  bool _isResettingAdsConsent = false;
 
   @override
   Widget build(BuildContext context) {
@@ -81,6 +86,49 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
                 },
               ),
             ),
+            const SizedBox(height: 12),
+            Card(
+              child: ValueListenableBuilder<bool>(
+                valueListenable: adsConsent.canRequestAdsListenable,
+                builder: (context, canRequestAds, _) {
+                  return ListTile(
+                    leading: const Icon(Icons.block_outlined),
+                    title: const Text('Reset ad consent'),
+                    subtitle: Text(
+                      canRequestAds
+                          ? 'Clear the current AdMob consent state on this device. Ads stay disabled until Google collects consent again.'
+                          : 'Clear any stored AdMob consent state on this device and force the Google consent flow to ask again later.',
+                    ),
+                    trailing: _isResettingAdsConsent
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.restart_alt_rounded),
+                    onTap: _isResettingAdsConsent ? null : _resetAdsConsent,
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.description_outlined),
+                title: const Text('Ads privacy policy'),
+                subtitle: const Text(
+                  'Read how Calcrow and Google AdMob handle consent choices for the EEA, UK, Switzerland, and applicable US state privacy rules.',
+                ),
+                trailing: _isOpeningAdsPolicy
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.open_in_new_rounded),
+                onTap: _isOpeningAdsPolicy ? null : _openAdsPrivacyPolicy,
+              ),
+            ),
           ],
           const SizedBox(height: 12),
           Card(
@@ -96,7 +144,8 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
                         : 'Usage analytics are not available on this platform.',
                   ),
                   value: enabled,
-                  onChanged: !diagnostics.supportsUsageAnalytics ||
+                  onChanged:
+                      !diagnostics.supportsUsageAnalytics ||
                           _isUpdatingAnalytics
                       ? null
                       : (value) => _setUsageAnalyticsEnabled(value),
@@ -118,7 +167,8 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
                         : 'Crash reporting and performance monitoring are only available on supported mobile builds.',
                   ),
                   value: enabled,
-                  onChanged: !diagnostics.supportsCrashReports ||
+                  onChanged:
+                      !diagnostics.supportsCrashReports ||
                           _isUpdatingCrashReports
                       ? null
                       : (value) => _setCrashReportsEnabled(value),
@@ -160,9 +210,7 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            enabled
-                ? 'Usage analytics enabled.'
-                : 'Usage analytics disabled.',
+            enabled ? 'Usage analytics enabled.' : 'Usage analytics disabled.',
           ),
         ),
       );
@@ -219,13 +267,13 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
       final message = ServiceLocator.adsConsentService.lastErrorMessage;
       if (message == null) {
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Ad privacy choices updated.'),
-          ),
+          const SnackBar(content: Text('Ad privacy choices updated.')),
         );
       } else {
         messenger.showSnackBar(
-          SnackBar(content: Text('Could not open ad privacy choices: $message')),
+          SnackBar(
+            content: Text('Could not open ad privacy choices: $message'),
+          ),
         );
       }
     } catch (error) {
@@ -236,6 +284,79 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
     } finally {
       if (mounted) {
         setState(() => _isOpeningAdsPrivacyChoices = false);
+      }
+    }
+  }
+
+  Future<void> _openAdsPrivacyPolicy() async {
+    if (_isOpeningAdsPolicy) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isOpeningAdsPolicy = true);
+    try {
+      final opened = await openExternalUrl(IConst.privacyPolicyAdsUrl);
+      if (!mounted) return;
+      if (!opened) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not open ads privacy policy. Visit ${IConst.privacyPolicyAdsUrl} in a browser.',
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not open ads privacy policy: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isOpeningAdsPolicy = false);
+      }
+    }
+  }
+
+  Future<void> _resetAdsConsent() async {
+    if (_isResettingAdsConsent) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Reset ad consent?'),
+        content: const Text(
+          'This clears the current Google AdMob consent state on this device. The next consent refresh may ask again before ads can be requested.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isResettingAdsConsent = true);
+    try {
+      await ServiceLocator.adsConsentService.resetConsent();
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Ad consent reset on this device.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not reset ad consent: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isResettingAdsConsent = false);
       }
     }
   }

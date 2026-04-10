@@ -1,5 +1,17 @@
 class IConst {
   static const String appName = 'Calcrow';
+  static const String privacyPolicyUrl = String.fromEnvironment(
+    'PRIVACY_POLICY_URL',
+    defaultValue: 'https://calcrow.com/privacy-policy/',
+  );
+  static const String privacyPolicyAdsUrl = String.fromEnvironment(
+    'PRIVACY_POLICY_ADS_URL',
+    defaultValue: 'https://calcrow.com/privacy-policy-ads/',
+  );
+  static const String deleteAccountUrl = String.fromEnvironment(
+    'DELETE_ACCOUNT_URL',
+    defaultValue: 'https://calcrow.com/delete-account/',
+  );
   static const String adMobAndroidAppId = String.fromEnvironment(
     'ADMOB_ANDROID_APP_ID',
     defaultValue: '',

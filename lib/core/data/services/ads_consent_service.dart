@@ -10,7 +10,9 @@ class AdsConsentService {
 
   static final AdsConsentService instance = AdsConsentService._();
 
-  final ValueNotifier<bool> canRequestAdsListenable = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> canRequestAdsListenable = ValueNotifier<bool>(
+    false,
+  );
   final ValueNotifier<PrivacyOptionsRequirementStatus>
   privacyOptionsRequirementStatusListenable =
       ValueNotifier<PrivacyOptionsRequirementStatus>(
@@ -42,7 +44,8 @@ class AdsConsentService {
       privacyOptionsRequirementStatusListenable.value;
 
   bool get isPrivacyOptionsRequired =>
-      privacyOptionsRequirementStatus == PrivacyOptionsRequirementStatus.required;
+      privacyOptionsRequirementStatus ==
+      PrivacyOptionsRequirementStatus.required;
 
   String? get lastErrorMessage => _lastErrorMessage;
 
@@ -87,9 +90,7 @@ class AdsConsentService {
       (formError) {
         _lastErrorMessage = _formatFormError(formError);
         if (!completer.isCompleted) {
-          completer.completeError(
-            AdsConsentException(_lastErrorMessage!),
-          );
+          completer.completeError(AdsConsentException(_lastErrorMessage!));
         }
       },
     );
@@ -113,6 +114,14 @@ class AdsConsentService {
     });
   }
 
+  Future<void> resetConsent() async {
+    if (!isSupported) return;
+
+    _lastErrorMessage = null;
+    await ConsentInformation.instance.reset();
+    await _refreshCachedState();
+  }
+
   Future<void> _refreshCachedState() async {
     if (!isSupported) {
       canRequestAdsListenable.value = false;
@@ -121,10 +130,11 @@ class AdsConsentService {
       return;
     }
 
-    canRequestAdsListenable.value =
-        await ConsentInformation.instance.canRequestAds();
-    privacyOptionsRequirementStatusListenable.value =
-        await ConsentInformation.instance.getPrivacyOptionsRequirementStatus();
+    canRequestAdsListenable.value = await ConsentInformation.instance
+        .canRequestAds();
+    privacyOptionsRequirementStatusListenable.value = await ConsentInformation
+        .instance
+        .getPrivacyOptionsRequirementStatus();
   }
 
   String _formatFormError(FormError error) {

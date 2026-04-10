@@ -133,6 +133,12 @@ class MarketingLandingPage extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         TextButton(
+                          onPressed: () =>
+                              openSameTabUrl('/privacy-policy-ads/'),
+                          child: const Text('Ads Privacy'),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton(
                           onPressed: () => openSameTabUrl('/support/'),
                           child: const Text('Support'),
                         ),

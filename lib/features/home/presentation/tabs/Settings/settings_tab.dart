@@ -19,6 +19,7 @@ import 'entitlement_page.dart';
 import '../../../../auth/presentation/sign_in_sheet.dart';
 import '../../../../../app/presentation/web_link_opener_stub.dart'
     if (dart.library.html) '../../../../../app/presentation/web_link_opener_web.dart';
+import '../../../../../core/constants/internal_constants.dart';
 
 class SettingsTab extends StatefulWidget {
   const SettingsTab({super.key});
@@ -261,7 +262,9 @@ class _SettingsTabState extends State<SettingsTab> {
                             ),
                             const Divider(height: 1),
                             ListTile(
-                              leading: const Icon(Icons.folder_special_outlined),
+                              leading: const Icon(
+                                Icons.folder_special_outlined,
+                              ),
                               title: const Text('Manage SAF folder'),
                               subtitle: Text(_safFolderSubtitle(settings)),
                             ),
@@ -277,25 +280,21 @@ class _SettingsTabState extends State<SettingsTab> {
                                 testButton: OutlinedButton(
                                   onPressed: _isUpdatingSafFolder
                                       ? null
-                                      : () => _testSafFolder(
-                                          settings: settings,
-                                        ),
+                                      : () =>
+                                            _testSafFolder(settings: settings),
                                   child: const Text('Test'),
                                 ),
                                 revertButton: OutlinedButton(
                                   onPressed: _isUpdatingSafFolder
                                       ? null
-                                      : () => _revertSafTest(
-                                          settings: settings,
-                                        ),
+                                      : () =>
+                                            _revertSafTest(settings: settings),
                                   child: const Text('Test Revert'),
                                 ),
                                 clearButton: TextButton(
                                   onPressed: _isUpdatingSafFolder
                                       ? null
-                                      : () => _clearSafFolder(
-                                          session: session,
-                                        ),
+                                      : () => _clearSafFolder(session: session),
                                   child: const Text('Clear'),
                                 ),
                               ),
@@ -310,7 +309,7 @@ class _SettingsTabState extends State<SettingsTab> {
                                     strokeWidth: 2,
                                   ),
                                 ),
-                            ),
+                              ),
                             const Divider(height: 1),
                             SwitchListTile(
                               secondary: const Icon(Icons.tune_rounded),
@@ -861,11 +860,16 @@ class _SettingsTabState extends State<SettingsTab> {
       openSameTabUrl('/delete-account/');
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Open calcrow.com/delete-account in a browser to continue.'),
-      ),
-    );
+    openExternalUrl(IConst.deleteAccountUrl).then((opened) {
+      if (!mounted || opened) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Open ${IConst.deleteAccountUrl} in a browser to continue.',
+          ),
+        ),
+      );
+    });
   }
 
   Future<void> _setSafFolder({AuthSession? session}) async {
