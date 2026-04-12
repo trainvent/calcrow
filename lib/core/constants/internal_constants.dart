@@ -28,6 +28,10 @@ class IConst {
     'ADMOB_ANDROID_BANNER_ID',
     defaultValue: '',
   );
+  static const String adMobIosBannerId = String.fromEnvironment(
+    'ADMOB_IOS_BANNER_ID',
+    defaultValue: '',
+  );
   static const String revenueCatTestAPIKey = String.fromEnvironment(
     'REVENUECAT_TEST_API_KEY',
     defaultValue: '',

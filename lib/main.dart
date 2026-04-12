@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'firebase_options.dart';
 import 'core/constants/internal_constants.dart';
 import 'core/data/di/service_locator.dart';
@@ -17,6 +18,9 @@ Future<void> main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   ServiceLocator.setup();
   await AdsConsentService.instance.init();
+  if (AdsConsentService.instance.isSupported) {
+    await MobileAds.instance.initialize();
+  }
   await ServiceLocator.diagnosticsService.init();
   await installDiagnosticsErrorHandlers();
   await PurchasesService.instance.init(
