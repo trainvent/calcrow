@@ -43,9 +43,9 @@ class _HomeShellState extends State<HomeShell> {
                 },
                 destinations: const [
                   NavigationDestination(
-                    icon: Icon(Icons.today_outlined),
-                    selectedIcon: Icon(Icons.today),
-                    label: 'Today',
+                    icon: _SingleRowNavIcon(selected: false),
+                    selectedIcon: _SingleRowNavIcon(selected: true),
+                    label: 'Row',
                   ),
                   NavigationDestination(
                     icon: Icon(Icons.grid_on_outlined),
@@ -62,6 +62,39 @@ class _HomeShellState extends State<HomeShell> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _SingleRowNavIcon extends StatelessWidget {
+  const _SingleRowNavIcon({required this.selected});
+
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        IconTheme.of(context).color ?? Theme.of(context).colorScheme.onSurface;
+
+    return SizedBox(
+      width: 24,
+      height: 24,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(color: color, width: selected ? 1.8 : 1.4),
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: Center(
+          child: Container(
+            height: selected ? 2.4 : 1.8,
+            margin: const EdgeInsets.symmetric(horizontal: 3.5),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
       ),
     );
   }

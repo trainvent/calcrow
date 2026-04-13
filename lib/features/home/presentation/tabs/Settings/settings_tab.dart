@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
 
 import '../../../../../core/data/di/service_locator.dart';
@@ -30,13 +29,11 @@ class SettingsTab extends StatefulWidget {
 }
 
 class _SettingsTabState extends State<SettingsTab> {
-  static const String _safTestFileName = 'calcrow_saf_test.txt';
   static const String _googleDriveLogTag = 'CalcrowGoogleDrive';
   bool _isLinkingGoogle = false;
   bool _isLinkingWebDav = false;
   bool _isUpdatingAdvancedFeatures = false;
   bool _isUpdatingSafFolder = false;
-  static final SafStream _safStream = SafStream();
   static final SafUtil _safUtil = SafUtil();
   final SimpleSheetPersistenceService _sheetPersistenceService =
       SimpleSheetPersistenceService();
@@ -86,23 +83,11 @@ class _SettingsTabState extends State<SettingsTab> {
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                       child: _buildSafActionGrid(
-                        testButton: OutlinedButton(
-                          onPressed: _isUpdatingSafFolder
-                              ? null
-                              : () => _testSafFolder(settings: null),
-                          child: const Text('Test'),
-                        ),
                         setButton: OutlinedButton(
                           onPressed: _isUpdatingSafFolder
                               ? null
                               : () => _setSafFolder(),
                           child: const Text('Set'),
-                        ),
-                        revertButton: OutlinedButton(
-                          onPressed: _isUpdatingSafFolder
-                              ? null
-                              : () => _revertSafTest(settings: null),
-                          child: const Text('Untest'),
                         ),
                         clearButton: TextButton(
                           onPressed: _isUpdatingSafFolder
@@ -277,20 +262,6 @@ class _SettingsTabState extends State<SettingsTab> {
                                       ? null
                                       : () => _setSafFolder(session: session),
                                   child: const Text('Set'),
-                                ),
-                                testButton: OutlinedButton(
-                                  onPressed: _isUpdatingSafFolder
-                                      ? null
-                                      : () =>
-                                            _testSafFolder(settings: settings),
-                                  child: const Text('Test'),
-                                ),
-                                revertButton: OutlinedButton(
-                                  onPressed: _isUpdatingSafFolder
-                                      ? null
-                                      : () =>
-                                            _revertSafTest(settings: settings),
-                                  child: const Text('Test Revert'),
                                 ),
                                 clearButton: TextButton(
                                   onPressed: _isUpdatingSafFolder
@@ -520,27 +491,13 @@ class _SettingsTabState extends State<SettingsTab> {
 
   Widget _buildSafActionGrid({
     required Widget setButton,
-    required Widget testButton,
-    required Widget revertButton,
     required Widget clearButton,
   }) {
-    return Column(
+    return Row(
       children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(child: testButton),
-            const SizedBox(width: 8),
-            Expanded(child: setButton),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: <Widget>[
-            Expanded(child: revertButton),
-            const SizedBox(width: 8),
-            Expanded(child: clearButton),
-          ],
-        ),
+        Expanded(child: setButton),
+        const SizedBox(width: 8),
+        Expanded(child: clearButton),
       ],
     );
   }
@@ -987,91 +944,6 @@ class _SettingsTabState extends State<SettingsTab> {
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(content: Text('Could not set SAF folder: $error')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isUpdatingSafFolder = false);
-      }
-    }
-  }
-
-  Future<void> _testSafFolder({required UserSettingsData? settings}) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final treeUri =
-        settings?.safTreeUri ?? SimpleSheetPersistenceService.runtimeSafTreeUri;
-    if (treeUri == null || treeUri.isEmpty) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('No SAF folder configured.')),
-      );
-      return;
-    }
-    setState(() => _isUpdatingSafFolder = true);
-    try {
-      final bytes = Uint8List.fromList(
-        utf8.encode('calcrow SAF test ${DateTime.now().toIso8601String()}\n'),
-      );
-      final created = await _safStream.writeFileBytes(
-        treeUri,
-        _safTestFileName,
-        'text/plain',
-        bytes,
-        overwrite: true,
-      );
-      if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            'SAF test write successful (${created.fileName ?? _safTestFileName}).',
-          ),
-        ),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            'SAF test failed. Re-pick folder from a writable location: $error',
-          ),
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isUpdatingSafFolder = false);
-      }
-    }
-  }
-
-  Future<void> _revertSafTest({required UserSettingsData? settings}) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final treeUri =
-        settings?.safTreeUri ?? SimpleSheetPersistenceService.runtimeSafTreeUri;
-    if (treeUri == null || treeUri.isEmpty) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('No SAF folder configured.')),
-      );
-      return;
-    }
-    setState(() => _isUpdatingSafFolder = true);
-    try {
-      final existing = await _safUtil.child(treeUri, <String>[
-        _safTestFileName,
-      ]);
-      if (existing == null) {
-        if (!mounted) return;
-        messenger.showSnackBar(
-          const SnackBar(content: Text('No SAF test file to delete.')),
-        );
-        return;
-      }
-      await _safUtil.delete(existing.uri, false);
-      if (!mounted) return;
-      messenger.showSnackBar(
-        const SnackBar(content: Text('SAF test file deleted.')),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(content: Text('Could not delete SAF test file: $error')),
       );
     } finally {
       if (mounted) {
