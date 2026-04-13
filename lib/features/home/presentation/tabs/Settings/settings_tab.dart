@@ -661,6 +661,7 @@ class _SettingsTabState extends State<SettingsTab> {
         uid: session.uid,
         serverUrl: linkedAccount.serverUrl,
         username: linkedAccount.username,
+        password: connectionDetails.password,
       );
       if (!mounted) return;
       messenger.showSnackBar(

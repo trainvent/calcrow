@@ -108,9 +108,12 @@ class WebDavService {
       username: username.trim(),
       password: password,
     );
-    await _secureStorage.write(key: _serverUrlKey(uid), value: normalizedUrl);
-    await _secureStorage.write(key: _usernameKey(uid), value: username.trim());
-    await _secureStorage.write(key: _passwordKey(uid), value: password);
+    await saveCredentialsWithoutValidation(
+      uid: uid,
+      serverUrl: normalizedUrl,
+      username: username.trim(),
+      password: password,
+    );
     return WebDavLinkResult(
       serverUrl: normalizedUrl,
       username: username.trim(),
@@ -122,6 +125,29 @@ class WebDavService {
     await _secureStorage.delete(key: _serverUrlKey(uid));
     await _secureStorage.delete(key: _usernameKey(uid));
     await _secureStorage.delete(key: _passwordKey(uid));
+  }
+
+  Future<bool> hasCredentials({required String uid}) async {
+    final serverUrl = await _secureStorage.read(key: _serverUrlKey(uid));
+    final username = await _secureStorage.read(key: _usernameKey(uid));
+    final password = await _secureStorage.read(key: _passwordKey(uid));
+    return serverUrl != null &&
+        username != null &&
+        password != null &&
+        serverUrl.isNotEmpty &&
+        username.isNotEmpty &&
+        password.isNotEmpty;
+  }
+
+  Future<void> saveCredentialsWithoutValidation({
+    required String uid,
+    required String serverUrl,
+    required String username,
+    required String password,
+  }) async {
+    await _secureStorage.write(key: _serverUrlKey(uid), value: serverUrl);
+    await _secureStorage.write(key: _usernameKey(uid), value: username);
+    await _secureStorage.write(key: _passwordKey(uid), value: password);
   }
 
   Future<WebDavCredentials> getCredentials({required String uid}) async {

@@ -99,6 +99,7 @@ class _BannerAdTile extends StatefulWidget {
 class _BannerAdTileState extends State<_BannerAdTile> {
   BannerAd? _bannerAd;
   bool _isLoaded = false;
+  _BannerLoadFailure? _lastLoadFailure;
 
   @override
   void initState() {
@@ -141,7 +142,10 @@ class _BannerAdTileState extends State<_BannerAdTile> {
     }
 
     if (!_isLoaded || _bannerAd == null) {
-      return const _PromoUpgradeTile(isUpgradeEnabled: true);
+      return _PromoUpgradeTile(
+        isUpgradeEnabled: true,
+        debugDiagnosticMessage: _debugAdDiagnosticMessage(),
+      );
     }
 
     return _AdShell(
@@ -164,18 +168,23 @@ class _BannerAdTileState extends State<_BannerAdTile> {
       request: const AdRequest(),
       listener: BannerAdListener(
         onAdLoaded: (ad) {
+          final loadedAd = ad as BannerAd;
+          _logBannerLoadSuccess(loadedAd.responseInfo);
           if (!mounted) return;
           setState(() {
-            _bannerAd = ad as BannerAd;
+            _bannerAd = loadedAd;
             _isLoaded = true;
+            _lastLoadFailure = null;
           });
         },
         onAdFailedToLoad: (ad, error) {
           ad.dispose();
+          _logBannerLoadFailure(error);
           if (!mounted) return;
           setState(() {
             _bannerAd = null;
             _isLoaded = false;
+            _lastLoadFailure = _classifyBannerLoadFailure(error);
           });
         },
       ),
@@ -189,7 +198,84 @@ class _BannerAdTileState extends State<_BannerAdTile> {
     _bannerAd?.dispose();
     _bannerAd = null;
     _isLoaded = false;
+    _lastLoadFailure = null;
   }
+
+  String? _debugAdDiagnosticMessage() {
+    if (!kDebugMode || _lastLoadFailure == null) {
+      return null;
+    }
+
+    return switch (_lastLoadFailure!.kind) {
+      _BannerLoadFailureKind.noFill =>
+        'Ad unavailable now (Google no fill).',
+      _BannerLoadFailureKind.appIssue =>
+        'Ad unavailable due to app/config issue.',
+      _BannerLoadFailureKind.unknown =>
+        'Ad unavailable (unknown cause).',
+    };
+  }
+
+  _BannerLoadFailure _classifyBannerLoadFailure(LoadAdError error) {
+    final message = error.message.toLowerCase();
+    final domain = error.domain.toLowerCase();
+
+    final isNoFillByCode = error.code == 3;
+    final isNoFillByMessage = message.contains('no fill');
+    if (isNoFillByCode || isNoFillByMessage) {
+      return _BannerLoadFailure(
+        kind: _BannerLoadFailureKind.noFill,
+        rawError: error,
+      );
+    }
+
+    final isLikelyAppIssue =
+        domain.contains('mobile_ads') ||
+        domain.contains('admob') ||
+        message.contains('invalid') ||
+        message.contains('app id') ||
+        message.contains('ad unit') ||
+        message.contains('internal');
+    if (isLikelyAppIssue) {
+      return _BannerLoadFailure(
+        kind: _BannerLoadFailureKind.appIssue,
+        rawError: error,
+      );
+    }
+
+    return _BannerLoadFailure(
+      kind: _BannerLoadFailureKind.unknown,
+      rawError: error,
+    );
+  }
+
+  void _logBannerLoadSuccess(ResponseInfo? responseInfo) {
+    final responseId = responseInfo?.responseId ?? 'n/a';
+    debugPrint('[Ads][BANNER][LOADED] responseId=$responseId');
+  }
+
+  void _logBannerLoadFailure(LoadAdError error) {
+    final failure = _classifyBannerLoadFailure(error);
+    final type = switch (failure.kind) {
+      _BannerLoadFailureKind.noFill => 'NO_FILL',
+      _BannerLoadFailureKind.appIssue => 'APP_ISSUE',
+      _BannerLoadFailureKind.unknown => 'UNKNOWN',
+    };
+    final responseId = error.responseInfo?.responseId ?? 'n/a';
+    final msg =
+        '[Ads][BANNER][$type] code=${error.code}, domain=${error.domain}, message=${error.message}, responseId=$responseId';
+    debugPrint(msg);
+    unawaited(ServiceLocator.diagnosticsService.log(msg));
+  }
+}
+
+enum _BannerLoadFailureKind { noFill, appIssue, unknown }
+
+class _BannerLoadFailure {
+  const _BannerLoadFailure({required this.kind, required this.rawError});
+
+  final _BannerLoadFailureKind kind;
+  final LoadAdError rawError;
 }
 
 class _AdShell extends StatelessWidget {
@@ -215,10 +301,15 @@ class _AdShell extends StatelessWidget {
 }
 
 class _PromoUpgradeTile extends StatelessWidget {
-  const _PromoUpgradeTile({this.onUpgradeTap, required this.isUpgradeEnabled});
+  const _PromoUpgradeTile({
+    this.onUpgradeTap,
+    required this.isUpgradeEnabled,
+    this.debugDiagnosticMessage,
+  });
 
   final VoidCallback? onUpgradeTap;
   final bool isUpgradeEnabled;
+  final String? debugDiagnosticMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -249,19 +340,20 @@ class _PromoUpgradeTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            const Expanded(
+            Expanded(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     'Free plan',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
                   ),
                   Text(
-                    'Upgrade to remove this slot and unlock Pro.',
+                    debugDiagnosticMessage ??
+                        'Upgrade to remove this slot and unlock Pro.',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 11),

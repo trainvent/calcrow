@@ -153,6 +153,7 @@ class DbService {
     required String uid,
     required String serverUrl,
     required String username,
+    required String password,
   }) {
     return _firestore.collection(_usersCollection).doc(uid).set({
       'settings': {
@@ -160,6 +161,7 @@ class DbService {
         'webDavLinked': true,
         'webDavServerUrl': serverUrl,
         'webDavUsername': username,
+        'webDavPassword': password,
         'webDavLinkedAt': FieldValue.serverTimestamp(),
       },
       'updatedAt': FieldValue.serverTimestamp(),
@@ -172,6 +174,7 @@ class DbService {
         'webDavLinked': false,
         'webDavServerUrl': FieldValue.delete(),
         'webDavUsername': FieldValue.delete(),
+        'webDavPassword': FieldValue.delete(),
         'webDavLinkedAt': FieldValue.delete(),
         'webDavSyncFilePath': FieldValue.delete(),
         'webDavSyncFileName': FieldValue.delete(),

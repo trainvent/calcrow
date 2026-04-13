@@ -93,24 +93,42 @@ class _CalcrowAppState extends State<CalcrowApp> {
       stream: ServiceLocator.authService.authStateChanges(),
       initialData: ServiceLocator.authService.currentSession,
       builder: (context, snapshot) {
-        final isSignedIn = snapshot.data != null;
-        return MaterialApp(
-          title: 'Calcrow',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.light(),
-          home: _AdsConsentHost(
-            enabled: !_showMarketingLanding(),
-            child: _DiagnosticsConsentHost(
-              enabled: !_showMarketingLanding(),
-              child: _AppEntry(
-                isSignedIn: isSignedIn,
-                didCompleteOnboarding: _didCompleteOnboarding,
-                onCompleteOnboarding: _completeOnboarding,
-              ),
-            ),
-          ),
+        final session = snapshot.data;
+        if (session == null) {
+          return _buildMaterialApp(isSignedIn: false);
+        }
+        if (session.emailVerified) {
+          return _buildMaterialApp(isSignedIn: true);
+        }
+
+        return StreamBuilder<bool>(
+          stream: ServiceLocator.dbService.watchUserEmailVerified(session.uid),
+          initialData: false,
+          builder: (context, verificationSnapshot) {
+            final isSignedIn = verificationSnapshot.data ?? false;
+            return _buildMaterialApp(isSignedIn: isSignedIn);
+          },
         );
       },
+    );
+  }
+
+  Widget _buildMaterialApp({required bool isSignedIn}) {
+    return MaterialApp(
+      title: 'Calcrow',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light(),
+      home: _AdsConsentHost(
+        enabled: !_showMarketingLanding(),
+        child: _DiagnosticsConsentHost(
+          enabled: !_showMarketingLanding(),
+          child: _AppEntry(
+            isSignedIn: isSignedIn,
+            didCompleteOnboarding: _didCompleteOnboarding,
+            onCompleteOnboarding: _completeOnboarding,
+          ),
+        ),
+      ),
     );
   }
 

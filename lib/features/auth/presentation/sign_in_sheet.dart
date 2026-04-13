@@ -107,16 +107,11 @@ class _SignInSheetState extends State<SignInSheet> {
         uid: session.uid,
         email: session.email,
       );
-
-      final firestoreVerified = await ServiceLocator.dbService
-          .isUserEmailVerified(session.uid);
-      if (session.emailVerified || firestoreVerified) {
-        if (!mounted) return;
-        Navigator.of(context).pop(true);
-        return;
-      }
-
-      await _startVerificationFlow(session: session, issueNewCode: true);
+      // Sign-in should not trigger onboarding verification again.
+      // Keep legacy users unblocked by setting our app-level verified flag.
+      await ServiceLocator.dbService.markEmailVerified(uid: session.uid);
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
     } on AuthServiceException catch (error, stackTrace) {
       _reportError('Sign in failed', error, stackTrace);
       setState(() => _errorText = _readableAuthError(error));

@@ -37,6 +37,7 @@ class UserSettingsData {
     this.webDavLinked = false,
     this.webDavServerUrl,
     this.webDavUsername,
+    this.webDavPassword,
     this.webDavSyncFilePath,
     this.webDavSyncFileName,
     this.webDavSyncMimeType,
@@ -55,6 +56,7 @@ class UserSettingsData {
   final bool webDavLinked;
   final String? webDavServerUrl;
   final String? webDavUsername;
+  final String? webDavPassword;
   final String? webDavSyncFilePath;
   final String? webDavSyncFileName;
   final String? webDavSyncMimeType;
@@ -93,6 +95,7 @@ class UserSettingsData {
       webDavLinked: webDavLinked,
       webDavServerUrl: _readTrimmed(settings['webDavServerUrl']),
       webDavUsername: _readTrimmed(settings['webDavUsername']),
+      webDavPassword: settings['webDavPassword'] as String?,
       webDavSyncFilePath: _readTrimmed(settings['webDavSyncFilePath']),
       webDavSyncFileName: _readTrimmed(settings['webDavSyncFileName']),
       webDavSyncMimeType: _readTrimmed(settings['webDavSyncMimeType']),
@@ -206,11 +209,13 @@ class UserRepository {
     required String uid,
     required String serverUrl,
     required String username,
+    required String password,
   }) {
     return _dbService.setWebDavLink(
       uid: uid,
       serverUrl: serverUrl,
       username: username,
+      password: password,
     );
   }
 

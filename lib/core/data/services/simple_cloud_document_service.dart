@@ -327,6 +327,7 @@ class SimpleCloudDocumentService {
     String? folderPath,
   }) async {
     final session = _requireSession();
+    await _restoreWebDavCredentialsIfNeeded(session.uid);
     try {
       final entries = await _webDavService.listFolderEntries(
         uid: session.uid,
@@ -383,6 +384,7 @@ class SimpleCloudDocumentService {
     required String sessionUid,
     String? parentFolderPath,
   }) async {
+    await _restoreWebDavCredentialsIfNeeded(sessionUid);
     final relativePath = [
       if (parentFolderPath != null && parentFolderPath.trim().isNotEmpty)
         parentFolderPath.trim().replaceAll(RegExp(r'/+$'), ''),
@@ -439,6 +441,7 @@ class SimpleCloudDocumentService {
     required String sessionUid,
     required String relativePath,
   }) async {
+    await _restoreWebDavCredentialsIfNeeded(sessionUid);
     try {
       return await _webDavService.downloadFileBytes(
         uid: sessionUid,
@@ -501,6 +504,7 @@ class SimpleCloudDocumentService {
     required Uint8List bytes,
     required String outputMimeType,
   }) async {
+    await _restoreWebDavCredentialsIfNeeded(sessionUid);
     final currentPath = existingFile.id;
     final nextPath = existingFile.mimeType == outputMimeType
         ? currentPath
@@ -557,5 +561,31 @@ class SimpleCloudDocumentService {
     if (separator == -1) return fileName;
     final directory = normalized.substring(0, separator + 1);
     return '$directory$fileName';
+  }
+
+  Future<void> _restoreWebDavCredentialsIfNeeded(String uid) async {
+    final hasCredentials = await _webDavService.hasCredentials(uid: uid);
+    if (hasCredentials) return;
+
+    final settings = await _userRepository.getUserSettings(uid);
+    final serverUrl = settings.webDavServerUrl;
+    final username = settings.webDavUsername;
+    final password = settings.webDavPassword;
+
+    if (serverUrl == null ||
+        username == null ||
+        password == null ||
+        serverUrl.isEmpty ||
+        username.isEmpty ||
+        password.isEmpty) {
+      return;
+    }
+
+    await _webDavService.saveCredentialsWithoutValidation(
+      uid: uid,
+      serverUrl: serverUrl,
+      username: username,
+      password: password,
+    );
   }
 }
