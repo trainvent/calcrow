@@ -746,18 +746,42 @@ class _SettingsTabState extends State<SettingsTab> {
               if (!dialogContext.mounted || scannedPayload == null) {
                 return;
               }
-              final parsed = _parseWebDavQrPayload(scannedPayload);
+              _ParsedWebDavQrPayload? parsed;
+              try {
+                parsed = _parseWebDavQrPayload(scannedPayload);
+              } catch (_) {
+                parsed = null;
+              }
               if (parsed == null) {
+                final scannedServerUrl = _parseWebDavServerUrlOnly(scannedPayload);
+                if (scannedServerUrl != null) {
+                  setDialogState(() {
+                    serverUrlController.text = scannedServerUrl;
+                    errorText =
+                        'Server URL imported from QR. Enter username and app password to continue.';
+                  });
+                  return;
+                }
+                final scannedPassword = _parseWebDavPasswordOnly(scannedPayload);
+                if (scannedPassword != null) {
+                  setDialogState(() {
+                    passwordController.text = scannedPassword;
+                    errorText =
+                        'App password imported from QR. Enter server URL and username to continue.';
+                  });
+                  return;
+                }
                 setDialogState(() {
                   errorText =
                       'QR code was read, but the format is not supported. Use URL, username, and app password fields.';
                 });
                 return;
               }
+              final parsedPayload = parsed;
               setDialogState(() {
-                serverUrlController.text = parsed.serverUrl;
-                usernameController.text = parsed.username;
-                passwordController.text = parsed.password;
+                serverUrlController.text = parsedPayload.serverUrl;
+                usernameController.text = parsedPayload.username;
+                passwordController.text = parsedPayload.password;
                 errorText = null;
               });
             }
@@ -870,9 +894,6 @@ class _SettingsTabState extends State<SettingsTab> {
       },
     );
 
-    serverUrlController.dispose();
-    usernameController.dispose();
-    passwordController.dispose();
     return result;
   }
 
@@ -1118,6 +1139,11 @@ _ParsedWebDavQrPayload? _parseWebDavQrPayload(String raw) {
     return null;
   }
 
+  final fromNextcloudLogin = _parseWebDavQrNextcloudLogin(trimmed);
+  if (fromNextcloudLogin != null) {
+    return fromNextcloudLogin;
+  }
+
   final fromJson = _parseWebDavQrJson(trimmed);
   if (fromJson != null) {
     return fromJson;
@@ -1134,6 +1160,85 @@ _ParsedWebDavQrPayload? _parseWebDavQrPayload(String raw) {
   }
 
   return null;
+}
+
+_ParsedWebDavQrPayload? _parseWebDavQrNextcloudLogin(String raw) {
+  final uri = Uri.tryParse(raw);
+  if (uri == null || !uri.hasScheme) {
+    return null;
+  }
+  final scheme = uri.scheme.toLowerCase();
+  if (scheme != 'nc' && scheme != 'nextcloud') {
+    return null;
+  }
+
+  var payload = raw.substring(raw.indexOf('://') + 3).trim();
+  if (payload.startsWith('login/')) {
+    payload = payload.substring('login/'.length);
+  }
+  if (payload.isEmpty) {
+    return null;
+  }
+
+  final values = <String, dynamic>{};
+  for (final part in payload.split('&')) {
+    final chunk = Uri.decodeComponent(part.trim());
+    if (chunk.isEmpty) {
+      continue;
+    }
+
+    final equalsIndex = chunk.indexOf('=');
+    final colonIndex = chunk.indexOf(':');
+    var splitAt = equalsIndex;
+    if (splitAt < 0 || (colonIndex >= 0 && colonIndex < splitAt)) {
+      splitAt = colonIndex;
+    }
+    if (splitAt <= 0) {
+      continue;
+    }
+
+    final rawKey = chunk.substring(0, splitAt).trim();
+    final key = rawKey.contains('/')
+        ? rawKey.substring(rawKey.lastIndexOf('/') + 1).toLowerCase()
+        : rawKey.toLowerCase();
+    final value = chunk.substring(splitAt + 1).trim();
+    if (value.isEmpty) {
+      continue;
+    }
+    values[key] = value;
+  }
+
+  final serverUrl = _firstMapValue(values, <String>[
+    'server',
+    'serverurl',
+    'url',
+    'webdavurl',
+    'endpoint',
+  ]);
+  final username = _firstMapValue(values, <String>[
+    'username',
+    'user',
+    'login',
+    'email',
+  ]);
+  final password = _firstMapValue(values, <String>[
+    'password',
+    'pass',
+    'apppassword',
+    'passkey',
+    'token',
+  ]);
+
+  final normalizedServerUrl = _normalizeNextcloudWebDavServerUrl(
+    serverUrl: serverUrl,
+    username: username,
+  );
+
+  return _buildParsedWebDavPayload(
+    serverUrl: normalizedServerUrl,
+    username: username,
+    password: password,
+  );
 }
 
 _ParsedWebDavQrPayload? _parseWebDavQrJson(String raw) {
@@ -1276,16 +1381,36 @@ _ParsedWebDavQrPayload? _parseWebDavQrKeyValue(String raw) {
 }
 
 String? _firstMapValue(Map<String, dynamic> map, List<String> keys) {
+  final normalized = <String, dynamic>{};
+  for (final entry in map.entries) {
+    normalized[entry.key.toLowerCase()] = entry.value;
+  }
   for (final key in keys) {
-    final value = map[key];
+    final value = normalized[key.toLowerCase()];
     if (value is String && value.trim().isNotEmpty) {
       return value.trim();
+    }
+    if (value != null) {
+      final text = value.toString().trim();
+      if (text.isNotEmpty) {
+        return text;
+      }
     }
   }
   return null;
 }
 
 String? _queryValue(Uri uri, List<String> keys) {
+  final keySet = keys.map((key) => key.toLowerCase()).toSet();
+  for (final entry in uri.queryParameters.entries) {
+    if (!keySet.contains(entry.key.toLowerCase())) {
+      continue;
+    }
+    final value = entry.value.trim();
+    if (value.isNotEmpty) {
+      return value;
+    }
+  }
   for (final key in keys) {
     final value = uri.queryParameters[key];
     if (value != null && value.trim().isNotEmpty) {
@@ -1319,6 +1444,64 @@ _ParsedWebDavQrPayload? _buildParsedWebDavPayload({
     username: username,
     password: password,
   );
+}
+
+String? _parseWebDavServerUrlOnly(String raw) {
+  final uri = Uri.tryParse(raw.trim());
+  if (uri == null || !uri.hasScheme) {
+    return null;
+  }
+  final scheme = uri.scheme.toLowerCase();
+  if (scheme != 'http' &&
+      scheme != 'https' &&
+      scheme != 'webdav' &&
+      scheme != 'webdavs') {
+    return null;
+  }
+  if (uri.host.trim().isEmpty) {
+    return null;
+  }
+  return uri.replace(userInfo: '').toString();
+}
+
+String? _parseWebDavPasswordOnly(String raw) {
+  final token = raw.trim();
+  if (token.isEmpty) {
+    return null;
+  }
+  if (token.contains(' ') || token.contains('\n')) {
+    return null;
+  }
+  final looksLikeUrl = Uri.tryParse(token)?.hasScheme == true;
+  if (looksLikeUrl) {
+    return null;
+  }
+  if (token.length < 6) {
+    return null;
+  }
+  return token;
+}
+
+String? _normalizeNextcloudWebDavServerUrl({
+  required String? serverUrl,
+  required String? username,
+}) {
+  if (serverUrl == null || username == null) {
+    return serverUrl;
+  }
+  final parsed = Uri.tryParse(serverUrl.trim());
+  final cleanUsername = username.trim();
+  if (parsed == null || cleanUsername.isEmpty || !parsed.hasScheme) {
+    return serverUrl;
+  }
+  final normalizedPath = parsed.path.trim();
+  if (normalizedPath.isNotEmpty && normalizedPath != '/') {
+    return serverUrl;
+  }
+  final encodedUsername = Uri.encodeComponent(cleanUsername);
+  return parsed
+      .replace(path: '/remote.php/dav/files/$encodedUsername/')
+      .toString();
 }
 
 class _WebDavQrScannerPage extends StatefulWidget {

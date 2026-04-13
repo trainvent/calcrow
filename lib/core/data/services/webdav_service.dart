@@ -6,9 +6,10 @@ import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart';
 
 class WebDavException implements Exception {
-  const WebDavException(this.message);
+  const WebDavException(this.message, {this.statusCode});
 
   final String message;
+  final int? statusCode;
 }
 
 class WebDavLinkResult {
@@ -98,27 +99,89 @@ class WebDavService {
     required String password,
   }) async {
     final normalizedUrl = _normalizeServerUrl(serverUrl);
-    final uri = Uri.tryParse(normalizedUrl);
-    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+    final requestedUri = Uri.tryParse(normalizedUrl);
+    if (requestedUri == null || !requestedUri.hasScheme || requestedUri.host.isEmpty) {
       throw const WebDavException('Enter a valid WebDAV URL.');
     }
 
-    await _validateConnection(
-      uri: uri,
+    final validatedUri = await _resolveAndValidateWebDavUri(
+      uri: requestedUri,
       username: username.trim(),
       password: password,
     );
+    final resolvedUrl = _normalizeServerUrl(validatedUri.toString());
+    final resolvedUri = Uri.parse(resolvedUrl);
     await saveCredentialsWithoutValidation(
       uid: uid,
-      serverUrl: normalizedUrl,
+      serverUrl: resolvedUrl,
       username: username.trim(),
       password: password,
     );
     return WebDavLinkResult(
-      serverUrl: normalizedUrl,
+      serverUrl: resolvedUrl,
       username: username.trim(),
-      hostLabel: uri.host,
+      hostLabel: resolvedUri.host,
     );
+  }
+
+  Future<Uri> _resolveAndValidateWebDavUri({
+    required Uri uri,
+    required String username,
+    required String password,
+  }) async {
+    final candidates = <Uri>[
+      uri,
+      ..._commonWebDavFallbackUris(uri: uri, username: username),
+    ];
+    final seen = <String>{};
+    WebDavException? lastMethodNotAllowed;
+
+    for (final candidate in candidates) {
+      final key = candidate.toString();
+      if (!seen.add(key)) {
+        continue;
+      }
+      try {
+        await _validateConnection(
+          uri: candidate,
+          username: username,
+          password: password,
+        );
+        return candidate;
+      } on WebDavException catch (error) {
+        if (error.statusCode == 405) {
+          lastMethodNotAllowed = error;
+          continue;
+        }
+        rethrow;
+      }
+    }
+
+    if (lastMethodNotAllowed != null) {
+      throw const WebDavException(
+        'WebDAV endpoint rejected PROPFIND (405). Use the exact WebDAV folder URL. For Nextcloud, this is usually https://<host>/remote.php/dav/files/<username>/',
+        statusCode: 405,
+      );
+    }
+
+    throw const WebDavException('Could not validate the WebDAV URL.');
+  }
+
+  List<Uri> _commonWebDavFallbackUris({
+    required Uri uri,
+    required String username,
+  }) {
+    final normalizedPath = uri.path.trim();
+    final hasSpecificPath = normalizedPath.isNotEmpty && normalizedPath != '/';
+    if (hasSpecificPath || username.trim().isEmpty) {
+      return const <Uri>[];
+    }
+
+    final encodedUsername = Uri.encodeComponent(username.trim());
+    return <Uri>[
+      uri.replace(path: '/remote.php/dav/files/$encodedUsername/'),
+      uri.replace(path: '/remote.php/webdav/'),
+    ];
   }
 
   Future<void> clearCredentials({required String uid}) async {
@@ -320,11 +383,19 @@ class WebDavService {
     if (response.statusCode == 401 || response.statusCode == 403) {
       throw const WebDavException(
         'WebDAV sign-in failed. Check the username and app password.',
+        statusCode: 401,
+      );
+    }
+    if (response.statusCode == 405) {
+      throw const WebDavException(
+        'WebDAV endpoint rejected PROPFIND (405).',
+        statusCode: 405,
       );
     }
     if (response.statusCode != 207 && response.statusCode != 200) {
       throw WebDavException(
         'WebDAV server responded with ${response.statusCode}. Check that the URL points to a valid WebDAV folder.',
+        statusCode: response.statusCode,
       );
     }
   }
