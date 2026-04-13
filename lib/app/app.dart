@@ -35,7 +35,10 @@ class _CalcrowAppState extends State<CalcrowApp> {
       session,
     ) async {
       _currentRevenueCatUid = session?.uid;
-      await PurchasesService.instance.syncAppUser(session?.uid);
+      await PurchasesService.instance.syncAppUser(
+        session?.uid,
+        email: session?.email,
+      );
       await PurchasesService.instance.refreshCustomerInfo();
     });
     _entitlementSubscription = PurchasesService.instance.entitlementStream.listen((

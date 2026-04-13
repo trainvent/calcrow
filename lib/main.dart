@@ -26,6 +26,7 @@ Future<void> main() async {
   await PurchasesService.instance.init(
     apiKey: _revenueCatApiKeyForCurrentBuild(),
     appUserId: ServiceLocator.authService.currentSession?.uid,
+    appUserEmail: ServiceLocator.authService.currentSession?.email,
   );
   runApp(const CalcrowApp());
 }

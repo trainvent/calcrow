@@ -51,6 +51,7 @@ dependencies:
   path_provider: ^2.1.5
   shared_preferences: ^2.5.3
   flutter_secure_storage: ^9.2.4
+  mobile_scanner: ^7.1.2
   saf_stream: ^0.12.3
   saf_util: ^0.11.0
   xml: ^6.6.1
@@ -83,6 +84,7 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/config/default_pro_users.json
     - assets/test_objects/raw/Arbeitszeiten_2026.csv
     - assets/test_objects/raw/Arbeitszeiten_2026.xlsx
     - assets/test_objects/raw/Arbeitszeiten_2026.ods

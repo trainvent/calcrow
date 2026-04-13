@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
 
@@ -714,9 +715,11 @@ class _SettingsTabState extends State<SettingsTab> {
     String? initialServerUrl,
     String? initialUsername,
   }) async {
-    var serverUrl = initialServerUrl ?? '';
-    var username = initialUsername ?? '';
-    var password = '';
+    final serverUrlController = TextEditingController(
+      text: initialServerUrl ?? '',
+    );
+    final usernameController = TextEditingController(text: initialUsername ?? '');
+    final passwordController = TextEditingController();
     var obscurePassword = true;
     String? errorText;
 
@@ -725,6 +728,58 @@ class _SettingsTabState extends State<SettingsTab> {
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            Future<void> scanQrCode() async {
+              if (kIsWeb ||
+                  (defaultTargetPlatform != TargetPlatform.android &&
+                      defaultTargetPlatform != TargetPlatform.iOS)) {
+                setDialogState(() {
+                  errorText = 'QR scan is available on Android and iOS only.';
+                });
+                return;
+              }
+              final scannedPayload = await Navigator.of(dialogContext).push<String>(
+                MaterialPageRoute(
+                  builder: (context) => const _WebDavQrScannerPage(),
+                ),
+              );
+              if (!dialogContext.mounted || scannedPayload == null) {
+                return;
+              }
+              final parsed = _parseWebDavQrPayload(scannedPayload);
+              if (parsed == null) {
+                setDialogState(() {
+                  errorText =
+                      'QR code was read, but the format is not supported. Use URL, username, and app password fields.';
+                });
+                return;
+              }
+              setDialogState(() {
+                serverUrlController.text = parsed.serverUrl;
+                usernameController.text = parsed.username;
+                passwordController.text = parsed.password;
+                errorText = null;
+              });
+            }
+
+            _WebDavFormResult? buildResultOrShowError() {
+              final trimmedServerUrl = serverUrlController.text.trim();
+              final trimmedUsername = usernameController.text.trim();
+              final password = passwordController.text;
+              if (trimmedServerUrl.isEmpty ||
+                  trimmedUsername.isEmpty ||
+                  password.isEmpty) {
+                setDialogState(() {
+                  errorText = 'Enter the WebDAV URL, username, and app password.';
+                });
+                return null;
+              }
+              return _WebDavFormResult(
+                serverUrl: trimmedServerUrl,
+                username: trimmedUsername,
+                password: password,
+              );
+            }
+
             return AlertDialog(
               title: const Text('Link WebDAV / Nextcloud'),
               content: SingleChildScrollView(
@@ -732,9 +787,8 @@ class _SettingsTabState extends State<SettingsTab> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     TextFormField(
-                      initialValue: serverUrl,
+                      controller: serverUrlController,
                       keyboardType: TextInputType.url,
-                      onChanged: (value) => serverUrl = value,
                       decoration: const InputDecoration(
                         labelText: 'WebDAV URL',
                         hintText:
@@ -743,34 +797,19 @@ class _SettingsTabState extends State<SettingsTab> {
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
-                      initialValue: username,
+                      controller: usernameController,
                       keyboardType: TextInputType.emailAddress,
-                      onChanged: (value) => username = value,
                       decoration: const InputDecoration(labelText: 'Username'),
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
+                      controller: passwordController,
                       obscureText: obscurePassword,
-                      onChanged: (value) => password = value,
                       onFieldSubmitted: (_) {
-                        final trimmedServerUrl = serverUrl.trim();
-                        final trimmedUsername = username.trim();
-                        if (trimmedServerUrl.isEmpty ||
-                            trimmedUsername.isEmpty ||
-                            password.isEmpty) {
-                          setDialogState(() {
-                            errorText =
-                                'Enter the WebDAV URL, username, and app password.';
-                          });
-                          return;
+                        final result = buildResultOrShowError();
+                        if (result != null) {
+                          Navigator.of(dialogContext).pop(result);
                         }
-                        Navigator.of(dialogContext).pop(
-                          _WebDavFormResult(
-                            serverUrl: trimmedServerUrl,
-                            username: trimmedUsername,
-                            password: password,
-                          ),
-                        );
                       },
                       decoration: InputDecoration(
                         labelText: 'App password',
@@ -786,6 +825,15 @@ class _SettingsTabState extends State<SettingsTab> {
                                 : Icons.visibility_outlined,
                           ),
                         ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        onPressed: scanQrCode,
+                        icon: const Icon(Icons.qr_code_scanner_outlined),
+                        label: const Text('Scan passkey QR'),
                       ),
                     ),
                     if (errorText != null) ...[
@@ -807,24 +855,10 @@ class _SettingsTabState extends State<SettingsTab> {
                 ),
                 FilledButton(
                   onPressed: () {
-                    final trimmedServerUrl = serverUrl.trim();
-                    final trimmedUsername = username.trim();
-                    if (trimmedServerUrl.isEmpty ||
-                        trimmedUsername.isEmpty ||
-                        password.isEmpty) {
-                      setDialogState(() {
-                        errorText =
-                            'Enter the WebDAV URL, username, and app password.';
-                      });
-                      return;
+                    final result = buildResultOrShowError();
+                    if (result != null) {
+                      Navigator.of(dialogContext).pop(result);
                     }
-                    Navigator.of(dialogContext).pop(
-                      _WebDavFormResult(
-                        serverUrl: trimmedServerUrl,
-                        username: trimmedUsername,
-                        password: password,
-                      ),
-                    );
                   },
                   child: const Text('Link'),
                 ),
@@ -835,12 +869,18 @@ class _SettingsTabState extends State<SettingsTab> {
       },
     );
 
+    serverUrlController.dispose();
+    usernameController.dispose();
+    passwordController.dispose();
     return result;
   }
 
   Future<void> _openEntitlementScreen({required AuthSession session}) async {
     if (!mounted) return;
-    await PurchasesService.instance.syncAppUser(session.uid);
+    await PurchasesService.instance.syncAppUser(
+      session.uid,
+      email: session.email,
+    );
     await PurchasesService.instance.refreshCustomerInfo();
     if (!mounted) return;
     await Navigator.of(
@@ -1057,4 +1097,272 @@ class _WebDavFormResult {
   final String serverUrl;
   final String username;
   final String password;
+}
+
+class _ParsedWebDavQrPayload {
+  const _ParsedWebDavQrPayload({
+    required this.serverUrl,
+    required this.username,
+    required this.password,
+  });
+
+  final String serverUrl;
+  final String username;
+  final String password;
+}
+
+_ParsedWebDavQrPayload? _parseWebDavQrPayload(String raw) {
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) {
+    return null;
+  }
+
+  final fromJson = _parseWebDavQrJson(trimmed);
+  if (fromJson != null) {
+    return fromJson;
+  }
+
+  final fromUri = _parseWebDavQrUri(trimmed);
+  if (fromUri != null) {
+    return fromUri;
+  }
+
+  final fromKv = _parseWebDavQrKeyValue(trimmed);
+  if (fromKv != null) {
+    return fromKv;
+  }
+
+  return null;
+}
+
+_ParsedWebDavQrPayload? _parseWebDavQrJson(String raw) {
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map<String, dynamic>) {
+      return null;
+    }
+    final serverUrl = _firstMapValue(decoded, <String>[
+      'serverUrl',
+      'url',
+      'webdavUrl',
+      'endpoint',
+    ]);
+    final username = _firstMapValue(decoded, <String>[
+      'username',
+      'user',
+      'login',
+      'email',
+    ]);
+    final password = _firstMapValue(decoded, <String>[
+      'password',
+      'pass',
+      'appPassword',
+      'passkey',
+      'token',
+    ]);
+    return _buildParsedWebDavPayload(
+      serverUrl: serverUrl,
+      username: username,
+      password: password,
+    );
+  } catch (_) {
+    return null;
+  }
+}
+
+_ParsedWebDavQrPayload? _parseWebDavQrUri(String raw) {
+  final uri = Uri.tryParse(raw);
+  if (uri == null || !uri.hasScheme) {
+    return null;
+  }
+  final scheme = uri.scheme.toLowerCase();
+  if (scheme != 'http' &&
+      scheme != 'https' &&
+      scheme != 'webdav' &&
+      scheme != 'webdavs') {
+    return null;
+  }
+
+  String? username;
+  String? password;
+  if (uri.userInfo.isNotEmpty) {
+    final split = uri.userInfo.split(':');
+    username = Uri.decodeComponent(split.first);
+    if (split.length > 1) {
+      password = Uri.decodeComponent(split.sublist(1).join(':'));
+    }
+  }
+  username ??=
+      _queryValue(uri, <String>['username', 'user', 'login', 'email']);
+  password ??=
+      _queryValue(uri, <String>['password', 'pass', 'appPassword', 'token']);
+
+  final normalizedUri = uri.replace(userInfo: '');
+  final serverUrl = normalizedUri.toString();
+
+  return _buildParsedWebDavPayload(
+    serverUrl: serverUrl,
+    username: username,
+    password: password,
+  );
+}
+
+_ParsedWebDavQrPayload? _parseWebDavQrKeyValue(String raw) {
+  String normalizeInput(String input) {
+    if (input.contains('\n') || input.contains(';')) {
+      return input;
+    }
+    if (input.contains('&')) {
+      return input.replaceAll('&', '\n');
+    }
+    return input;
+  }
+
+  final lines = normalizeInput(raw)
+      .split(RegExp(r'[\n;]'))
+      .map((line) => line.trim())
+      .where((line) => line.isNotEmpty)
+      .toList();
+  if (lines.isEmpty) {
+    return null;
+  }
+
+  final values = <String, dynamic>{};
+  for (final line in lines) {
+    final separatorIndex = line.indexOf('=');
+    final colonIndex = line.indexOf(':');
+    int splitAt = separatorIndex;
+    if (splitAt < 0 || (colonIndex >= 0 && colonIndex < splitAt)) {
+      splitAt = colonIndex;
+    }
+    if (splitAt <= 0) {
+      continue;
+    }
+    final key = line.substring(0, splitAt).trim().toLowerCase();
+    final value = line.substring(splitAt + 1).trim();
+    if (value.isEmpty) {
+      continue;
+    }
+    values[key] = value;
+  }
+
+  final serverUrl = _firstMapValue(values, <String>[
+    'serverurl',
+    'url',
+    'webdavurl',
+    'endpoint',
+    'host',
+  ]);
+  final username = _firstMapValue(values, <String>[
+    'username',
+    'user',
+    'login',
+    'email',
+  ]);
+  final password = _firstMapValue(values, <String>[
+    'password',
+    'pass',
+    'apppassword',
+    'passkey',
+    'token',
+  ]);
+
+  return _buildParsedWebDavPayload(
+    serverUrl: serverUrl,
+    username: username,
+    password: password,
+  );
+}
+
+String? _firstMapValue(Map<String, dynamic> map, List<String> keys) {
+  for (final key in keys) {
+    final value = map[key];
+    if (value is String && value.trim().isNotEmpty) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+String? _queryValue(Uri uri, List<String> keys) {
+  for (final key in keys) {
+    final value = uri.queryParameters[key];
+    if (value != null && value.trim().isNotEmpty) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+_ParsedWebDavQrPayload? _buildParsedWebDavPayload({
+  required String? serverUrl,
+  required String? username,
+  required String? password,
+}) {
+  if (serverUrl == null || username == null || password == null) {
+    return null;
+  }
+  final parsedUri = Uri.tryParse(serverUrl);
+  if (parsedUri == null || !parsedUri.hasScheme) {
+    return null;
+  }
+  final scheme = parsedUri.scheme.toLowerCase();
+  if (scheme != 'http' &&
+      scheme != 'https' &&
+      scheme != 'webdav' &&
+      scheme != 'webdavs') {
+    return null;
+  }
+  return _ParsedWebDavQrPayload(
+    serverUrl: serverUrl,
+    username: username,
+    password: password,
+  );
+}
+
+class _WebDavQrScannerPage extends StatefulWidget {
+  const _WebDavQrScannerPage();
+
+  @override
+  State<_WebDavQrScannerPage> createState() => _WebDavQrScannerPageState();
+}
+
+class _WebDavQrScannerPageState extends State<_WebDavQrScannerPage> {
+  final MobileScannerController _controller = MobileScannerController(
+    formats: const <BarcodeFormat>[BarcodeFormat.qrCode],
+    detectionSpeed: DetectionSpeed.noDuplicates,
+  );
+  bool _didCaptureCode = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onDetect(BarcodeCapture capture) {
+    if (_didCaptureCode) {
+      return;
+    }
+    for (final barcode in capture.barcodes) {
+      final value = barcode.rawValue?.trim();
+      if (value == null || value.isEmpty) {
+        continue;
+      }
+      _didCaptureCode = true;
+      Navigator.of(context).pop(value);
+      return;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Scan passkey QR')),
+      body: MobileScanner(
+        controller: _controller,
+        onDetect: _onDetect,
+      ),
+    );
+  }
 }

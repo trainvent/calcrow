@@ -224,56 +224,65 @@ class _PromoUpgradeTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Material(
-      color: theme.colorScheme.surface,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-          child: Card(
-            margin: EdgeInsets.zero,
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
+    return _AdShell(
+      child: Container(
+        height: AdSize.banner.height.toDouble(),
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.workspace_premium_outlined,
+                size: 18,
+                color: theme.colorScheme.onPrimaryContainer,
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Icon(
-                      Icons.workspace_premium_outlined,
-                      color: theme.colorScheme.onPrimaryContainer,
-                    ),
+                  Text(
+                    'Free plan',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
                   ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Free plan',
-                          style: TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        SizedBox(height: 2),
-                        Text('Upgrade to remove this slot and unlock Pro.'),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  FilledButton(
-                    onPressed: isUpgradeEnabled
-                        ? (onUpgradeTap ?? _defaultUpgradeTap(context))
-                        : null,
-                    child: const Text('Upgrade'),
+                  Text(
+                    'Upgrade to remove this slot and unlock Pro.',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11),
                   ),
                 ],
               ),
             ),
-          ),
+            const SizedBox(width: 8),
+            FilledButton.tonal(
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(0, 34),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+              ),
+              onPressed: isUpgradeEnabled
+                  ? (onUpgradeTap ?? _defaultUpgradeTap(context))
+                  : null,
+              child: const Text('Upgrade'),
+            ),
+          ],
         ),
       ),
     );
