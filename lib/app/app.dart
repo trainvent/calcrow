@@ -41,16 +41,15 @@ class _CalcrowAppState extends State<CalcrowApp> {
       );
       await PurchasesService.instance.refreshCustomerInfo();
     });
-    _entitlementSubscription = PurchasesService.instance.entitlementStream.listen((
-      tier,
-    ) async {
-      final uid = _currentRevenueCatUid;
-      if (uid == null) return;
-      await ServiceLocator.userRepository.setIsPro(
-        uid: uid,
-        isPro: tier == EntitlementTier.pro,
-      );
-    });
+    _entitlementSubscription = PurchasesService.instance.entitlementStream
+        .listen((tier) async {
+          final uid = _currentRevenueCatUid;
+          if (uid == null) return;
+          await ServiceLocator.userRepository.setIsPro(
+            uid: uid,
+            isPro: tier == EntitlementTier.pro,
+          );
+        });
   }
 
   @override
@@ -67,7 +66,7 @@ class _CalcrowAppState extends State<CalcrowApp> {
         title: 'Calcrow',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
-        home: const MarketingLandingPage(),
+        home: _WebSelectionHost(child: const MarketingLandingPage()),
       );
     }
 
@@ -78,11 +77,13 @@ class _CalcrowAppState extends State<CalcrowApp> {
         theme: AppTheme.light(),
         home: _AdsConsentHost(
           enabled: !_showMarketingLanding(),
-          child: _DiagnosticsConsentHost(
-            enabled: !_showMarketingLanding(),
-            child: _AppEntry(
-              didCompleteOnboarding: _didCompleteOnboarding,
-              onCompleteOnboarding: _completeOnboarding,
+          child: _WebSelectionHost(
+            child: _DiagnosticsConsentHost(
+              enabled: !_showMarketingLanding(),
+              child: _AppEntry(
+                didCompleteOnboarding: _didCompleteOnboarding,
+                onCompleteOnboarding: _completeOnboarding,
+              ),
             ),
           ),
         ),
@@ -120,12 +121,14 @@ class _CalcrowAppState extends State<CalcrowApp> {
       theme: AppTheme.light(),
       home: _AdsConsentHost(
         enabled: !_showMarketingLanding(),
-        child: _DiagnosticsConsentHost(
-          enabled: !_showMarketingLanding(),
-          child: _AppEntry(
-            isSignedIn: isSignedIn,
-            didCompleteOnboarding: _didCompleteOnboarding,
-            onCompleteOnboarding: _completeOnboarding,
+        child: _WebSelectionHost(
+          child: _DiagnosticsConsentHost(
+            enabled: !_showMarketingLanding(),
+            child: _AppEntry(
+              isSignedIn: isSignedIn,
+              didCompleteOnboarding: _didCompleteOnboarding,
+              onCompleteOnboarding: _completeOnboarding,
+            ),
           ),
         ),
       ),
@@ -136,7 +139,8 @@ class _CalcrowAppState extends State<CalcrowApp> {
     if (!kIsWeb) return false;
     final uri = Uri.base;
     final path = uri.path.trim();
-    final wantsApp = uri.queryParameters['app'] == '1' || uri.fragment == '/app';
+    final wantsApp =
+        uri.queryParameters['app'] == '1' || uri.fragment == '/app';
     if (wantsApp) return false;
     return path.isEmpty || path == '/';
   }
@@ -148,11 +152,20 @@ class _CalcrowAppState extends State<CalcrowApp> {
   }
 }
 
+class _WebSelectionHost extends StatelessWidget {
+  const _WebSelectionHost({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!kIsWeb) return child;
+    return SelectionArea(child: child);
+  }
+}
+
 class _AdsConsentHost extends StatefulWidget {
-  const _AdsConsentHost({
-    required this.child,
-    required this.enabled,
-  });
+  const _AdsConsentHost({required this.child, required this.enabled});
 
   final Widget child;
   final bool enabled;
@@ -221,16 +234,14 @@ class _AppEntry extends StatelessWidget {
 }
 
 class _DiagnosticsConsentHost extends StatefulWidget {
-  const _DiagnosticsConsentHost({
-    required this.child,
-    required this.enabled,
-  });
+  const _DiagnosticsConsentHost({required this.child, required this.enabled});
 
   final Widget child;
   final bool enabled;
 
   @override
-  State<_DiagnosticsConsentHost> createState() => _DiagnosticsConsentHostState();
+  State<_DiagnosticsConsentHost> createState() =>
+      _DiagnosticsConsentHostState();
 }
 
 class _DiagnosticsConsentHostState extends State<_DiagnosticsConsentHost> {

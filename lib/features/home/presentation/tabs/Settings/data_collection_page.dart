@@ -5,6 +5,7 @@ import '../../../../../app/presentation/web_link_opener_stub.dart'
     if (dart.library.html) '../../../../../app/presentation/web_link_opener_web.dart';
 import '../../../../../core/constants/internal_constants.dart';
 import '../../../../../core/data/di/service_locator.dart';
+import '../../../../../core/data/services/purchases_service.dart';
 
 class DataCollectionPage extends StatefulWidget {
   const DataCollectionPage({super.key});
@@ -26,177 +27,195 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
     final diagnostics = ServiceLocator.diagnosticsService;
     final theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Data Collection')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Privacy controls', style: theme.textTheme.titleLarge),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Choose separately whether Calcrow may collect anonymous usage analytics, technical crash or performance diagnostics, and ad privacy preferences where supported.',
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (adsConsent.isSupported) ...[
-            const SizedBox(height: 12),
-            Card(
-              child: ValueListenableBuilder<PrivacyOptionsRequirementStatus>(
-                valueListenable:
-                    adsConsent.privacyOptionsRequirementStatusListenable,
-                builder: (context, status, _) {
-                  final isRequired =
-                      status == PrivacyOptionsRequirementStatus.required;
-                  final subtitle = switch (status) {
-                    PrivacyOptionsRequirementStatus.required =>
-                      'Manage your Google ad privacy choices. This entry point must stay available after consent is collected.',
-                    PrivacyOptionsRequirementStatus.notRequired =>
-                      'Google does not currently require a persistent ad privacy options button on this device or region.',
-                    PrivacyOptionsRequirementStatus.unknown =>
-                      'Refresh ad privacy choices and review the latest Google consent options for this device.',
-                  };
+    return StreamBuilder<EntitlementTier>(
+      stream: ServiceLocator.purchasesService.entitlementStream,
+      initialData: ServiceLocator.purchasesService.currentTier,
+      builder: (context, snapshot) {
+        final isPro =
+            (snapshot.data ?? EntitlementTier.free) == EntitlementTier.pro;
 
-                  return ListTile(
-                    leading: const Icon(Icons.gpp_maybe_outlined),
-                    title: const Text('Ads privacy choices'),
-                    subtitle: Text(subtitle),
-                    trailing: _isOpeningAdsPrivacyChoices
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Icon(
-                            isRequired
-                                ? Icons.chevron_right_rounded
-                                : Icons.refresh_rounded,
-                          ),
-                    onTap: _isOpeningAdsPrivacyChoices
-                        ? null
-                        : _openAdsPrivacyChoices,
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            Card(
-              child: ValueListenableBuilder<bool>(
-                valueListenable: adsConsent.canRequestAdsListenable,
-                builder: (context, canRequestAds, _) {
-                  return ListTile(
-                    leading: const Icon(Icons.block_outlined),
-                    title: const Text('Reset ad consent'),
-                    subtitle: Text(
-                      canRequestAds
-                          ? 'Clear the current AdMob consent state on this device. Ads stay disabled until Google collects consent again.'
-                          : 'Clear any stored AdMob consent state on this device and force the Google consent flow to ask again later.',
-                    ),
-                    trailing: _isResettingAdsConsent
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.restart_alt_rounded),
-                    onTap: _isResettingAdsConsent ? null : _resetAdsConsent,
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.description_outlined),
-                title: const Text('Ads privacy policy'),
-                subtitle: const Text(
-                  'Read how Calcrow and Google AdMob handle consent choices for the EEA, UK, Switzerland, and applicable US state privacy rules.',
+        return Scaffold(
+          appBar: AppBar(title: const Text('Data Collection')),
+          body: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Privacy controls',
+                        style: theme.textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        isPro
+                            ? 'Choose separately whether Calcrow may collect anonymous usage analytics and technical crash or performance diagnostics.'
+                            : 'Choose separately whether Calcrow may collect anonymous usage analytics, technical crash or performance diagnostics, and ad privacy preferences where supported.',
+                      ),
+                    ],
+                  ),
                 ),
-                trailing: _isOpeningAdsPolicy
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.open_in_new_rounded),
-                onTap: _isOpeningAdsPolicy ? null : _openAdsPrivacyPolicy,
               ),
-            ),
-          ],
-          const SizedBox(height: 12),
-          Card(
-            child: ValueListenableBuilder<bool>(
-              valueListenable: diagnostics.usageAnalyticsEnabledListenable,
-              builder: (context, enabled, _) {
-                return SwitchListTile(
-                  secondary: const Icon(Icons.insights_outlined),
-                  title: const Text('Usage analytics'),
-                  subtitle: Text(
-                    diagnostics.supportsUsageAnalytics
-                        ? 'Collect anonymous usage patterns to understand which screens and flows are used.'
-                        : 'Usage analytics are not available on this platform.',
+              if (!isPro && adsConsent.isSupported) ...[
+                const SizedBox(height: 12),
+                Card(
+                  child: ValueListenableBuilder<PrivacyOptionsRequirementStatus>(
+                    valueListenable:
+                        adsConsent.privacyOptionsRequirementStatusListenable,
+                    builder: (context, status, _) {
+                      final isRequired =
+                          status == PrivacyOptionsRequirementStatus.required;
+                      final subtitle = switch (status) {
+                        PrivacyOptionsRequirementStatus.required =>
+                          'Manage your Google ad privacy choices. This entry point must stay available after consent is collected.',
+                        PrivacyOptionsRequirementStatus.notRequired =>
+                          'Google does not currently require a persistent ad privacy options button on this device or region.',
+                        PrivacyOptionsRequirementStatus.unknown =>
+                          'Refresh ad privacy choices and review the latest Google consent options for this device.',
+                      };
+
+                      return ListTile(
+                        leading: const Icon(Icons.gpp_maybe_outlined),
+                        title: const Text('Ads privacy choices'),
+                        subtitle: Text(subtitle),
+                        trailing: _isOpeningAdsPrivacyChoices
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Icon(
+                                isRequired
+                                    ? Icons.chevron_right_rounded
+                                    : Icons.refresh_rounded,
+                              ),
+                        onTap: _isOpeningAdsPrivacyChoices
+                            ? null
+                            : _openAdsPrivacyChoices,
+                      );
+                    },
                   ),
-                  value: enabled,
-                  onChanged:
-                      !diagnostics.supportsUsageAnalytics ||
-                          _isUpdatingAnalytics
-                      ? null
-                      : (value) => _setUsageAnalyticsEnabled(value),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: ValueListenableBuilder<bool>(
-              valueListenable: diagnostics.crashReportsEnabledListenable,
-              builder: (context, enabled, _) {
-                return SwitchListTile(
-                  secondary: const Icon(Icons.health_and_safety_outlined),
-                  title: const Text('Crash reports and performance'),
-                  subtitle: Text(
-                    diagnostics.supportsCrashReports
-                        ? 'Send crash logs, non-fatal errors, and performance monitoring data to help analyze app failures and slow paths.'
-                        : 'Crash reporting and performance monitoring are only available on supported mobile builds.',
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  child: ValueListenableBuilder<bool>(
+                    valueListenable: adsConsent.canRequestAdsListenable,
+                    builder: (context, canRequestAds, _) {
+                      return ListTile(
+                        leading: const Icon(Icons.block_outlined),
+                        title: const Text('Reset ad consent'),
+                        subtitle: Text(
+                          canRequestAds
+                              ? 'Clear the current AdMob consent state on this device. Ads stay disabled until Google collects consent again.'
+                              : 'Clear any stored AdMob consent state on this device and force the Google consent flow to ask again later.',
+                        ),
+                        trailing: _isResettingAdsConsent
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.restart_alt_rounded),
+                        onTap: _isResettingAdsConsent ? null : _resetAdsConsent,
+                      );
+                    },
                   ),
-                  value: enabled,
-                  onChanged:
-                      !diagnostics.supportsCrashReports ||
-                          _isUpdatingCrashReports
-                      ? null
-                      : (value) => _setCrashReportsEnabled(value),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    'Current behavior',
-                    style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.description_outlined),
+                    title: const Text('Ads privacy policy'),
+                    subtitle: const Text(
+                      'Read how Calcrow and Google AdMob handle consent choices for the EEA, UK, Switzerland, and applicable US state privacy rules.',
+                    ),
+                    trailing: _isOpeningAdsPolicy
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.open_in_new_rounded),
+                    onTap: _isOpeningAdsPolicy ? null : _openAdsPrivacyPolicy,
                   ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Both categories stay off until you explicitly enable them here. You can turn them off again at any time.',
-                  ),
-                ],
+                ),
+              ],
+              const SizedBox(height: 12),
+              Card(
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: diagnostics.usageAnalyticsEnabledListenable,
+                  builder: (context, enabled, _) {
+                    return SwitchListTile(
+                      secondary: const Icon(Icons.insights_outlined),
+                      title: const Text('Usage analytics'),
+                      subtitle: Text(
+                        diagnostics.supportsUsageAnalytics
+                            ? 'Collect anonymous usage patterns to understand which screens and flows are used.'
+                            : 'Usage analytics are not available on this platform.',
+                      ),
+                      value: enabled,
+                      onChanged:
+                          !diagnostics.supportsUsageAnalytics ||
+                              _isUpdatingAnalytics
+                          ? null
+                          : (value) => _setUsageAnalyticsEnabled(value),
+                    );
+                  },
+                ),
               ),
-            ),
+              const SizedBox(height: 12),
+              Card(
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: diagnostics.crashReportsEnabledListenable,
+                  builder: (context, enabled, _) {
+                    return SwitchListTile(
+                      secondary: const Icon(Icons.health_and_safety_outlined),
+                      title: const Text('Crash reports and performance'),
+                      subtitle: Text(
+                        diagnostics.supportsCrashReports
+                            ? 'Send crash logs, non-fatal errors, and performance monitoring data to help analyze app failures and slow paths.'
+                            : 'Crash reporting and performance monitoring are only available on supported mobile builds.',
+                      ),
+                      value: enabled,
+                      onChanged:
+                          !diagnostics.supportsCrashReports ||
+                              _isUpdatingCrashReports
+                          ? null
+                          : (value) => _setCrashReportsEnabled(value),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'Current behavior',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Both categories stay off until you explicitly enable them here. You can turn them off again at any time.',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

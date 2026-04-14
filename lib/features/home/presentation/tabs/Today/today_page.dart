@@ -3291,74 +3291,78 @@ class _CloudFilePickerDialogState extends State<_CloudFilePickerDialog> {
     final folderLabel = _folderStack.map((node) => node.name).join(' / ');
     return AlertDialog(
       title: const Text('Choose sync file'),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  onPressed: _folderStack.length > 1 ? _goUp : null,
-                  icon: const Icon(Icons.arrow_upward_rounded),
-                  tooltip: 'Up one folder',
-                ),
-                Expanded(
-                  child: Text(
-                    folderLabel,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+      content: SelectionArea(
+        child: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: _folderStack.length > 1 ? _goUp : null,
+                    icon: const Icon(Icons.arrow_upward_rounded),
+                    tooltip: 'Up one folder',
+                  ),
+                  Expanded(
+                    child: Text(
+                      folderLabel,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (_isLoading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: CircularProgressIndicator(),
+                )
+              else if (_errorText != null)
+                SelectableText(_errorText!)
+              else if (_entries.isEmpty)
+                const Text(
+                  'This folder has no supported CSV, XLSX, or ODS files yet. Open another folder or create a new sync file here.',
+                )
+              else
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: _entries
+                        .map(
+                          (entry) => ListTile(
+                            leading: Icon(
+                              entry.isFolder
+                                  ? Icons.folder_outlined
+                                  : entry.id == widget.selectedFileId
+                                  ? Icons.check_circle_rounded
+                                  : Icons.insert_drive_file_outlined,
+                            ),
+                            title: Text(entry.name),
+                            subtitle: Text(
+                              entry.isFolder
+                                  ? 'Folder'
+                                  : _mimeLabel(entry.mimeType),
+                            ),
+                            onTap: () {
+                              if (entry.isFolder) {
+                                _openFolder(entry);
+                                return;
+                              }
+                              Navigator.of(context).pop(
+                                _CloudFileSelection.pick(
+                                  entry.asFileMetadata(),
+                                ),
+                              );
+                            },
+                          ),
+                        )
+                        .toList(),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: CircularProgressIndicator(),
-              )
-            else if (_errorText != null)
-              Text(_errorText!)
-            else if (_entries.isEmpty)
-              const Text(
-                'This folder has no supported CSV, XLSX, or ODS files yet. Open another folder or create a new sync file here.',
-              )
-            else
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: _entries
-                      .map(
-                        (entry) => ListTile(
-                          leading: Icon(
-                            entry.isFolder
-                                ? Icons.folder_outlined
-                                : entry.id == widget.selectedFileId
-                                ? Icons.check_circle_rounded
-                                : Icons.insert_drive_file_outlined,
-                          ),
-                          title: Text(entry.name),
-                          subtitle: Text(
-                            entry.isFolder
-                                ? 'Folder'
-                                : _mimeLabel(entry.mimeType),
-                          ),
-                          onTap: () {
-                            if (entry.isFolder) {
-                              _openFolder(entry);
-                              return;
-                            }
-                            Navigator.of(context).pop(
-                              _CloudFileSelection.pick(entry.asFileMetadata()),
-                            );
-                          },
-                        ),
-                      )
-                      .toList(),
-                ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
       actions: [

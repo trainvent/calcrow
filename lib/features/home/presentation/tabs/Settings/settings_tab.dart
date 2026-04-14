@@ -16,6 +16,7 @@ import '../../../../../core/data/services/user_repository.dart';
 import '../../../../../core/data/services/webdav_service.dart';
 import 'data_collection_page.dart';
 import 'entitlement_page.dart';
+import 'webdav_error_presentation.dart';
 import '../../../../auth/presentation/sign_in_sheet.dart';
 import '../../../../../app/presentation/web_link_opener_stub.dart'
     if (dart.library.html) '../../../../../app/presentation/web_link_opener_web.dart';
@@ -628,7 +629,7 @@ class _SettingsTabState extends State<SettingsTab> {
       }
     } on WebDavException catch (error) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+      showWebDavErrorSnackBar(context: context, error: error);
     } catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(
@@ -1179,6 +1180,12 @@ class _SettingsTabState extends State<SettingsTab> {
                         ),
                       ),
                     ),
+                    if (kIsWeb) ...[
+                      const SizedBox(height: 12),
+                      const Text(
+                        'If phone works but web fails, this is usually CORS/TLS on the WebDAV server.',
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     Align(
                       alignment: Alignment.centerLeft,
