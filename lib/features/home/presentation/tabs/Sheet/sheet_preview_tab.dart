@@ -43,12 +43,23 @@ class SheetPreviewTab extends StatelessWidget {
             children: [
               Text('Sheet Preview', style: theme.textTheme.headlineLarge),
               const SizedBox(height: 8),
-              Text(
-                preview.fileName != null
-                    ? 'File: ${preview.fileName} (${preview.rowCount} rows) • Showing first ${previewRows.length} rows / ${previewHeaders.length} columns'
-                    : 'No file loaded yet. Import/create from the Today tab.',
-                style: theme.textTheme.bodyLarge,
-              ),
+              if (preview.fileName != null) ...[
+                Text(
+                  preview.fileName!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${preview.rowCount} rows • ${previewHeaders.length} columns',
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ] else
+                Text(
+                  'No file loaded yet. Import/create from the Today tab.',
+                  style: theme.textTheme.bodyLarge,
+                ),
               const SizedBox(height: 12),
               Expanded(
                 child: Card(

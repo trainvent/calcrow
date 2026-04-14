@@ -2388,7 +2388,7 @@ class _TodayPageState extends State<TodayPage> {
             subtitle: _hasRememberedLocalDocument
                 ? 'Remembered local file: ${_simpleImportedFileName!}'
                 : !kIsWeb && defaultTargetPlatform == TargetPlatform.android
-                ? 'Open a CSV, XLSX, or ODS document via Android SAF for direct save-back when available'
+                ? 'Open a CSV, XLSX, or ODS document'
                 : 'Open CSV, XLSX, or ODS. Calcrow detects the file type automatically.',
             icon: Icons.folder_open_rounded,
             onTap: _openOrChooseLocalDocumentForSimple,
@@ -2481,13 +2481,6 @@ class _TodayPageState extends State<TodayPage> {
               );
             },
           ),
-          const SizedBox(height: 14),
-          Text(
-            _simpleOpenMode == _SimpleOpenMode.dateBased
-                ? 'Date-based opening is strict: today must exist in the detected date column.'
-                : 'Text-based opening lets you choose a row from a text field such as name, email, or phone.',
-            style: theme.textTheme.bodyMedium,
-          ),
         ],
       );
     }
@@ -2550,6 +2543,9 @@ class _TodayPageState extends State<TodayPage> {
         _simpleDocumentTarget is _LocalSimpleDocumentTarget &&
         (_simpleImportedPath?.trim().isNotEmpty == true ||
             (_simpleImportedSourceBytes?.isNotEmpty ?? false));
+    final canOpenLocalDocumentFromCard =
+        _simpleDocumentTarget == null ||
+        _simpleDocumentTarget is _LocalSimpleDocumentTarget;
 
     return Column(
       children: [
@@ -2602,10 +2598,11 @@ class _TodayPageState extends State<TodayPage> {
                     ],
                   ),
                 ),
-                TextButton(
-                  onPressed: _openOrChooseLocalDocumentForSimple,
-                  child: const Text('Open Document'),
-                ),
+                if (canOpenLocalDocumentFromCard)
+                  TextButton(
+                    onPressed: _openOrChooseLocalDocumentForSimple,
+                    child: const Text('Open Document'),
+                  ),
               ],
             ),
           ),

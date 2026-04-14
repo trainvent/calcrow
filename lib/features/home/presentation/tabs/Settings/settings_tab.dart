@@ -53,11 +53,6 @@ class _SettingsTabState extends State<SettingsTab> {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
             Text('Settings', style: theme.textTheme.headlineLarge),
-            const SizedBox(height: 8),
-            Text(
-              'Use calcrow offline without login. Sign in only when you want sync.',
-              style: theme.textTheme.bodyLarge,
-            ),
             const SizedBox(height: 12),
             if (session == null)
               Card(
@@ -140,9 +135,6 @@ class _SettingsTabState extends State<SettingsTab> {
                             ListTile(
                               leading: const Icon(Icons.cloud_sync_outlined),
                               title: const Text('Active cloud provider'),
-                              subtitle: Text(
-                                _activeCloudProviderSubtitle(settings),
-                              ),
                               trailing: DropdownButtonHideUnderline(
                                 child: DropdownButton<CloudSyncProvider>(
                                   value: _selectedCloudProvider(settings),
@@ -427,14 +419,6 @@ class _SettingsTabState extends State<SettingsTab> {
 
   String _cloudProviderLabel(CloudSyncProvider provider) {
     return ServiceLocator.simpleCloudDocumentService.providerLabel(provider);
-  }
-
-  String _activeCloudProviderSubtitle(UserSettingsData? settings) {
-    final provider = _selectedCloudProvider(settings);
-    if (provider == null) {
-      return 'Link Google Drive or WebDAV first.';
-    }
-    return 'Used for Edit Cloud Document and auto cloud save.';
   }
 
   Future<void> _setAdvancedFeaturesEnabled({
