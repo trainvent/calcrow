@@ -172,6 +172,8 @@ class DbService {
     return _firestore.collection(_usersCollection).doc(uid).set({
       'settings': {
         'webDavLinked': false,
+        'webDavEntries': FieldValue.delete(),
+        'webDavActiveEntryId': FieldValue.delete(),
         'webDavServerUrl': FieldValue.delete(),
         'webDavUsername': FieldValue.delete(),
         'webDavPassword': FieldValue.delete(),

@@ -211,17 +211,14 @@ class _SettingsTabState extends State<SettingsTab> {
                                       ),
                                     )
                                   : TextButton(
-                                      onPressed: () => _toggleWebDavLink(
+                                      onPressed: () => _manageWebDavEntries(
                                         session: session,
-                                        currentlyLinked: _isWebDavLinked(
-                                          settings,
-                                        ),
                                         settings: settings,
                                       ),
                                       child: Text(
-                                        _isWebDavLinked(settings)
-                                            ? 'Unlink'
-                                            : 'Link',
+                                        _webDavEntries(settings).isEmpty
+                                            ? 'Link'
+                                            : 'Manage',
                                       ),
                                     ),
                             ),
@@ -364,7 +361,12 @@ class _SettingsTabState extends State<SettingsTab> {
   }
 
   bool _isWebDavLinked(UserSettingsData? settings) {
-    return settings?.webDavLinked == true;
+    if (settings == null) return false;
+    return settings.webDavLinked || settings.webDavEntries.isNotEmpty;
+  }
+
+  List<WebDavSavedEntry> _webDavEntries(UserSettingsData? settings) {
+    return settings?.webDavEntries ?? const <WebDavSavedEntry>[];
   }
 
   CloudSyncProvider? _selectedCloudProvider(UserSettingsData? settings) {
@@ -395,18 +397,29 @@ class _SettingsTabState extends State<SettingsTab> {
   }
 
   String _webDavSubtitle(UserSettingsData? settings) {
-    final linked = _isWebDavLinked(settings);
-    if (!linked) {
+    final entries = _webDavEntries(settings);
+    if (entries.isEmpty) {
       return 'Connect a WebDAV or Nextcloud folder using its WebDAV URL.';
     }
-    final username = settings?.webDavUsername;
-    final serverUrl = settings?.webDavServerUrl;
-    if (username != null && username.isNotEmpty && serverUrl != null) {
+    final activeEntryId = settings?.webDavActiveEntryId;
+    final activeEntry =
+        entries.where((entry) => entry.id == activeEntryId).isEmpty
+        ? entries.first
+        : entries.firstWhere((entry) => entry.id == activeEntryId);
+    final username = activeEntry.username;
+    final serverUrl = activeEntry.serverUrl;
+    if (username.isNotEmpty) {
       final host = Uri.tryParse(serverUrl)?.host;
       if (host != null && host.isNotEmpty) {
-        return 'Linked as $username on $host';
+        if (entries.length == 1) {
+          return 'Linked as $username on $host';
+        }
+        return '${entries.length} WebDAV entries. Active: $username on $host';
       }
-      return 'Linked as $username';
+      if (entries.length == 1) {
+        return 'Linked as $username';
+      }
+      return '${entries.length} WebDAV entries. Active: $username';
     }
     return 'WebDAV connected';
   }
@@ -580,67 +593,222 @@ class _SettingsTabState extends State<SettingsTab> {
     }
   }
 
-  Future<void> _toggleWebDavLink({
+  Future<void> _manageWebDavEntries({
     required AuthSession session,
-    required bool currentlyLinked,
     required UserSettingsData? settings,
   }) async {
     if (_isLinkingWebDav) return;
+    final existingEntries = _webDavEntries(settings);
+    final action = await _showWebDavManagementActionDialog(
+      hasEntries: existingEntries.isNotEmpty,
+    );
+    if (action == null) return;
+    if (!mounted) return;
 
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _isLinkingWebDav = true);
     try {
-      if (currentlyLinked) {
-        await ServiceLocator.webDavService.clearCredentials(uid: session.uid);
-        await ServiceLocator.userRepository.clearWebDavLinked(uid: session.uid);
-        if (!mounted) return;
-        messenger.showSnackBar(
-          const SnackBar(content: Text('WebDAV account unlinked.')),
-        );
-        return;
+      switch (action) {
+        case _WebDavManagementAction.add:
+          await _addWebDavEntry(session: session, settings: settings);
+          break;
+        case _WebDavManagementAction.select:
+          await _selectWebDavEntry(session: session, settings: settings);
+          break;
+        case _WebDavManagementAction.remove:
+          await _removeWebDavEntry(session: session, settings: settings);
+          break;
+        case _WebDavManagementAction.unlinkAll:
+          await _unlinkAllWebDavEntries(session: session);
+          if (!mounted) return;
+          messenger.showSnackBar(
+            const SnackBar(content: Text('All WebDAV entries unlinked.')),
+          );
+          break;
       }
-
-      final connectionDetails = await _showWebDavDialog(
-        initialServerUrl: settings?.webDavServerUrl,
-        initialUsername: settings?.webDavUsername,
-      );
-      if (connectionDetails == null) {
-        return;
-      }
-
-      final linkedAccount = await ServiceLocator.webDavService.linkAccount(
-        uid: session.uid,
-        serverUrl: connectionDetails.serverUrl,
-        username: connectionDetails.username,
-        password: connectionDetails.password,
-      );
-      await ServiceLocator.userRepository.setWebDavLinked(
-        uid: session.uid,
-        serverUrl: linkedAccount.serverUrl,
-        username: linkedAccount.username,
-        password: connectionDetails.password,
-      );
-      if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            'WebDAV linked: ${linkedAccount.username} on ${linkedAccount.hostLabel}.',
-          ),
-        ),
-      );
     } on WebDavException catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(content: Text(error.message)));
     } catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('WebDAV link failed: $error')),
+        SnackBar(content: Text('WebDAV update failed: $error')),
       );
     } finally {
       if (mounted) {
         setState(() => _isLinkingWebDav = false);
       }
     }
+  }
+
+  Future<void> _addWebDavEntry({
+    required AuthSession session,
+    required UserSettingsData? settings,
+  }) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final connectionDetails = await _showWebDavDialog(
+      initialServerUrl: settings?.webDavServerUrl,
+      initialUsername: settings?.webDavUsername,
+    );
+    if (connectionDetails == null) {
+      return;
+    }
+
+    final linkedAccount = await ServiceLocator.webDavService.linkAccount(
+      uid: session.uid,
+      serverUrl: connectionDetails.serverUrl,
+      username: connectionDetails.username,
+      password: connectionDetails.password,
+    );
+    final entry = WebDavSavedEntry(
+      id: _buildWebDavEntryId(),
+      serverUrl: linkedAccount.serverUrl,
+      username: linkedAccount.username,
+    );
+    await ServiceLocator.webDavService.saveEntryPassword(
+      uid: session.uid,
+      entryId: entry.id,
+      password: connectionDetails.password,
+    );
+    await ServiceLocator.userRepository.upsertWebDavEntry(
+      uid: session.uid,
+      entry: entry,
+      password: connectionDetails.password,
+    );
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          'WebDAV entry added: ${linkedAccount.username} on ${linkedAccount.hostLabel}.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _selectWebDavEntry({
+    required AuthSession session,
+    required UserSettingsData? settings,
+  }) async {
+    final entries = _webDavEntries(settings);
+    if (entries.isEmpty) {
+      return;
+    }
+    final messenger = ScaffoldMessenger.of(context);
+    final selected = await _showWebDavEntryPickerDialog(
+      title: 'Select WebDAV entry',
+      entries: entries,
+      activeEntryId: settings?.webDavActiveEntryId,
+    );
+    if (selected == null) {
+      return;
+    }
+    if (settings?.webDavActiveEntryId == selected.id) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('This WebDAV entry is already active.')),
+      );
+      return;
+    }
+
+    var password = await ServiceLocator.webDavService.readEntryPassword(
+      uid: session.uid,
+      entryId: selected.id,
+    );
+    if ((password == null || password.isEmpty) &&
+        settings?.webDavServerUrl == selected.serverUrl &&
+        settings?.webDavUsername == selected.username &&
+        (settings?.webDavPassword?.isNotEmpty ?? false)) {
+      password = settings!.webDavPassword;
+    }
+    if (password == null || password.isEmpty) {
+      final enteredPassword = await _showWebDavPasswordDialog(
+        username: selected.username,
+        serverUrl: selected.serverUrl,
+      );
+      if (enteredPassword == null || enteredPassword.isEmpty) {
+        return;
+      }
+      password = enteredPassword;
+      await ServiceLocator.webDavService.saveEntryPassword(
+        uid: session.uid,
+        entryId: selected.id,
+        password: password,
+      );
+    }
+
+    await ServiceLocator.webDavService.saveCredentialsWithoutValidation(
+      uid: session.uid,
+      serverUrl: selected.serverUrl,
+      username: selected.username,
+      password: password,
+    );
+    await ServiceLocator.userRepository.selectWebDavEntry(
+      uid: session.uid,
+      entryId: selected.id,
+      activePassword: password,
+    );
+    if (!mounted) return;
+    final host = Uri.tryParse(selected.serverUrl)?.host;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          host == null || host.isEmpty
+              ? 'WebDAV entry active: ${selected.username}.'
+              : 'WebDAV entry active: ${selected.username} on $host.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _removeWebDavEntry({
+    required AuthSession session,
+    required UserSettingsData? settings,
+  }) async {
+    final entries = _webDavEntries(settings);
+    if (entries.isEmpty) {
+      return;
+    }
+    final messenger = ScaffoldMessenger.of(context);
+    final selected = await _showWebDavEntryPickerDialog(
+      title: 'Remove WebDAV entry',
+      entries: entries,
+      activeEntryId: settings?.webDavActiveEntryId,
+    );
+    if (selected == null) {
+      return;
+    }
+    await ServiceLocator.webDavService.clearEntryPassword(
+      uid: session.uid,
+      entryId: selected.id,
+    );
+    await ServiceLocator.userRepository.removeWebDavEntry(
+      uid: session.uid,
+      entryId: selected.id,
+    );
+    if (entries.length == 1) {
+      await ServiceLocator.webDavService.clearCredentials(uid: session.uid);
+    }
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(content: Text('WebDAV entry removed: ${selected.username}.')),
+    );
+  }
+
+  Future<void> _unlinkAllWebDavEntries({required AuthSession session}) async {
+    final settings = await ServiceLocator.userRepository.getUserSettings(
+      session.uid,
+    );
+    for (final entry in settings.webDavEntries) {
+      await ServiceLocator.webDavService.clearEntryPassword(
+        uid: session.uid,
+        entryId: entry.id,
+      );
+    }
+    await ServiceLocator.webDavService.clearCredentials(uid: session.uid);
+    await ServiceLocator.userRepository.clearWebDavLinked(uid: session.uid);
+  }
+
+  String _buildWebDavEntryId() {
+    return 'wd_${DateTime.now().microsecondsSinceEpoch}';
   }
 
   Future<void> _setCloudSyncProvider({
@@ -669,6 +837,200 @@ class _SettingsTabState extends State<SettingsTab> {
     }
   }
 
+  Future<_WebDavManagementAction?> _showWebDavManagementActionDialog({
+    required bool hasEntries,
+  }) {
+    return showDialog<_WebDavManagementAction>(
+      context: context,
+      builder: (dialogContext) {
+        return SimpleDialog(
+          title: const Text('Manage WebDAV entries'),
+          children: [
+            SimpleDialogOption(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(_WebDavManagementAction.add);
+              },
+              child: const Text('Add WebDAV entry'),
+            ),
+            if (hasEntries)
+              SimpleDialogOption(
+                onPressed: () {
+                  Navigator.of(
+                    dialogContext,
+                  ).pop(_WebDavManagementAction.select);
+                },
+                child: const Text('Select active entry'),
+              ),
+            if (hasEntries)
+              SimpleDialogOption(
+                onPressed: () {
+                  Navigator.of(
+                    dialogContext,
+                  ).pop(_WebDavManagementAction.remove);
+                },
+                child: const Text('Remove one entry'),
+              ),
+            if (hasEntries)
+              SimpleDialogOption(
+                onPressed: () {
+                  Navigator.of(
+                    dialogContext,
+                  ).pop(_WebDavManagementAction.unlinkAll);
+                },
+                child: const Text('Unlink all entries'),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<WebDavSavedEntry?> _showWebDavEntryPickerDialog({
+    required String title,
+    required List<WebDavSavedEntry> entries,
+    String? activeEntryId,
+  }) {
+    return showDialog<WebDavSavedEntry>(
+      context: context,
+      builder: (dialogContext) {
+        final selectedId = ValueNotifier<String?>(
+          activeEntryId ?? (entries.isEmpty ? null : entries.first.id),
+        );
+        return AlertDialog(
+          title: Text(title),
+          content: SizedBox(
+            width: 420,
+            child: ValueListenableBuilder<String?>(
+              valueListenable: selectedId,
+              builder: (context, value, _) {
+                return ListView(
+                  shrinkWrap: true,
+                  children: entries.map((entry) {
+                    final host = Uri.tryParse(entry.serverUrl)?.host;
+                    final subtitle = host == null || host.isEmpty
+                        ? entry.serverUrl
+                        : '${entry.username} on $host';
+                    final isSelected = value == entry.id;
+                    return ListTile(
+                      leading: Icon(
+                        isSelected
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_off,
+                      ),
+                      title: Text(entry.username),
+                      subtitle: Text(subtitle),
+                      onTap: () {
+                        selectedId.value = entry.id;
+                      },
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final id = selectedId.value;
+                if (id == null) return;
+                final selectedEntry = entries.where((entry) => entry.id == id);
+                if (selectedEntry.isEmpty) return;
+                Navigator.of(dialogContext).pop(selectedEntry.first);
+              },
+              child: const Text('Confirm'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<String?> _showWebDavPasswordDialog({
+    required String username,
+    required String serverUrl,
+  }) async {
+    final controller = TextEditingController();
+    var obscurePassword = true;
+    var errorText = '';
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Enter app password'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Password required for $username'),
+                  const SizedBox(height: 4),
+                  Text(serverUrl, style: Theme.of(context).textTheme.bodySmall),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: controller,
+                    obscureText: obscurePassword,
+                    decoration: InputDecoration(
+                      labelText: 'App password',
+                      errorText: errorText.isEmpty ? null : errorText,
+                      suffixIcon: IconButton(
+                        onPressed: () {
+                          setDialogState(() {
+                            obscurePassword = !obscurePassword;
+                          });
+                        },
+                        icon: Icon(
+                          obscurePassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                        ),
+                      ),
+                    ),
+                    onSubmitted: (_) {
+                      final password = controller.text.trim();
+                      if (password.isEmpty) {
+                        setDialogState(() {
+                          errorText = 'App password is required.';
+                        });
+                        return;
+                      }
+                      Navigator.of(dialogContext).pop(password);
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    final password = controller.text.trim();
+                    if (password.isEmpty) {
+                      setDialogState(() {
+                        errorText = 'App password is required.';
+                      });
+                      return;
+                    }
+                    Navigator.of(dialogContext).pop(password);
+                  },
+                  child: const Text('Confirm'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    controller.dispose();
+    return result;
+  }
+
   Future<_WebDavFormResult?> _showWebDavDialog({
     String? initialServerUrl,
     String? initialUsername,
@@ -676,7 +1038,9 @@ class _SettingsTabState extends State<SettingsTab> {
     final serverUrlController = TextEditingController(
       text: initialServerUrl ?? '',
     );
-    final usernameController = TextEditingController(text: initialUsername ?? '');
+    final usernameController = TextEditingController(
+      text: initialUsername ?? '',
+    );
     final passwordController = TextEditingController();
     var obscurePassword = true;
     String? errorText;
@@ -695,11 +1059,12 @@ class _SettingsTabState extends State<SettingsTab> {
                 });
                 return;
               }
-              final scannedPayload = await Navigator.of(dialogContext).push<String>(
-                MaterialPageRoute(
-                  builder: (context) => const _WebDavQrScannerPage(),
-                ),
-              );
+              final scannedPayload = await Navigator.of(dialogContext)
+                  .push<String>(
+                    MaterialPageRoute(
+                      builder: (context) => const _WebDavQrScannerPage(),
+                    ),
+                  );
               if (!dialogContext.mounted || scannedPayload == null) {
                 return;
               }
@@ -710,7 +1075,9 @@ class _SettingsTabState extends State<SettingsTab> {
                 parsed = null;
               }
               if (parsed == null) {
-                final scannedServerUrl = _parseWebDavServerUrlOnly(scannedPayload);
+                final scannedServerUrl = _parseWebDavServerUrlOnly(
+                  scannedPayload,
+                );
                 if (scannedServerUrl != null) {
                   setDialogState(() {
                     serverUrlController.text = scannedServerUrl;
@@ -719,7 +1086,9 @@ class _SettingsTabState extends State<SettingsTab> {
                   });
                   return;
                 }
-                final scannedPassword = _parseWebDavPasswordOnly(scannedPayload);
+                final scannedPassword = _parseWebDavPasswordOnly(
+                  scannedPayload,
+                );
                 if (scannedPassword != null) {
                   setDialogState(() {
                     passwordController.text = scannedPassword;
@@ -751,7 +1120,8 @@ class _SettingsTabState extends State<SettingsTab> {
                   trimmedUsername.isEmpty ||
                   password.isEmpty) {
                 setDialogState(() {
-                  errorText = 'Enter the WebDAV URL, username, and app password.';
+                  errorText =
+                      'Enter the WebDAV URL, username, and app password.';
                 });
                 return null;
               }
@@ -993,6 +1363,8 @@ class _WebDavFormResult {
   final String password;
 }
 
+enum _WebDavManagementAction { add, select, remove, unlinkAll }
+
 class _ParsedWebDavQrPayload {
   const _ParsedWebDavQrPayload({
     required this.serverUrl,
@@ -1170,10 +1542,13 @@ _ParsedWebDavQrPayload? _parseWebDavQrUri(String raw) {
       password = Uri.decodeComponent(split.sublist(1).join(':'));
     }
   }
-  username ??=
-      _queryValue(uri, <String>['username', 'user', 'login', 'email']);
-  password ??=
-      _queryValue(uri, <String>['password', 'pass', 'appPassword', 'token']);
+  username ??= _queryValue(uri, <String>['username', 'user', 'login', 'email']);
+  password ??= _queryValue(uri, <String>[
+    'password',
+    'pass',
+    'appPassword',
+    'token',
+  ]);
 
   final normalizedUri = uri.replace(userInfo: '');
   final serverUrl = normalizedUri.toString();
@@ -1415,10 +1790,7 @@ class _WebDavQrScannerPageState extends State<_WebDavQrScannerPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Scan passkey QR')),
-      body: MobileScanner(
-        controller: _controller,
-        onDetect: _onDetect,
-      ),
+      body: MobileScanner(controller: _controller, onDetect: _onDetect),
     );
   }
 }

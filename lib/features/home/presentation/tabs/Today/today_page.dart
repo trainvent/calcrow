@@ -603,17 +603,19 @@ class _TodayPageState extends State<TodayPage> {
 
     if (preferredRowIndex != null &&
         preferredRowIndex >= 0 &&
-        preferredRowIndex < _simpleRows.length) {
+        preferredRowIndex <= _simpleRows.length) {
       targetRowIndex = preferredRowIndex;
-      foundMatchingDateRow =
-          dateColumn != null &&
-          dateColumn < _simpleRows[preferredRowIndex].length &&
-          (() {
-            final rowDate = _parseDateFromCellValue(
-              _simpleRows[preferredRowIndex][dateColumn],
-            );
-            return rowDate != null && _isSameCalendarDate(rowDate, today);
-          })();
+      if (preferredRowIndex < _simpleRows.length) {
+        foundMatchingDateRow =
+            dateColumn != null &&
+            dateColumn < _simpleRows[preferredRowIndex].length &&
+            (() {
+              final rowDate = _parseDateFromCellValue(
+                _simpleRows[preferredRowIndex][dateColumn],
+              );
+              return rowDate != null && _isSameCalendarDate(rowDate, today);
+            })();
+      }
     } else if (dateColumn != null) {
       int? fallbackMatchIndex;
       for (var i = _simpleRows.length - 1; i >= 0; i--) {
@@ -640,6 +642,16 @@ class _TodayPageState extends State<TodayPage> {
     final draft = targetRowIndex < _simpleRows.length
         ? _simpleRows[targetRowIndex]
         : List<String>.filled(_simpleHeaders.length, '');
+    if (preserveSelectedTextTarget &&
+        targetRowIndex >= _simpleRows.length &&
+        _simpleTextSelectionColumnIndex != null &&
+        _simpleTextSelectionValue != null) {
+      final selectionColumn = _simpleTextSelectionColumnIndex!;
+      final selectionValue = _simpleTextSelectionValue!.trim();
+      if (selectionValue.isNotEmpty && selectionColumn < draft.length) {
+        draft[selectionColumn] = selectionValue;
+      }
+    }
     if (dateColumn != null && (draft[dateColumn].trim().isEmpty)) {
       draft[dateColumn] = _formatDate(today);
     }
@@ -796,7 +808,8 @@ class _TodayPageState extends State<TodayPage> {
         ? _simpleTextSelectionColumnIndex!
         : candidateColumns.first;
 
-    return showDialog<_SimpleTextTargetSelection>(
+    final newEntryController = TextEditingController();
+    final result = await showDialog<_SimpleTextTargetSelection>(
       context: context,
       builder: (dialogContext) {
         var selectedColumnIndex = initialColumnIndex;
@@ -845,7 +858,9 @@ class _TodayPageState extends State<TodayPage> {
                   ),
                   const SizedBox(height: 12),
                   if (availableValues.isEmpty)
-                    const Text('No non-empty entries were found in this field.')
+                    const Text(
+                      'No non-empty entries were found in this field yet.',
+                    )
                   else
                     DropdownButtonFormField<String>(
                       initialValue: selectedValue,
@@ -866,6 +881,16 @@ class _TodayPageState extends State<TodayPage> {
                         });
                       },
                     ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: newEntryController,
+                    decoration: const InputDecoration(
+                      labelText: 'New entry name (optional)',
+                    ),
+                    onChanged: (_) {
+                      setDialogState(() {});
+                    },
+                  ),
                 ],
               ),
               actions: [
@@ -874,9 +899,29 @@ class _TodayPageState extends State<TodayPage> {
                   child: const Text('Cancel'),
                 ),
                 FilledButton(
-                  onPressed: selectedValue == null
+                  onPressed:
+                      selectedValue == null &&
+                          newEntryController.text.trim().isEmpty
                       ? null
                       : () {
+                          final typedValue = newEntryController.text.trim();
+                          if (typedValue.isNotEmpty) {
+                            final existingRowIndex =
+                                _findSimpleRowIndexForTextValue(
+                                  sheetData,
+                                  columnIndex: selectedColumnIndex,
+                                  value: typedValue,
+                                );
+                            Navigator.of(dialogContext).pop(
+                              _SimpleTextTargetSelection(
+                                columnIndex: selectedColumnIndex,
+                                rowIndex:
+                                    existingRowIndex ?? sheetData.rows.length,
+                                value: typedValue,
+                              ),
+                            );
+                            return;
+                          }
                           final rowIndex = _findSimpleRowIndexForTextValue(
                             sheetData,
                             columnIndex: selectedColumnIndex,
@@ -909,6 +954,8 @@ class _TodayPageState extends State<TodayPage> {
         );
       },
     );
+    newEntryController.dispose();
+    return result;
   }
 
   bool _rowHasEditableEmptyCell(List<String> row, {required int dateColumn}) {

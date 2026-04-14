@@ -23,6 +23,54 @@ String cloudSyncProviderToSettings(CloudSyncProvider provider) {
   };
 }
 
+class WebDavSavedEntry {
+  const WebDavSavedEntry({
+    required this.id,
+    required this.serverUrl,
+    required this.username,
+  });
+
+  final String id;
+  final String serverUrl;
+  final String username;
+
+  static WebDavSavedEntry? fromMap(Object? raw) {
+    if (raw is! Map) return null;
+    final serverUrl = UserSettingsData._readTrimmed(raw['serverUrl']);
+    final username = UserSettingsData._readTrimmed(raw['username']);
+    if (serverUrl == null || username == null) return null;
+    final id =
+        UserSettingsData._readTrimmed(raw['id']) ??
+        _legacyWebDavEntryId(serverUrl: serverUrl, username: username);
+    return WebDavSavedEntry(id: id, serverUrl: serverUrl, username: username);
+  }
+
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'id': id,
+      'serverUrl': serverUrl,
+      'username': username,
+    };
+  }
+}
+
+String _legacyWebDavEntryId({
+  required String serverUrl,
+  required String username,
+}) {
+  final key =
+      '${serverUrl.trim().toLowerCase()}|${username.trim().toLowerCase()}';
+  final hash = key.hashCode.abs().toRadixString(16);
+  return 'legacy_$hash';
+}
+
+T? _firstWhereOrNull<T>(Iterable<T> items, bool Function(T item) test) {
+  for (final item in items) {
+    if (test(item)) return item;
+  }
+  return null;
+}
+
 class UserSettingsData {
   const UserSettingsData({
     this.defaultDateFormat = 'YYYY-MM-DD',
@@ -35,6 +83,8 @@ class UserSettingsData {
     this.googleDriveSyncFileName,
     this.googleDriveSyncMimeType,
     this.webDavLinked = false,
+    this.webDavEntries = const <WebDavSavedEntry>[],
+    this.webDavActiveEntryId,
     this.webDavServerUrl,
     this.webDavUsername,
     this.webDavPassword,
@@ -54,6 +104,8 @@ class UserSettingsData {
   final String? googleDriveSyncFileName;
   final String? googleDriveSyncMimeType;
   final bool webDavLinked;
+  final List<WebDavSavedEntry> webDavEntries;
+  final String? webDavActiveEntryId;
   final String? webDavServerUrl;
   final String? webDavUsername;
   final String? webDavPassword;
@@ -69,6 +121,22 @@ class UserSettingsData {
     );
     final googleDriveLinked = settings['googleDriveLinked'] == true;
     final webDavLinked = settings['webDavLinked'] == true;
+    final legacyWebDavServerUrl = _readTrimmed(settings['webDavServerUrl']);
+    final legacyWebDavUsername = _readTrimmed(settings['webDavUsername']);
+    final webDavEntries = _parseWebDavEntries(
+      settings['webDavEntries'],
+      legacyServerUrl: legacyWebDavServerUrl,
+      legacyUsername: legacyWebDavUsername,
+    );
+    final configuredWebDavActiveEntryId = _readTrimmed(
+      settings['webDavActiveEntryId'],
+    );
+    final activeWebDavEntry =
+        _firstWhereOrNull(
+          webDavEntries,
+          (entry) => entry.id == configuredWebDavActiveEntryId,
+        ) ??
+        (webDavEntries.isEmpty ? null : webDavEntries.first);
     return UserSettingsData(
       defaultDateFormat:
           (settings['defaultDateFormat'] as String?)?.trim().isNotEmpty == true
@@ -92,9 +160,11 @@ class UserSettingsData {
       googleDriveSyncMimeType: _readTrimmed(
         settings['googleDriveSyncMimeType'],
       ),
-      webDavLinked: webDavLinked,
-      webDavServerUrl: _readTrimmed(settings['webDavServerUrl']),
-      webDavUsername: _readTrimmed(settings['webDavUsername']),
+      webDavLinked: webDavLinked || activeWebDavEntry != null,
+      webDavEntries: webDavEntries,
+      webDavActiveEntryId: activeWebDavEntry?.id,
+      webDavServerUrl: activeWebDavEntry?.serverUrl ?? legacyWebDavServerUrl,
+      webDavUsername: activeWebDavEntry?.username ?? legacyWebDavUsername,
       webDavPassword: settings['webDavPassword'] as String?,
       webDavSyncFilePath: _readTrimmed(settings['webDavSyncFilePath']),
       webDavSyncFileName: _readTrimmed(settings['webDavSyncFileName']),
@@ -107,6 +177,36 @@ class UserSettingsData {
     final text = (value as String?)?.trim();
     if (text == null || text.isEmpty) return null;
     return text;
+  }
+
+  static List<WebDavSavedEntry> _parseWebDavEntries(
+    Object? raw, {
+    required String? legacyServerUrl,
+    required String? legacyUsername,
+  }) {
+    final parsed = <WebDavSavedEntry>[];
+    if (raw is List) {
+      for (final candidate in raw) {
+        final entry = WebDavSavedEntry.fromMap(candidate);
+        if (entry == null) continue;
+        if (parsed.any((existing) => existing.id == entry.id)) continue;
+        parsed.add(entry);
+      }
+    }
+    if (parsed.isNotEmpty) return parsed;
+    if (legacyServerUrl == null || legacyUsername == null) {
+      return const <WebDavSavedEntry>[];
+    }
+    return <WebDavSavedEntry>[
+      WebDavSavedEntry(
+        id: _legacyWebDavEntryId(
+          serverUrl: legacyServerUrl,
+          username: legacyUsername,
+        ),
+        serverUrl: legacyServerUrl,
+        username: legacyUsername,
+      ),
+    ];
   }
 }
 
@@ -221,6 +321,120 @@ class UserRepository {
 
   Future<void> clearWebDavLinked({required String uid}) {
     return _dbService.clearWebDavLink(uid: uid);
+  }
+
+  Future<void> upsertWebDavEntry({
+    required String uid,
+    required WebDavSavedEntry entry,
+    required String password,
+  }) async {
+    final settings = await getUserSettings(uid);
+    final entries = List<WebDavSavedEntry>.from(settings.webDavEntries);
+    final existingIndex = entries.indexWhere(
+      (candidate) => candidate.id == entry.id,
+    );
+    if (existingIndex >= 0) {
+      entries[existingIndex] = entry;
+    } else {
+      entries.add(entry);
+    }
+    await _persistWebDavEntries(
+      uid: uid,
+      entries: entries,
+      activeEntryId: entry.id,
+      activePassword: password,
+      clearSyncFileSelection: true,
+    );
+  }
+
+  Future<void> selectWebDavEntry({
+    required String uid,
+    required String entryId,
+    required String activePassword,
+  }) async {
+    final settings = await getUserSettings(uid);
+    if (settings.webDavEntries.isEmpty) {
+      throw StateError('No saved WebDAV entries found.');
+    }
+    final activeEntry = _firstWhereOrNull(
+      settings.webDavEntries,
+      (entry) => entry.id == entryId,
+    );
+    if (activeEntry == null) {
+      throw StateError('Selected WebDAV entry could not be found.');
+    }
+    await _persistWebDavEntries(
+      uid: uid,
+      entries: settings.webDavEntries,
+      activeEntryId: activeEntry.id,
+      activePassword: activePassword,
+      clearSyncFileSelection: true,
+    );
+  }
+
+  Future<void> removeWebDavEntry({
+    required String uid,
+    required String entryId,
+  }) async {
+    final settings = await getUserSettings(uid);
+    final remainingEntries = settings.webDavEntries
+        .where((entry) => entry.id != entryId)
+        .toList();
+    if (remainingEntries.isEmpty) {
+      await clearWebDavLinked(uid: uid);
+      return;
+    }
+    final nextActiveEntry =
+        _firstWhereOrNull(
+          remainingEntries,
+          (entry) => entry.id == settings.webDavActiveEntryId,
+        ) ??
+        remainingEntries.first;
+    await _persistWebDavEntries(
+      uid: uid,
+      entries: remainingEntries,
+      activeEntryId: nextActiveEntry.id,
+      activePassword: null,
+      clearSyncFileSelection: true,
+    );
+  }
+
+  Future<void> _persistWebDavEntries({
+    required String uid,
+    required List<WebDavSavedEntry> entries,
+    required String activeEntryId,
+    required String? activePassword,
+    required bool clearSyncFileSelection,
+  }) async {
+    final activeEntry = _firstWhereOrNull(
+      entries,
+      (entry) => entry.id == activeEntryId,
+    );
+    if (activeEntry == null) {
+      throw StateError('Active WebDAV entry could not be found.');
+    }
+
+    await _firestore.collection(_usersCollection).doc(uid).set({
+      'settings': {
+        'cloudSyncProvider': cloudSyncProviderToSettings(
+          CloudSyncProvider.webDav,
+        ),
+        'webDavLinked': true,
+        'webDavEntries': entries.map((entry) => entry.toMap()).toList(),
+        'webDavActiveEntryId': activeEntry.id,
+        'webDavServerUrl': activeEntry.serverUrl,
+        'webDavUsername': activeEntry.username,
+        'webDavPassword': activePassword ?? FieldValue.delete(),
+        'webDavLinkedAt': FieldValue.serverTimestamp(),
+        if (clearSyncFileSelection) ...<String, dynamic>{
+          'webDavSyncFilePath': FieldValue.delete(),
+          'webDavSyncFileName': FieldValue.delete(),
+          'webDavSyncMimeType': FieldValue.delete(),
+          'webDavLastSyncedAt': FieldValue.delete(),
+        },
+      },
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   Future<void> setWebDavSyncFile({

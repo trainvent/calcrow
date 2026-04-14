@@ -86,6 +86,7 @@ class WebDavService {
   static const String _serverUrlPrefix = 'webdav_server_url';
   static const String _usernamePrefix = 'webdav_username';
   static const String _passwordPrefix = 'webdav_password';
+  static const String _entryPasswordPrefix = 'webdav_entry_password';
   static const List<String> supportedMimeTypes = <String>[
     'text/csv',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -100,7 +101,9 @@ class WebDavService {
   }) async {
     final normalizedUrl = _normalizeServerUrl(serverUrl);
     final requestedUri = Uri.tryParse(normalizedUrl);
-    if (requestedUri == null || !requestedUri.hasScheme || requestedUri.host.isEmpty) {
+    if (requestedUri == null ||
+        !requestedUri.hasScheme ||
+        requestedUri.host.isEmpty) {
       throw const WebDavException('Enter a valid WebDAV URL.');
     }
 
@@ -211,6 +214,31 @@ class WebDavService {
     await _secureStorage.write(key: _serverUrlKey(uid), value: serverUrl);
     await _secureStorage.write(key: _usernameKey(uid), value: username);
     await _secureStorage.write(key: _passwordKey(uid), value: password);
+  }
+
+  Future<void> saveEntryPassword({
+    required String uid,
+    required String entryId,
+    required String password,
+  }) async {
+    await _secureStorage.write(
+      key: _entryPasswordKey(uid, entryId),
+      value: password,
+    );
+  }
+
+  Future<String?> readEntryPassword({
+    required String uid,
+    required String entryId,
+  }) {
+    return _secureStorage.read(key: _entryPasswordKey(uid, entryId));
+  }
+
+  Future<void> clearEntryPassword({
+    required String uid,
+    required String entryId,
+  }) async {
+    await _secureStorage.delete(key: _entryPasswordKey(uid, entryId));
   }
 
   Future<WebDavCredentials> getCredentials({required String uid}) async {
@@ -617,4 +645,6 @@ class WebDavService {
   String _serverUrlKey(String uid) => '$_serverUrlPrefix:$uid';
   String _usernameKey(String uid) => '$_usernamePrefix:$uid';
   String _passwordKey(String uid) => '$_passwordPrefix:$uid';
+  String _entryPasswordKey(String uid, String entryId) =>
+      '$_entryPasswordPrefix:$uid:$entryId';
 }
