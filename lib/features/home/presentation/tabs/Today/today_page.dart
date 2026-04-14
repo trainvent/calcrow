@@ -643,12 +643,13 @@ class _TodayPageState extends State<TodayPage> {
         ? _simpleRows[targetRowIndex]
         : List<String>.filled(_simpleHeaders.length, '');
     if (preserveSelectedTextTarget &&
-        targetRowIndex >= _simpleRows.length &&
         _simpleTextSelectionColumnIndex != null &&
         _simpleTextSelectionValue != null) {
       final selectionColumn = _simpleTextSelectionColumnIndex!;
       final selectionValue = _simpleTextSelectionValue!.trim();
-      if (selectionValue.isNotEmpty && selectionColumn < draft.length) {
+      if (selectionValue.isNotEmpty &&
+          selectionColumn < draft.length &&
+          draft[selectionColumn].trim().isEmpty) {
         draft[selectionColumn] = selectionValue;
       }
     }
@@ -808,7 +809,6 @@ class _TodayPageState extends State<TodayPage> {
         ? _simpleTextSelectionColumnIndex!
         : candidateColumns.first;
 
-    final newEntryController = TextEditingController();
     final result = await showDialog<_SimpleTextTargetSelection>(
       context: context,
       builder: (dialogContext) {
@@ -826,7 +826,7 @@ class _TodayPageState extends State<TodayPage> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('Open by entry name'),
+              title: const Text('Open column entry'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -881,16 +881,6 @@ class _TodayPageState extends State<TodayPage> {
                         });
                       },
                     ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: newEntryController,
-                    decoration: const InputDecoration(
-                      labelText: 'New entry name (optional)',
-                    ),
-                    onChanged: (_) {
-                      setDialogState(() {});
-                    },
-                  ),
                 ],
               ),
               actions: [
@@ -899,29 +889,9 @@ class _TodayPageState extends State<TodayPage> {
                   child: const Text('Cancel'),
                 ),
                 FilledButton(
-                  onPressed:
-                      selectedValue == null &&
-                          newEntryController.text.trim().isEmpty
+                  onPressed: selectedValue == null
                       ? null
                       : () {
-                          final typedValue = newEntryController.text.trim();
-                          if (typedValue.isNotEmpty) {
-                            final existingRowIndex =
-                                _findSimpleRowIndexForTextValue(
-                                  sheetData,
-                                  columnIndex: selectedColumnIndex,
-                                  value: typedValue,
-                                );
-                            Navigator.of(dialogContext).pop(
-                              _SimpleTextTargetSelection(
-                                columnIndex: selectedColumnIndex,
-                                rowIndex:
-                                    existingRowIndex ?? sheetData.rows.length,
-                                value: typedValue,
-                              ),
-                            );
-                            return;
-                          }
                           final rowIndex = _findSimpleRowIndexForTextValue(
                             sheetData,
                             columnIndex: selectedColumnIndex,
@@ -954,13 +924,14 @@ class _TodayPageState extends State<TodayPage> {
         );
       },
     );
-    newEntryController.dispose();
     return result;
   }
 
   bool _rowHasEditableEmptyCell(List<String> row, {required int dateColumn}) {
     for (var i = 0; i < _simpleHeaders.length; i++) {
-      if (i == dateColumn || _simpleReadOnlyColumns[i]) continue;
+      final isReadOnly =
+          i < _simpleReadOnlyColumns.length && _simpleReadOnlyColumns[i];
+      if (i == dateColumn || isReadOnly) continue;
       final value = i < row.length ? row[i].trim() : '';
       if (value.isEmpty) return true;
     }
@@ -974,7 +945,8 @@ class _TodayPageState extends State<TodayPage> {
     required int width,
   }) {
     for (var i = 0; i < width; i++) {
-      if (i == dateColumn || readOnlyColumns[i]) continue;
+      final isReadOnly = i < readOnlyColumns.length && readOnlyColumns[i];
+      if (i == dateColumn || isReadOnly) continue;
       final value = i < row.length ? row[i].trim() : '';
       if (value.isEmpty) return true;
     }
@@ -1238,7 +1210,9 @@ class _TodayPageState extends State<TodayPage> {
   void _clearSimpleEditableFields() {
     final dateColumn = _simpleDateColumnIndex();
     for (var i = 0; i < _simpleControllers.length; i++) {
-      if (i == dateColumn || _simpleReadOnlyColumns[i]) continue;
+      final isReadOnly =
+          i < _simpleReadOnlyColumns.length && _simpleReadOnlyColumns[i];
+      if (i == dateColumn || isReadOnly) continue;
       _simpleControllers[i].clear();
     }
     setState(() {});
@@ -2539,8 +2513,15 @@ class _TodayPageState extends State<TodayPage> {
 
     final dateColumn = _simpleDateColumnIndex();
     final isEditingExisting = _simpleEditingRowIndex < _simpleRows.length;
-    final hasPendingTypeSelection =
-        _simplePendingTypeSelectionColumns.isNotEmpty;
+    final validPendingTypeSelectionColumns = _simplePendingTypeSelectionColumns
+        .where(
+          (index) =>
+              index >= 0 &&
+              index < _simpleHeaders.length &&
+              index < _simpleValueTypes.length,
+        )
+        .toList();
+    final hasPendingTypeSelection = validPendingTypeSelectionColumns.isNotEmpty;
     final targetLabel = isEditingExisting
         ? 'Editing row ${_simpleEditingRowIndex + 1} of ${_simpleRows.length}'
         : 'Editing new row at bottom';
@@ -2647,7 +2628,7 @@ class _TodayPageState extends State<TodayPage> {
                     style: theme.textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 12),
-                  ..._simplePendingTypeSelectionColumns.map((index) {
+                  ...validPendingTypeSelectionColumns.map((index) {
                     final header = _simpleHeaders[index];
                     final currentType = _simpleValueTypes[index];
                     return Padding(
@@ -2691,9 +2672,16 @@ class _TodayPageState extends State<TodayPage> {
             child: Column(
               children: List<Widget>.generate(_simpleHeaders.length, (index) {
                 final header = _simpleHeaders[index];
-                final type = _simpleValueTypes[index];
+                final type = index < _simpleValueTypes.length
+                    ? _simpleValueTypes[index]
+                    : 'text';
+                if (index >= _simpleControllers.length) {
+                  return const SizedBox.shrink();
+                }
                 final isDateField = index == dateColumn;
-                final isFormulaField = _simpleReadOnlyColumns[index];
+                final isFormulaField =
+                    index < _simpleReadOnlyColumns.length &&
+                    _simpleReadOnlyColumns[index];
                 if (isFormulaField) {
                   return const SizedBox.shrink();
                 }
@@ -2704,6 +2692,7 @@ class _TodayPageState extends State<TodayPage> {
                 final keyboardType = _keyboardForSimpleType(type);
                 final helperText = 'Type: $type${isReadOnly ? ' (fixed)' : ''}';
                 return Padding(
+                  key: ValueKey<int>(index),
                   padding: EdgeInsets.only(
                     bottom: index == _simpleHeaders.length - 1 ? 0 : 10,
                   ),
