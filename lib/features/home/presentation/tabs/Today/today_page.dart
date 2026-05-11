@@ -1000,7 +1000,7 @@ class _TodayPageState extends State<TodayPage> {
     if (candidateColumns.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Pick Today needs at least one editable text column.'),
+          content: Text('Pick Row needs at least one editable text column.'),
         ),
       );
       return null;
@@ -3039,7 +3039,7 @@ class _TodayPageState extends State<TodayPage> {
                       _simpleOpenMode == _SimpleOpenMode.textBased
                           ? 'Pick Entry'
                           : _simpleOpenMode == _SimpleOpenMode.dateBasedOpenEnd
-                          ? 'Pick Today'
+                          ? 'Pick Row'
                           : 'Jump Today',
                     ),
                   ),
