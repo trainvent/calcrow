@@ -1,23 +1,110 @@
-# calcrow Mobile (Flutter)
+# Calcrow
 
-A tool to display a line of CSV in a visually appealing way. The line gets picked by date given in the first column. 
+Calcrow is a Flutter app for opening a spreadsheet-like work log, selecting the
+right row for the current context, editing it in a focused Simple mode, and
+saving the updated document back out.
 
-## Current App Structure
+The primary product surface is **Simple mode** on the Today tab. Advanced mode
+still exists for older CSV workflows, but new feature work should normally target
+Simple mode first.
 
-- `lib/app`: app bootstrap and theme
-- `lib/features/onboarding`: onboarding flow
-- `lib/features/auth`: auth entry sheet (UI shell)
-- `lib/features/home`: post-onboarding shell (`Today`, `History`, `Settings`)
+## What The App Does
 
-## Run
+- Opens CSV, XLSX, and ODS documents.
+- Detects the document type automatically from the selected file.
+- Reads sheet structure into a Simple editor with typed fields.
+- Supports date-based opening, date-based open-end opening, and text-based
+  opening.
+- Shows the loaded sheet data in the preview flow as well as the Simple editor.
+- Saves updated documents locally or back to the selected cloud document,
+  depending on how the file was opened.
+
+## Simple Mode Flow
+
+1. Choose an opening mode:
+   - **Dates one a day** opens the row for today and blocks if today is missing.
+   - **Dates open end** opens today if present, otherwise starts a new row for
+     today.
+   - **Text based** lets you choose a text column and then open a specific entry.
+2. Choose a document source:
+   - **Local document** opens the file picker only when no local file is selected.
+     After a file is selected, tapping the local row just selects that source.
+     Clear the selected local file before picking a different one.
+   - **Cloud document** uses the active cloud sync file. Configure Google Drive or
+     WebDAV in Settings first, then choose or create a sync file.
+3. Press **Open** to load the selected document using the selected opening mode.
+4. Edit the focused row in Simple mode.
+5. Save the updated document.
+
+Recent opening configurations can be saved for signed-in users. They remember the
+document source and opening mode so common files can be reopened quickly.
+
+## Local, Web, And Cloud Behavior
+
+Local files are selected first and opened afterward. This keeps source selection
+separate from opening mode selection.
+
+Browser builds cannot reliably overwrite arbitrary local files in place. On web,
+the expected flow is:
+
+1. Open a local file.
+2. Modify it in Calcrow.
+3. Download the updated file when saving.
+
+Direct overwrite is available only where the platform and file source support it,
+such as Android SAF-backed files or configured cloud documents.
+
+Cloud sync supports Google Drive and WebDAV through Settings. Cloud documents are
+opened from the selected provider, edited in Simple mode, and saved back to that
+cloud target.
+
+## Project Structure
+
+- `lib/main.dart`: app entry point
+- `lib/features/home/presentation/home_shell.dart`: home shell
+- `lib/features/home/presentation/tabs/Today/today_page.dart`: Today tab and
+  Simple-mode UI
+- `lib/features/home/presentation/sheet_preview_store.dart`: preview state
+- `lib/core/sheet_type_logic/simple_sheet_file_service.dart`: shared simple file
+  parsing/persist helpers
+- `lib/core/sheet_type_logic/csv_logic.dart`: CSV parsing and writing
+- `lib/core/sheet_type_logic/xlsx_logic.dart`: XLSX parsing and writing
+- `lib/core/sheet_type_logic/ods_codec.dart`: ODS parsing and writing
+- `lib/core/data/services/simple_local_document_service.dart`: local file picker
+  and local document opening
+- `lib/core/data/services/simple_cloud_document_service.dart`: cloud document
+  opening and persistence
+
+## Run Locally
+
+Create `.env` from `.env.example` before running builds that need configured
+services.
 
 ```bash
 ./ci_scripts/run.sh
 ```
 
+Run the web target:
+
+```bash
+./ci_scripts/run.sh -d chrome
+```
+
+Run tests:
+
+```bash
+flutter test --dart-define-from-file=.env
+```
+
+Analyze:
+
+```bash
+flutter analyze
+```
+
 ## Web Deploy
 
-This repo deploys the web build to GitHub Pages with GitHub Actions.
+The web build deploys to GitHub Pages with GitHub Actions.
 
 - Workflow: `.github/workflows/deploy-pages.yml`
 - Branch trigger: `main`
@@ -29,30 +116,9 @@ Local web build for GitHub Pages:
 ./ci_scripts/build_web.sh
 ```
 
-Create `.env` from `.env.example` before running local builds.
-For GitHub Pages, set the `DART_DEFINE_ENV` repository secret to the full `.env` file content if you want the deployed build to include real keys.
+For GitHub Pages, set the `DART_DEFINE_ENV` repository secret to the full `.env`
+file content if the deployed build should include real keys.
 
-Before the first deploy, set the repository Pages source to `GitHub Actions`.
-If you are using the custom domain, make sure GitHub Pages is configured for `calcrow.com` and DNS points to GitHub Pages.
-
-## Firebase Recommendation
-
-Yes, Firebase is a strong fit for your mobile app:
-
-- Auth: `firebase_auth` (Google + Apple + email)
-- Data sync: `cloud_firestore` (profiles, settings, metadata)
-- File backup: `firebase_storage` (CSV snapshots/backups)
-- Analytics and release quality: `firebase_analytics`, `crashlytics`, `remote_config`
-
-For V1, keep local-first CSV editing and add Firebase sign-in plus optional sync as V1.1.
-
-## Suggested Next Build Steps
-
-1. Add state management (`riverpod`) and route management (`go_router`).
-2. Port CSV parsing/generation logic from `web_react/lib/csv.ts` to Dart.
-3. Add Excel support (`.xlsx`): import, parse, and export while preserving sheet/column types.
-4. Build in-app spreadsheet editing for CSV and Excel files (cell edit, add/remove rows, save).
-5. Add further support for (`.ods`)
-6. Persist local data with `isar` or `sqflite`.
-7. Wire Firebase project + auth providers.
-8. Add paywall/subscription layer only after retention signals.
+Before the first deploy, set the repository Pages source to `GitHub Actions`. If
+using the custom domain, make sure GitHub Pages is configured for `calcrow.com`
+and DNS points to GitHub Pages.
