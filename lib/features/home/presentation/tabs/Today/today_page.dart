@@ -2815,7 +2815,12 @@ class _TodayPageState extends State<TodayPage> {
                 onSourceChanged: (source) {
                   setState(() => _simpleDocumentSource = source);
                 },
-                onChooseLocal: _chooseLocalDocumentForSimple,
+                onChooseLocal: data.hasRememberedLocalFile
+                    ? () => setState(
+                        () =>
+                            _simpleDocumentSource = _SimpleDocumentSource.local,
+                      )
+                    : _chooseLocalDocumentForSimple,
                 onClearLocal: _forgetRememberedLocalDocument,
                 onClearCloud: _clearSelectedCloudSyncFile,
               );
