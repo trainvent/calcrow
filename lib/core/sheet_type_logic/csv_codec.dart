@@ -17,10 +17,12 @@ class CsvSheetCodec {
     if (rawLines.isNotEmpty && rawLines.last.trim().isEmpty) {
       rawLines.removeLast();
     }
-    final nonEmptyLines = rawLines.where((line) => line.trim().isNotEmpty).toList();
-    if (nonEmptyLines.length < 2) {
+    final nonEmptyLines = rawLines
+        .where((line) => line.trim().isNotEmpty)
+        .toList();
+    if (nonEmptyLines.isEmpty) {
       throw const FormatException(
-        'Simple mode expects line 1 headers and line 2 value types.',
+        'Simple mode expects at least one header row.',
       );
     }
 
@@ -66,7 +68,10 @@ class CsvSheetCodec {
           ),
         )
         .toList();
-    final readOnlyColumns = _detectReadOnlyColumns(tableBounds.columnCount, rows);
+    final readOnlyColumns = _detectReadOnlyColumns(
+      tableBounds.columnCount,
+      rows,
+    );
     final typeInference = tableBounds.hasTypeRow
         ? _buildTypeInferenceFromTypeRow(
             headerCount: tableBounds.columnCount,
@@ -79,10 +84,9 @@ class CsvSheetCodec {
           );
     final pendingTypeSelectionColumns = tableBounds.hasTypeRow
         ? const <int>[]
-        : List<int>.generate(
-            tableBounds.columnCount,
-            (index) => index,
-          ).where((index) {
+        : List<int>.generate(tableBounds.columnCount, (index) => index).where((
+            index,
+          ) {
             if (readOnlyColumns[index]) return false;
             return !typeInference[index].confirmedFromData;
           }).toList();
@@ -119,7 +123,9 @@ class CsvSheetCodec {
         .map((line) => _splitCsvLine(line, delimiter: delimiter))
         .toList();
     final minRowCount =
-        sheetData.headerRowIndex + (sheetData.hasTypeRow ? 2 : 1) + sheetData.rows.length;
+        sheetData.headerRowIndex +
+        (sheetData.hasTypeRow ? 2 : 1) +
+        sheetData.rows.length;
     while (originalRows.length < minRowCount) {
       originalRows.add(<String>[]);
     }
@@ -156,7 +162,9 @@ class CsvSheetCodec {
 
     final encodedLines = originalRows
         .map(
-          (row) => row.map((cell) => _escapeCsvCell(cell, delimiter)).join(delimiter),
+          (row) => row
+              .map((cell) => _escapeCsvCell(cell, delimiter))
+              .join(delimiter),
         )
         .toList();
     return Uint8List.fromList(utf8.encode('${encodedLines.join('\n')}\n'));

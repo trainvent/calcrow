@@ -25,7 +25,7 @@ import '../Sheet/sheet_preview_store.dart';
 
 enum _WidgetBlock { rowDefinement, workhours, smartData, wellbeing, notes }
 
-enum _SimpleOpenMode { dateBased, textBased }
+enum _SimpleOpenMode { dateBased, dateBasedOpenEnd, textBased }
 
 class TodayPage extends StatefulWidget {
   const TodayPage({super.key});
@@ -573,6 +573,23 @@ class _TodayPageState extends State<TodayPage> {
           textColumnIndex: null,
           textValue: null,
         );
+      case _SimpleOpenMode.dateBasedOpenEnd:
+        final selection = _selectSimpleEditorTargetRowForSheetData(sheetData);
+        if (!selection.usedDateColumn) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Date-based open-end needs a detected date column.',
+              ),
+            ),
+          );
+          return null;
+        }
+        return _SimpleOpeningSelection(
+          targetRowIndex: selection.targetRowIndex,
+          textColumnIndex: null,
+          textValue: null,
+        );
       case _SimpleOpenMode.textBased:
         final textSelection = await _showSimpleTextEntryPicker(sheetData);
         if (textSelection == null) return null;
@@ -730,8 +747,24 @@ class _TodayPageState extends State<TodayPage> {
   List<int> _simpleTextSelectableColumnsForSheetData(
     SimpleSheetData sheetData,
   ) {
+    return _simpleTextSelectableColumnsForSheetDataInternal(sheetData);
+  }
+
+  List<int> _simpleDateGuidingColumnsForSheetData(SimpleSheetData sheetData) {
+    final dateColumn = _dateColumnIndexForSheetData(sheetData);
+    return _simpleTextSelectableColumnsForSheetDataInternal(
+      sheetData,
+      excludedColumnIndex: dateColumn,
+    );
+  }
+
+  List<int> _simpleTextSelectableColumnsForSheetDataInternal(
+    SimpleSheetData sheetData, {
+    int? excludedColumnIndex,
+  }) {
     final indexes = <int>[];
     for (var index = 0; index < sheetData.headers.length; index++) {
+      if (index == excludedColumnIndex) continue;
       if (index >= sheetData.readOnlyColumns.length ||
           sheetData.readOnlyColumns[index]) {
         continue;
@@ -746,6 +779,18 @@ class _TodayPageState extends State<TodayPage> {
     return indexes;
   }
 
+  int? _dateColumnIndexForSheetData(SimpleSheetData sheetData) {
+    final typeIndex = sheetData.valueTypes.indexWhere(
+      (type) => type.trim().toLowerCase() == 'date',
+    );
+    if (typeIndex >= 0) return typeIndex;
+    final headerIndex = sheetData.headers.indexWhere(
+      (header) => _isDateHeaderName(header),
+    );
+    if (headerIndex >= 0) return headerIndex;
+    return null;
+  }
+
   bool _supportsTextBasedOpening(String rawType) {
     final type = rawType.trim().toLowerCase();
     return type.isEmpty ||
@@ -757,9 +802,11 @@ class _TodayPageState extends State<TodayPage> {
   List<String> _simpleDistinctTextValuesForSheetData(
     SimpleSheetData sheetData, {
     required int columnIndex,
+    bool Function(List<String> row)? rowFilter,
   }) {
     final values = <String>{};
     for (final row in sheetData.rows) {
+      if (rowFilter != null && !rowFilter(row)) continue;
       if (columnIndex >= row.length) continue;
       final value = row[columnIndex].trim();
       if (value.isNotEmpty) {
@@ -775,9 +822,11 @@ class _TodayPageState extends State<TodayPage> {
     SimpleSheetData sheetData, {
     required int columnIndex,
     required String value,
+    bool Function(List<String> row)? rowFilter,
   }) {
     for (var rowIndex = 0; rowIndex < sheetData.rows.length; rowIndex++) {
       final row = sheetData.rows[rowIndex];
+      if (rowFilter != null && !rowFilter(row)) continue;
       if (columnIndex >= row.length) continue;
       if (row[columnIndex].trim() == value) {
         return rowIndex;
@@ -925,6 +974,175 @@ class _TodayPageState extends State<TodayPage> {
       },
     );
     return result;
+  }
+
+  Future<_SimpleTextTargetSelection?> _showSimpleTodayEntryPicker(
+    SimpleSheetData sheetData,
+  ) async {
+    final dateColumn = _dateColumnIndexForSheetData(sheetData);
+    if (dateColumn == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Date-based open-end needs a detected date column.'),
+        ),
+      );
+      return null;
+    }
+
+    final targetDate = _simpleCurrentEditorDate(dateColumn);
+    bool rowFilter(List<String> row) {
+      if (dateColumn >= row.length) return false;
+      final rowDate = _parseDateFromCellValue(row[dateColumn]);
+      return rowDate != null && _isSameCalendarDate(rowDate, targetDate);
+    }
+
+    final candidateColumns = _simpleDateGuidingColumnsForSheetData(sheetData);
+    if (candidateColumns.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pick Today needs at least one editable text column.'),
+        ),
+      );
+      return null;
+    }
+
+    final initialColumnIndex =
+        (_simpleTextSelectionColumnIndex != null &&
+            candidateColumns.contains(_simpleTextSelectionColumnIndex))
+        ? _simpleTextSelectionColumnIndex!
+        : candidateColumns.first;
+
+    final result = await showDialog<_SimpleTextTargetSelection>(
+      context: context,
+      builder: (dialogContext) {
+        var selectedColumnIndex = initialColumnIndex;
+        var availableValues = _simpleDistinctTextValuesForSheetData(
+          sheetData,
+          columnIndex: selectedColumnIndex,
+          rowFilter: rowFilter,
+        );
+        String? selectedValue =
+            (_simpleTextSelectionValue != null &&
+                availableValues.contains(_simpleTextSelectionValue))
+            ? _simpleTextSelectionValue
+            : (availableValues.isEmpty ? null : availableValues.first);
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Open today entry'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DropdownButtonFormField<int>(
+                    initialValue: selectedColumnIndex,
+                    decoration: const InputDecoration(
+                      labelText: 'Guiding field',
+                    ),
+                    items: candidateColumns
+                        .map(
+                          (index) => DropdownMenuItem<int>(
+                            value: index,
+                            child: Text(sheetData.headers[index]),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setDialogState(() {
+                        selectedColumnIndex = value;
+                        availableValues = _simpleDistinctTextValuesForSheetData(
+                          sheetData,
+                          columnIndex: selectedColumnIndex,
+                          rowFilter: rowFilter,
+                        );
+                        selectedValue = availableValues.isEmpty
+                            ? null
+                            : availableValues.first;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  if (availableValues.isEmpty)
+                    const Text(
+                      'No entries for this date were found in this field yet.',
+                    )
+                  else
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedValue,
+                      decoration: const InputDecoration(
+                        labelText: 'Today entry',
+                      ),
+                      items: availableValues
+                          .map(
+                            (value) => DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(value),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        setDialogState(() {
+                          selectedValue = value;
+                        });
+                      },
+                    ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: selectedValue == null
+                      ? null
+                      : () {
+                          final rowIndex = _findSimpleRowIndexForTextValue(
+                            sheetData,
+                            columnIndex: selectedColumnIndex,
+                            value: selectedValue!,
+                            rowFilter: rowFilter,
+                          );
+                          if (rowIndex == null) {
+                            Navigator.of(dialogContext).pop();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'The selected entry could not be found anymore.',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+                          Navigator.of(dialogContext).pop(
+                            _SimpleTextTargetSelection(
+                              columnIndex: selectedColumnIndex,
+                              rowIndex: rowIndex,
+                              value: selectedValue!,
+                            ),
+                          );
+                        },
+                  child: const Text('Open Entry'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    return result;
+  }
+
+  DateTime _simpleCurrentEditorDate(int dateColumn) {
+    if (dateColumn >= 0 && dateColumn < _simpleControllers.length) {
+      final parsed = _parseDateFromCellValue(
+        _simpleControllers[dateColumn].text,
+      );
+      if (parsed != null) return parsed;
+    }
+    return DateTime.now();
   }
 
   bool _rowHasEditableEmptyCell(List<String> row, {required int dateColumn}) {
@@ -1164,7 +1382,7 @@ class _TodayPageState extends State<TodayPage> {
   }
 
   int? _findBestExistingRowForSave(List<String> updatedRow) {
-    if (_simpleOpenMode == _SimpleOpenMode.textBased) {
+    if (_simpleOpenMode != _SimpleOpenMode.dateBased) {
       return null;
     }
     final dateColumn = _simpleDateColumnIndex();
@@ -1263,6 +1481,21 @@ class _TodayPageState extends State<TodayPage> {
     );
   }
 
+  Future<void> _pickSimpleTodayEntryFromCurrentSheet() async {
+    final selection = await _showSimpleTodayEntryPicker(
+      _buildSimpleSheetDataForPersist(),
+    );
+    if (!mounted || selection == null) return;
+    setState(() {
+      _simpleTextSelectionColumnIndex = selection.columnIndex;
+      _simpleTextSelectionValue = selection.value;
+    });
+    _selectSimpleEditorTargetRow(
+      preferredRowIndex: selection.rowIndex,
+      preserveSelectedTextTarget: true,
+    );
+  }
+
   void _createNewSimpleTextEntry() {
     final candidateColumns = _simpleTextSelectableColumnsForSheetData(
       _buildSimpleSheetDataForPersist(),
@@ -1288,6 +1521,27 @@ class _TodayPageState extends State<TodayPage> {
     setState(() {
       _simpleEditingRowIndex = _simpleRows.length;
       _simpleTextSelectionColumnIndex = textColumnIndex;
+      _simpleTextSelectionValue = null;
+    });
+  }
+
+  void _createNewSimpleDateOpenEndRow() {
+    final dateColumn = _simpleDateColumnIndex();
+    if (dateColumn == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Date-based open-end needs a detected date column.'),
+        ),
+      );
+      return;
+    }
+
+    final draft = List<String>.filled(_simpleHeaders.length, '');
+    draft[dateColumn] = _formatDate(DateTime.now());
+    _replaceSimpleControllers(draft);
+    setState(() {
+      _simpleEditingRowIndex = _simpleRows.length;
+      _simpleTextSelectionColumnIndex = null;
       _simpleTextSelectionValue = null;
     });
   }
@@ -2356,6 +2610,10 @@ class _TodayPageState extends State<TodayPage> {
                         child: Text('Date based'),
                       ),
                       DropdownMenuItem(
+                        value: _SimpleOpenMode.dateBasedOpenEnd,
+                        child: Text('Date based open end'),
+                      ),
+                      DropdownMenuItem(
                         value: _SimpleOpenMode.textBased,
                         child: Text('Text based'),
                       ),
@@ -2372,12 +2630,14 @@ class _TodayPageState extends State<TodayPage> {
                     },
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    _simpleOpenMode == _SimpleOpenMode.dateBased
-                        ? 'Open the row for today only. If today is missing, the file stays blocked.'
-                        : 'Pick a text field and then choose a specific entry name to open.',
-                    style: theme.textTheme.bodyMedium,
-                  ),
+                  Text(switch (_simpleOpenMode) {
+                    _SimpleOpenMode.dateBased =>
+                      'Open the row for today only. If today is missing, the file stays blocked.',
+                    _SimpleOpenMode.dateBasedOpenEnd =>
+                      'Open today if it exists, otherwise start a new row for today.',
+                    _SimpleOpenMode.textBased =>
+                      'Pick a text field and then choose a specific entry name to open.',
+                  }, style: theme.textTheme.bodyMedium),
                 ],
               ),
             ),
@@ -2546,6 +2806,8 @@ class _TodayPageState extends State<TodayPage> {
     final canOpenLocalDocumentFromCard =
         _simpleDocumentTarget == null ||
         _simpleDocumentTarget is _LocalSimpleDocumentTarget;
+    final canCreateOpenEndDateRow =
+        _simpleOpenMode == _SimpleOpenMode.dateBasedOpenEnd;
 
     return Column(
       children: [
@@ -2770,10 +3032,14 @@ class _TodayPageState extends State<TodayPage> {
                   child: OutlinedButton(
                     onPressed: _simpleOpenMode == _SimpleOpenMode.textBased
                         ? _pickSimpleTextEntryFromCurrentSheet
+                        : _simpleOpenMode == _SimpleOpenMode.dateBasedOpenEnd
+                        ? _pickSimpleTodayEntryFromCurrentSheet
                         : _selectSimpleEditorTargetRow,
                     child: Text(
                       _simpleOpenMode == _SimpleOpenMode.textBased
                           ? 'Pick Entry'
+                          : _simpleOpenMode == _SimpleOpenMode.dateBasedOpenEnd
+                          ? 'Pick Today'
                           : 'Jump Today',
                     ),
                   ),
@@ -2786,6 +3052,16 @@ class _TodayPageState extends State<TodayPage> {
                           ? null
                           : _createNewSimpleTextEntry,
                       child: const Text('New Entry'),
+                    ),
+                  ),
+                ] else if (canCreateOpenEndDateRow) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: hasPendingTypeSelection
+                          ? null
+                          : _createNewSimpleDateOpenEndRow,
+                      child: const Text('New Row'),
                     ),
                   ),
                 ] else ...[
@@ -2842,7 +3118,8 @@ class _TodayPageState extends State<TodayPage> {
   }
 
   bool _isFixedSimpleDateField(int columnIndex) {
-    return _simpleOpenMode == _SimpleOpenMode.dateBased &&
+    return (_simpleOpenMode == _SimpleOpenMode.dateBased ||
+            _simpleOpenMode == _SimpleOpenMode.dateBasedOpenEnd) &&
         columnIndex == _simpleDateColumnIndex();
   }
 

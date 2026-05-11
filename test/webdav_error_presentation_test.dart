@@ -43,7 +43,7 @@ void main() {
       expect(find.text('Details'), findsOneWidget);
 
       final action = tester.widget<SnackBarAction>(find.byType(SnackBarAction));
-      action.onPressed?.call();
+      action.onPressed();
       await tester.pumpAndSettle();
 
       expect(find.text('WebDAV error details'), findsOneWidget);
