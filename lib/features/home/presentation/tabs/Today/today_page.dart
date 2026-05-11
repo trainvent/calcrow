@@ -1,9 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:excel/excel.dart' as excel_pkg;
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:calcrow/app/widgets/triangle_loading_indicator.dart';
 import 'package:calcrow/core/data/di/service_locator.dart';
 import 'package:calcrow/features/home/presentation/tabs/Today/advanced/advanced_widgets/notes_widget.dart';
@@ -26,6 +26,8 @@ import '../Sheet/sheet_preview_store.dart';
 enum _WidgetBlock { rowDefinement, workhours, smartData, wellbeing, notes }
 
 enum _SimpleOpenMode { dateBased, dateBasedOpenEnd, textBased }
+
+enum _SimpleDocumentSource { local, cloud }
 
 class TodayPage extends StatefulWidget {
   const TodayPage({super.key});
@@ -124,9 +126,12 @@ class _TodayPageState extends State<TodayPage> {
   bool _showWellbeing = true;
   bool _showNotes = true;
   bool _isOpeningDocument = false;
+  bool _isChoosingLocalDocument = false;
   bool _isChoosingCloudFile = false;
   _SimpleDocumentTarget? _simpleDocumentTarget;
+  LocalSimpleDocumentSelection? _selectedLocalDocument;
   _SimpleOpenMode _simpleOpenMode = _SimpleOpenMode.dateBased;
+  _SimpleDocumentSource _simpleDocumentSource = _SimpleDocumentSource.local;
   int? _simpleTextSelectionColumnIndex;
   String? _simpleTextSelectionValue;
 
@@ -186,13 +191,22 @@ class _TodayPageState extends State<TodayPage> {
     await _runWithDocumentOpeningIndicator(() async {
       try {
         final messenger = ScaffoldMessenger.of(context);
+        var selection = _selectedLocalDocument;
+        if (selection == null) {
+          selection = await ServiceLocator.simpleLocalDocumentService
+              .pickDocumentForSimpleEditor(
+                acceptedTypeGroups: _localDocumentTypeGroups,
+                readXFilePath: _readXFilePath,
+              );
+          if (!mounted || selection == null) return;
+          _cacheSelectedLocalDocument(selection);
+        }
         final result = await ServiceLocator.simpleLocalDocumentService
-            .openDocumentForSimpleEditor(
-              acceptedTypeGroups: _localDocumentTypeGroups,
+            .openSelectedDocumentForSimpleEditor(
+              selection: selection,
               parseSheetData: _parseSimpleSheetData,
-              readXFilePath: _readXFilePath,
             );
-        if (!mounted || result == null) return;
+        if (!mounted) return;
 
         final sheetData = result.sheetData;
         if (!mounted) return;
@@ -231,6 +245,58 @@ class _TodayPageState extends State<TodayPage> {
         ).showSnackBar(SnackBar(content: Text('Import failed: $error')));
       }
     });
+  }
+
+  Future<void> _chooseLocalDocumentForSimple() async {
+    if (_isChoosingLocalDocument || _isOpeningDocument) return;
+    setState(() {
+      _simpleDocumentSource = _SimpleDocumentSource.local;
+      _isChoosingLocalDocument = true;
+    });
+    try {
+      final selection = await ServiceLocator.simpleLocalDocumentService
+          .pickDocumentForSimpleEditor(
+            acceptedTypeGroups: _localDocumentTypeGroups,
+            readXFilePath: _readXFilePath,
+          );
+      if (!mounted || selection == null) return;
+      setState(() => _cacheSelectedLocalDocument(selection));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Selected local document ${selection.fileName}.'),
+        ),
+      );
+    } on LocalSimpleDocumentException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } on UnsupportedError catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message ?? '$error')));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not select document: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isChoosingLocalDocument = false);
+      }
+    }
+  }
+
+  void _cacheSelectedLocalDocument(LocalSimpleDocumentSelection selection) {
+    _selectedLocalDocument = selection;
+    _simpleImportedFileName = selection.fileName;
+    _simpleImportedPath = selection.existingPath;
+    _simpleImportedSourceBytes = selection.bytes;
+    _rememberLocalDocumentForReopen = true;
+    _simpleDocumentTarget = _LocalSimpleDocumentTarget(
+      existingPath: selection.existingPath,
+    );
   }
 
   Future<void> _openOrChooseLocalDocumentForSimple() async {
@@ -447,25 +513,147 @@ class _TodayPageState extends State<TodayPage> {
     return ServiceLocator.simpleCloudDocumentService.buildSubtitle();
   }
 
-  Future<_CloudDocumentPromptData> _cloudDocumentPromptData() async {
-    final subtitle = await _cloudDocumentSubtitle();
+  Future<_SimpleDocumentPromptData> _simpleDocumentPromptData() async {
     final session = ServiceLocator.authService.currentSession;
-    if (session == null) {
-      return const _CloudDocumentPromptData(
-        subtitle: 'Connect a cloud provider in Settings first.',
-        hasSelectedFile: false,
+    UserSettingsData? settings;
+    if (session != null) {
+      settings = await ServiceLocator.userRepository.getUserSettings(
+        session.uid,
       );
     }
+    final selectedCloudFile = settings == null
+        ? null
+        : ServiceLocator.simpleCloudDocumentService
+              .selectedSyncFileFromSettings(settings);
+    final cloudSubtitle = settings == null
+        ? 'Connect a cloud provider in Settings first.'
+        : await _cloudDocumentSubtitle();
+    return _SimpleDocumentPromptData(
+      localSubtitle: _hasRememberedLocalDocument
+          ? 'Selected local file: ${_simpleImportedFileName!}'
+          : !kIsWeb && defaultTargetPlatform == TargetPlatform.android
+          ? 'Open a CSV, XLSX, or ODS document'
+          : 'Open CSV, XLSX, or ODS. Calcrow detects the file type automatically.',
+      cloudSubtitle: cloudSubtitle,
+      hasSelectedCloudFile: selectedCloudFile != null,
+      hasRememberedLocalFile: _hasRememberedLocalDocument,
+    );
+  }
+
+  Future<void> _openSelectedSimpleDocument() async {
+    switch (_simpleDocumentSource) {
+      case _SimpleDocumentSource.local:
+        await _openOrChooseLocalDocumentForSimple();
+      case _SimpleDocumentSource.cloud:
+        await _openOrChooseCloudSyncFile();
+    }
+  }
+
+  Future<void> _setRecentSimpleOpeningConfiguration() async {
+    final session = ServiceLocator.authService.currentSession;
+    if (session == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sign in to use recent opening configurations.'),
+        ),
+      );
+      return;
+    }
+
     final settings = await ServiceLocator.userRepository.getUserSettings(
       session.uid,
     );
-    return _CloudDocumentPromptData(
-      subtitle: subtitle,
-      hasSelectedFile:
-          ServiceLocator.simpleCloudDocumentService
-              .selectedSyncFileFromSettings(settings) !=
-          null,
+    if (!mounted) return;
+    final configs = settings.simpleRecentOpenConfigs;
+    if (configs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No recent opening configurations saved yet.'),
+        ),
+      );
+      return;
+    }
+
+    final selected = await showDialog<SimpleRecentOpenConfig>(
+      context: context,
+      builder: (dialogContext) => _SimpleRecentConfigDialog(configs: configs),
     );
+    if (!mounted || selected == null) return;
+    await _applySimpleRecentOpenConfig(selected);
+  }
+
+  Future<void> _applySimpleRecentOpenConfig(
+    SimpleRecentOpenConfig config,
+  ) async {
+    final openMode = _simpleOpenModeFromName(config.openMode);
+    final source = _simpleDocumentSourceFromRecent(config.source);
+    setState(() {
+      _simpleOpenMode = openMode;
+      _simpleDocumentSource = source;
+      _simpleTextSelectionColumnIndex = null;
+      _simpleTextSelectionValue = null;
+      if (source == _SimpleDocumentSource.local) {
+        _simpleImportedFileName = config.fileName;
+        _simpleImportedPath = config.path;
+        _simpleImportedSourceBytes = null;
+        _selectedLocalDocument = null;
+        _rememberLocalDocumentForReopen = config.path?.isNotEmpty == true;
+        _simpleDocumentTarget = _LocalSimpleDocumentTarget(
+          existingPath: config.path,
+        );
+      } else {
+        _rememberLocalDocumentForReopen = false;
+        _simpleImportedPath = null;
+        _simpleImportedSourceBytes = null;
+        _selectedLocalDocument = null;
+        _simpleDocumentTarget = _CloudSimpleDocumentTarget(
+          provider: config.source == SimpleRecentDocumentSource.googleDrive
+              ? CloudSyncProvider.googleDrive
+              : CloudSyncProvider.webDav,
+          fileId: config.fileId ?? '',
+          fileName: config.fileName,
+          mimeType: config.mimeType ?? 'text/csv',
+        );
+      }
+    });
+
+    if (source == _SimpleDocumentSource.cloud && config.fileId != null) {
+      final session = ServiceLocator.authService.currentSession;
+      final provider = config.source == SimpleRecentDocumentSource.googleDrive
+          ? CloudSyncProvider.googleDrive
+          : CloudSyncProvider.webDav;
+      if (session != null) {
+        await ServiceLocator.userRepository.setCloudSyncProvider(
+          uid: session.uid,
+          provider: provider,
+        );
+      }
+      await ServiceLocator.simpleCloudDocumentService.setSelectedSyncFile(
+        file: CloudFileMetadata(
+          provider: provider,
+          id: config.fileId!,
+          name: config.fileName,
+          mimeType: config.mimeType ?? 'text/csv',
+        ),
+      );
+    }
+  }
+
+  _SimpleOpenMode _simpleOpenModeFromName(String name) {
+    return _SimpleOpenMode.values.firstWhere(
+      (candidate) => candidate.name == name,
+      orElse: () => _SimpleOpenMode.dateBased,
+    );
+  }
+
+  _SimpleDocumentSource _simpleDocumentSourceFromRecent(
+    SimpleRecentDocumentSource source,
+  ) {
+    return switch (source) {
+      SimpleRecentDocumentSource.local => _SimpleDocumentSource.local,
+      SimpleRecentDocumentSource.googleDrive ||
+      SimpleRecentDocumentSource.webDav => _SimpleDocumentSource.cloud,
+    };
   }
 
   Future<SimpleSheetData> _parseSimpleSheetData({
@@ -511,6 +699,9 @@ class _TodayPageState extends State<TodayPage> {
           target ?? _LocalSimpleDocumentTarget(existingPath: sheetData.path);
       _simpleTextSelectionColumnIndex = selection.textColumnIndex;
       _simpleTextSelectionValue = selection.textValue;
+      _simpleDocumentSource = target is _CloudSimpleDocumentTarget
+          ? _SimpleDocumentSource.cloud
+          : _SimpleDocumentSource.local;
     });
 
     _selectSimpleEditorTargetRow(
@@ -518,7 +709,60 @@ class _TodayPageState extends State<TodayPage> {
       preserveSelectedTextTarget: true,
     );
     _publishSimpleRowsToPreview();
+    unawaited(_rememberSimpleOpenConfiguration(sheetData, target: target));
     return true;
+  }
+
+  Future<void> _rememberSimpleOpenConfiguration(
+    SimpleSheetData sheetData, {
+    _SimpleDocumentTarget? target,
+  }) async {
+    if (!ServiceLocator.isSetup) return;
+    final session = ServiceLocator.authService.currentSession;
+    if (session == null) return;
+
+    final openMode = _simpleOpenMode.name;
+    final fileName = sheetData.fileName.trim().isEmpty
+        ? 'document'
+        : sheetData.fileName.trim();
+    SimpleRecentOpenConfig? config;
+    if (target is _CloudSimpleDocumentTarget) {
+      config = SimpleRecentOpenConfig(
+        source: switch (target.provider) {
+          CloudSyncProvider.googleDrive =>
+            SimpleRecentDocumentSource.googleDrive,
+          CloudSyncProvider.webDav => SimpleRecentDocumentSource.webDav,
+        },
+        fileName: target.fileName,
+        openMode: openMode,
+        fileId: target.fileId,
+        mimeType: target.mimeType,
+      );
+    } else {
+      final path =
+          (target is _LocalSimpleDocumentTarget
+                  ? target.existingPath
+                  : sheetData.path)
+              ?.trim();
+      if (path != null && path.isNotEmpty) {
+        config = SimpleRecentOpenConfig(
+          source: SimpleRecentDocumentSource.local,
+          fileName: fileName,
+          openMode: openMode,
+          path: path,
+        );
+      }
+    }
+
+    if (config == null) return;
+    try {
+      await ServiceLocator.userRepository.rememberSimpleOpenConfig(
+        uid: session.uid,
+        config: config,
+      );
+    } catch (_) {
+      // Recents should never block opening a document.
+    }
   }
 
   String? _readXFilePath(XFile file) {
@@ -1693,6 +1937,7 @@ class _TodayPageState extends State<TodayPage> {
     setState(() {
       _simpleImportedFileName = metadata.name;
       _simpleImportedPath = null;
+      _selectedLocalDocument = null;
       _rememberLocalDocumentForReopen = false;
       _simpleDocumentTarget = _CloudSimpleDocumentTarget(
         provider: metadata.provider,
@@ -1789,6 +2034,8 @@ class _TodayPageState extends State<TodayPage> {
     setState(() {
       _rememberLocalDocumentForReopen = false;
       _simpleImportedPath = null;
+      _simpleImportedSourceBytes = null;
+      _selectedLocalDocument = null;
       if (_simpleDocumentTarget is _LocalSimpleDocumentTarget) {
         _simpleDocumentTarget = const _LocalSimpleDocumentTarget(
           existingPath: null,
@@ -1817,104 +2064,6 @@ class _TodayPageState extends State<TodayPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(error.message)));
-    }
-  }
-
-  Future<void> _openSafDebugFixture(SimpleFileFormat format) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final preferredSafTreeUri = await _preferredSafTreeUri();
-    if (preferredSafTreeUri == null || preferredSafTreeUri.isEmpty) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Configure a SAF folder in Settings before using the debug fixture.',
-          ),
-        ),
-      );
-      return;
-    }
-
-    try {
-      final assetPath = _debugFixtureAssetPath(format);
-      final fileName = _debugFixtureFileName(format);
-      final bytes = (await rootBundle.load(assetPath)).buffer.asUint8List();
-      final persistResult = await _sheetPersistenceService.persistBytes(
-        SimplePersistRequest(
-          bytes: bytes,
-          fileName: fileName,
-          typeGroup: _typeGroupForFormat(format),
-          mimeType: _mimeTypeForFormat(format),
-          confirmButtonText: 'Write debug fixture',
-          preferredSafTreeUri: preferredSafTreeUri,
-          mode: SimplePersistMode.safPreferred,
-        ),
-      );
-      final sheetData = await _parseSimpleSheetData(
-        bytes: bytes,
-        fileName: fileName,
-        path: persistResult.savedPath,
-      );
-      if (!mounted) return;
-      final loaded = await _loadSimpleProfileData(
-        sheetData,
-        target: _LocalSimpleDocumentTarget(
-          existingPath: persistResult.savedPath,
-        ),
-      );
-      if (!loaded) return;
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            'Loaded SAF debug fixture ${persistResult.resolvedFileName}.',
-          ),
-        ),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(content: Text('Could not load SAF debug fixture: $error')),
-      );
-    }
-  }
-
-  String _debugFixtureAssetPath(SimpleFileFormat format) {
-    switch (format) {
-      case SimpleFileFormat.csv:
-        return 'assets/test_objects/manipulate/Arbeitszeiten_2026.csv';
-      case SimpleFileFormat.xlsx:
-        return 'assets/test_objects/manipulate/Arbeitszeiten_2026.xlsx';
-      case SimpleFileFormat.ods:
-        return 'assets/test_objects/manipulate/Arbeitszeiten_2026.ods';
-      case SimpleFileFormat.gsheet:
-        throw UnsupportedError(
-          'Debug fixtures are not available for native Google Sheets.',
-        );
-    }
-  }
-
-  String _debugFixtureFileName(SimpleFileFormat format) {
-    switch (format) {
-      case SimpleFileFormat.csv:
-        return 'Arbeitszeiten_2026.csv';
-      case SimpleFileFormat.xlsx:
-        return 'Arbeitszeiten_2026.xlsx';
-      case SimpleFileFormat.ods:
-        return 'Arbeitszeiten_2026.ods';
-      case SimpleFileFormat.gsheet:
-        return 'Arbeitszeiten_2026';
-    }
-  }
-
-  XTypeGroup _typeGroupForFormat(SimpleFileFormat format) {
-    switch (format) {
-      case SimpleFileFormat.csv:
-        return _csvTypeGroup;
-      case SimpleFileFormat.xlsx:
-        return _xlsxTypeGroup;
-      case SimpleFileFormat.ods:
-        return _odsTypeGroup;
-      case SimpleFileFormat.gsheet:
-        return _xlsxTypeGroup;
     }
   }
 
@@ -2607,11 +2756,11 @@ class _TodayPageState extends State<TodayPage> {
                     items: const [
                       DropdownMenuItem(
                         value: _SimpleOpenMode.dateBased,
-                        child: Text('Date based'),
+                        child: Text('Dates one a day'),
                       ),
                       DropdownMenuItem(
                         value: _SimpleOpenMode.dateBasedOpenEnd,
-                        child: Text('Date based open end'),
+                        child: Text('Dates open end'),
                       ),
                       DropdownMenuItem(
                         value: _SimpleOpenMode.textBased,
@@ -2643,103 +2792,64 @@ class _TodayPageState extends State<TodayPage> {
             ),
           ),
           const SizedBox(height: 14),
-          _SetupCard(
-            title: 'Edit Local Document',
-            subtitle: _hasRememberedLocalDocument
-                ? 'Remembered local file: ${_simpleImportedFileName!}'
-                : !kIsWeb && defaultTargetPlatform == TargetPlatform.android
-                ? 'Open a CSV, XLSX, or ODS document'
-                : 'Open CSV, XLSX, or ODS. Calcrow detects the file type automatically.',
-            icon: Icons.folder_open_rounded,
-            onTap: _openOrChooseLocalDocumentForSimple,
-            subtitleAction: _hasRememberedLocalDocument
-                ? _InlineSetupAction(
-                    icon: Icons.clear,
-                    tooltip: 'Clear remembered local file',
-                    onTap: _forgetRememberedLocalDocument,
-                  )
-                : null,
-          ),
-          if (kDebugMode &&
-              !kIsWeb &&
-              defaultTargetPlatform == TargetPlatform.android) ...[
-            const SizedBox(height: 14),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Debug SAF Fixture',
-                      style: theme.textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Write a bundled fixture from test_objects/manipulate into the configured SAF folder and reopen it through the resulting SAF URI.',
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () =>
-                                _openSafDebugFixture(SimpleFileFormat.csv),
-                            child: const Text('CSV'),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () =>
-                                _openSafDebugFixture(SimpleFileFormat.xlsx),
-                            child: const Text('XLSX'),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () =>
-                                _openSafDebugFixture(SimpleFileFormat.ods),
-                            child: const Text('ODS'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-          const SizedBox(height: 14),
-          FutureBuilder<_CloudDocumentPromptData>(
-            future: _cloudDocumentPromptData(),
+          FutureBuilder<_SimpleDocumentPromptData>(
+            future: _simpleDocumentPromptData(),
             builder: (context, snapshot) {
-              final subtitle =
-                  snapshot.data?.subtitle ??
-                  'Choose or create the active cloud sync file.';
-              return _SetupCard(
-                title: 'Edit Cloud Document',
-                subtitle: subtitle,
-                icon: Icons.cloud_outlined,
-                subtitleAction: snapshot.data?.hasSelectedFile == true
-                    ? _InlineSetupAction(
-                        icon: Icons.clear,
-                        tooltip: 'Clear remembered cloud file',
-                        onTap: _clearSelectedCloudSyncFile,
-                      )
-                    : null,
-                trailing: _isChoosingCloudFile
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : null,
-                onTap: _isChoosingCloudFile ? null : _openOrChooseCloudSyncFile,
+              final data =
+                  snapshot.data ??
+                  const _SimpleDocumentPromptData(
+                    localSubtitle: 'Open CSV, XLSX, or ODS.',
+                    cloudSubtitle:
+                        'Choose or create the active cloud sync file.',
+                    hasSelectedCloudFile: false,
+                    hasRememberedLocalFile: false,
+                  );
+              return _ChooseDocumentCard(
+                selectedSource: _simpleDocumentSource,
+                localSubtitle: data.localSubtitle,
+                cloudSubtitle: data.cloudSubtitle,
+                isChoosingLocalDocument: _isChoosingLocalDocument,
+                isChoosingCloudFile: _isChoosingCloudFile,
+                hasRememberedLocalFile: data.hasRememberedLocalFile,
+                hasSelectedCloudFile: data.hasSelectedCloudFile,
+                onSourceChanged: (source) {
+                  setState(() => _simpleDocumentSource = source);
+                },
+                onChooseLocal: _chooseLocalDocumentForSimple,
+                onClearLocal: _forgetRememberedLocalDocument,
+                onClearCloud: _clearSelectedCloudSyncFile,
               );
             },
+          ),
+          const SizedBox(height: 14),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _setRecentSimpleOpeningConfiguration,
+                      child: const Text('Set Recent'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed:
+                          _isOpeningDocument ||
+                              _isChoosingCloudFile ||
+                              (_simpleDocumentSource ==
+                                      _SimpleDocumentSource.local &&
+                                  !_hasRememberedLocalDocument)
+                          ? null
+                          : _openSelectedSimpleDocument,
+                      child: const Text('Open'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       );
@@ -3359,8 +3469,10 @@ class _TodayPageState extends State<TodayPage> {
       _simpleEditingRowIndex = 0;
       _simpleImportedWorkbook = null;
       _simpleImportedSourceBytes = null;
+      _selectedLocalDocument = null;
       _rememberLocalDocumentForReopen = false;
       _simpleDocumentTarget = null;
+      _simpleDocumentSource = _SimpleDocumentSource.local;
       _simpleTextSelectionColumnIndex = null;
       _simpleTextSelectionValue = null;
     });
@@ -3461,14 +3573,210 @@ class _CloudFolderNode {
   final String name;
 }
 
-class _CloudDocumentPromptData {
-  const _CloudDocumentPromptData({
-    required this.subtitle,
-    required this.hasSelectedFile,
+class _SimpleDocumentPromptData {
+  const _SimpleDocumentPromptData({
+    required this.localSubtitle,
+    required this.cloudSubtitle,
+    required this.hasSelectedCloudFile,
+    required this.hasRememberedLocalFile,
   });
 
+  final String localSubtitle;
+  final String cloudSubtitle;
+  final bool hasSelectedCloudFile;
+  final bool hasRememberedLocalFile;
+}
+
+class _SimpleRecentConfigDialog extends StatelessWidget {
+  const _SimpleRecentConfigDialog({required this.configs});
+
+  final List<SimpleRecentOpenConfig> configs;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Set recent'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView(
+          shrinkWrap: true,
+          children: configs
+              .map(
+                (config) => ListTile(
+                  leading: Icon(_iconForSource(config.source)),
+                  title: Text(config.fileName),
+                  subtitle: Text(
+                    '${_sourceLabel(config.source)} - ${_openModeLabel(config.openMode)}',
+                  ),
+                  onTap: () => Navigator.of(context).pop(config),
+                ),
+              )
+              .toList(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+
+  static IconData _iconForSource(SimpleRecentDocumentSource source) {
+    return switch (source) {
+      SimpleRecentDocumentSource.local => Icons.folder_open_rounded,
+      SimpleRecentDocumentSource.googleDrive ||
+      SimpleRecentDocumentSource.webDav => Icons.cloud_outlined,
+    };
+  }
+
+  static String _sourceLabel(SimpleRecentDocumentSource source) {
+    return switch (source) {
+      SimpleRecentDocumentSource.local => 'Local',
+      SimpleRecentDocumentSource.googleDrive => 'Google Drive',
+      SimpleRecentDocumentSource.webDav => 'WebDAV',
+    };
+  }
+
+  static String _openModeLabel(String openMode) {
+    return switch (openMode) {
+      'dateBased' => 'Dates one a day',
+      'dateBasedOpenEnd' => 'Dates open end',
+      'textBased' => 'Text based',
+      _ => 'Opening mode',
+    };
+  }
+}
+
+class _ChooseDocumentCard extends StatelessWidget {
+  const _ChooseDocumentCard({
+    required this.selectedSource,
+    required this.localSubtitle,
+    required this.cloudSubtitle,
+    required this.isChoosingLocalDocument,
+    required this.isChoosingCloudFile,
+    required this.hasRememberedLocalFile,
+    required this.hasSelectedCloudFile,
+    required this.onSourceChanged,
+    required this.onChooseLocal,
+    required this.onClearLocal,
+    required this.onClearCloud,
+  });
+
+  final _SimpleDocumentSource selectedSource;
+  final String localSubtitle;
+  final String cloudSubtitle;
+  final bool isChoosingLocalDocument;
+  final bool isChoosingCloudFile;
+  final bool hasRememberedLocalFile;
+  final bool hasSelectedCloudFile;
+  final ValueChanged<_SimpleDocumentSource> onSourceChanged;
+  final VoidCallback onChooseLocal;
+  final VoidCallback onClearLocal;
+  final VoidCallback onClearCloud;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Choose Document', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 8),
+            _DocumentSourceTile(
+              selected: selectedSource == _SimpleDocumentSource.local,
+              title: 'Local document',
+              subtitle: localSubtitle,
+              icon: Icons.folder_open_rounded,
+              trailing: isChoosingLocalDocument
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : null,
+              onTap: onChooseLocal,
+              clearAction: hasRememberedLocalFile
+                  ? _InlineSetupAction(
+                      icon: Icons.clear,
+                      tooltip: 'Clear remembered local file',
+                      onTap: onClearLocal,
+                    )
+                  : null,
+            ),
+            _DocumentSourceTile(
+              selected: selectedSource == _SimpleDocumentSource.cloud,
+              title: 'Cloud document',
+              subtitle: cloudSubtitle,
+              icon: Icons.cloud_outlined,
+              trailing: isChoosingCloudFile
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : null,
+              onTap: () => onSourceChanged(_SimpleDocumentSource.cloud),
+              clearAction: hasSelectedCloudFile
+                  ? _InlineSetupAction(
+                      icon: Icons.clear,
+                      tooltip: 'Clear remembered cloud file',
+                      onTap: onClearCloud,
+                    )
+                  : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DocumentSourceTile extends StatelessWidget {
+  const _DocumentSourceTile({
+    required this.selected,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+    this.trailing,
+    this.clearAction,
+  });
+
+  final bool selected;
+  final String title;
   final String subtitle;
-  final bool hasSelectedFile;
+  final IconData icon;
+  final VoidCallback onTap;
+  final Widget? trailing;
+  final Widget? clearAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(selected ? Icons.check_circle_rounded : icon),
+      title: Text(title),
+      subtitle: Row(
+        children: [
+          if (clearAction != null) ...[clearAction!, const SizedBox(width: 8)],
+          Expanded(child: Text(subtitle)),
+        ],
+      ),
+      trailing:
+          trailing ??
+          Icon(
+            Icons.chevron_right_rounded,
+            color: selected ? theme.colorScheme.primary : null,
+          ),
+      onTap: onTap,
+    );
+  }
 }
 
 class _CloudFilePickerDialog extends StatefulWidget {
@@ -3756,16 +4064,12 @@ class _SetupCard extends StatelessWidget {
     required this.subtitle,
     required this.icon,
     required this.onTap,
-    this.trailing,
-    this.subtitleAction,
   });
 
   final String title;
   final String subtitle;
   final IconData icon;
   final VoidCallback? onTap;
-  final Widget? trailing;
-  final Widget? subtitleAction;
 
   @override
   Widget build(BuildContext context) {
@@ -3784,26 +4088,12 @@ class _SetupCard extends StatelessWidget {
                   children: [
                     Text(title, style: theme.textTheme.titleMedium),
                     const SizedBox(height: 5),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        if (subtitleAction != null) ...[
-                          subtitleAction!,
-                          const SizedBox(width: 8),
-                        ],
-                        Expanded(
-                          child: Text(
-                            subtitle,
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        ),
-                      ],
-                    ),
+                    Text(subtitle, style: theme.textTheme.bodyMedium),
                   ],
                 ),
               ),
               const SizedBox(width: 10),
-              trailing ?? Icon(icon),
+              Icon(icon),
             ],
           ),
         ),

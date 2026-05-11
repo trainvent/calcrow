@@ -26,6 +26,20 @@ class LocalSimpleDocumentOpenResult {
   final bool hasSafTarget;
 }
 
+class LocalSimpleDocumentSelection {
+  const LocalSimpleDocumentSelection({
+    required this.fileName,
+    required this.bytes,
+    required this.existingPath,
+    required this.hasSafTarget,
+  });
+
+  final String fileName;
+  final Uint8List bytes;
+  final String? existingPath;
+  final bool hasSafTarget;
+}
+
 class SimpleLocalDocumentService {
   SimpleLocalDocumentService({
     SafStream? safStream,
@@ -40,9 +54,8 @@ class SimpleLocalDocumentService {
   final SafUtil _safUtil;
   final SimpleSheetPersistenceService _persistenceService;
 
-  Future<LocalSimpleDocumentOpenResult?> openDocumentForSimpleEditor({
+  Future<LocalSimpleDocumentSelection?> pickDocumentForSimpleEditor({
     required List<XTypeGroup> acceptedTypeGroups,
-    required ParseSimpleSheetData parseSheetData,
     required String? Function(XFile file) readXFilePath,
   }) async {
     Uint8List bytes = Uint8List(0);
@@ -85,21 +98,49 @@ class SimpleLocalDocumentService {
       );
     }
 
-    final sheetData = await parseSheetData(
-      bytes: bytes,
-      fileName: fileName,
-      path: sourcePath,
-      mimeType: null,
-    );
     final hasSafTarget =
         !kIsWeb &&
         defaultTargetPlatform == TargetPlatform.android &&
         sourcePath != null &&
         _persistenceService.canUseDirectSafUri(sourcePath);
-    return LocalSimpleDocumentOpenResult(
-      sheetData: sheetData,
+    return LocalSimpleDocumentSelection(
+      fileName: fileName,
+      bytes: bytes,
       existingPath: sourcePath,
       hasSafTarget: hasSafTarget,
+    );
+  }
+
+  Future<LocalSimpleDocumentOpenResult?> openDocumentForSimpleEditor({
+    required List<XTypeGroup> acceptedTypeGroups,
+    required ParseSimpleSheetData parseSheetData,
+    required String? Function(XFile file) readXFilePath,
+  }) async {
+    final selection = await pickDocumentForSimpleEditor(
+      acceptedTypeGroups: acceptedTypeGroups,
+      readXFilePath: readXFilePath,
+    );
+    if (selection == null) return null;
+    return openSelectedDocumentForSimpleEditor(
+      selection: selection,
+      parseSheetData: parseSheetData,
+    );
+  }
+
+  Future<LocalSimpleDocumentOpenResult> openSelectedDocumentForSimpleEditor({
+    required LocalSimpleDocumentSelection selection,
+    required ParseSimpleSheetData parseSheetData,
+  }) async {
+    final sheetData = await parseSheetData(
+      bytes: selection.bytes,
+      fileName: selection.fileName,
+      path: selection.existingPath,
+      mimeType: null,
+    );
+    return LocalSimpleDocumentOpenResult(
+      sheetData: sheetData,
+      existingPath: selection.existingPath,
+      hasSafTarget: selection.hasSafTarget,
     );
   }
 

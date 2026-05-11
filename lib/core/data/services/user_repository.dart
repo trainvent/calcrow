@@ -5,6 +5,8 @@ import 'db_service.dart';
 
 enum CloudSyncProvider { googleDrive, webDav }
 
+enum SimpleRecentDocumentSource { local, googleDrive, webDav }
+
 CloudSyncProvider? cloudSyncProviderFromSettings(Object? value) {
   switch ((value as String?)?.trim()) {
     case 'googleDrive':
@@ -54,6 +56,83 @@ class WebDavSavedEntry {
   }
 }
 
+class SimpleRecentOpenConfig {
+  const SimpleRecentOpenConfig({
+    required this.source,
+    required this.fileName,
+    required this.openMode,
+    this.path,
+    this.fileId,
+    this.mimeType,
+    this.updatedAt,
+  });
+
+  final SimpleRecentDocumentSource source;
+  final String fileName;
+  final String openMode;
+  final String? path;
+  final String? fileId;
+  final String? mimeType;
+  final DateTime? updatedAt;
+
+  String get dedupeKey =>
+      '${source.name}|${fileId ?? path ?? fileName}|$openMode';
+
+  static SimpleRecentOpenConfig? fromMap(Object? raw) {
+    if (raw is! Map) return null;
+    final sourceName = UserSettingsData._readTrimmed(raw['source']);
+    final source = _firstWhereOrNull(
+      SimpleRecentDocumentSource.values,
+      (candidate) => candidate.name == sourceName,
+    );
+    final fileName = UserSettingsData._readTrimmed(raw['fileName']);
+    final openMode = UserSettingsData._readTrimmed(raw['openMode']);
+    if (source == null || fileName == null || openMode == null) return null;
+    final path = UserSettingsData._readTrimmed(raw['path']);
+    final fileId = UserSettingsData._readTrimmed(raw['fileId']);
+    if (source == SimpleRecentDocumentSource.local && path == null) {
+      return null;
+    }
+    if (source != SimpleRecentDocumentSource.local && fileId == null) {
+      return null;
+    }
+    final updatedAtRaw = UserSettingsData._readTrimmed(raw['updatedAt']);
+    return SimpleRecentOpenConfig(
+      source: source,
+      fileName: fileName,
+      openMode: openMode,
+      path: path,
+      fileId: fileId,
+      mimeType: UserSettingsData._readTrimmed(raw['mimeType']),
+      updatedAt: updatedAtRaw == null ? null : DateTime.tryParse(updatedAtRaw),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'source': source.name,
+      'fileName': fileName,
+      'openMode': openMode,
+      if (path != null) 'path': path,
+      if (fileId != null) 'fileId': fileId,
+      if (mimeType != null) 'mimeType': mimeType,
+      if (updatedAt != null) 'updatedAt': updatedAt!.toIso8601String(),
+    };
+  }
+
+  SimpleRecentOpenConfig touch(DateTime now) {
+    return SimpleRecentOpenConfig(
+      source: source,
+      fileName: fileName,
+      openMode: openMode,
+      path: path,
+      fileId: fileId,
+      mimeType: mimeType,
+      updatedAt: now,
+    );
+  }
+}
+
 String _legacyWebDavEntryId({
   required String serverUrl,
   required String username,
@@ -92,6 +171,7 @@ class UserSettingsData {
     this.webDavSyncFileName,
     this.webDavSyncMimeType,
     this.safTreeUri,
+    this.simpleRecentOpenConfigs = const <SimpleRecentOpenConfig>[],
   });
 
   final String defaultDateFormat;
@@ -113,6 +193,7 @@ class UserSettingsData {
   final String? webDavSyncFileName;
   final String? webDavSyncMimeType;
   final String? safTreeUri;
+  final List<SimpleRecentOpenConfig> simpleRecentOpenConfigs;
 
   factory UserSettingsData.fromMap(Map<String, dynamic>? map) {
     final settings = map ?? const <String, dynamic>{};
@@ -170,6 +251,9 @@ class UserSettingsData {
       webDavSyncFileName: _readTrimmed(settings['webDavSyncFileName']),
       webDavSyncMimeType: _readTrimmed(settings['webDavSyncMimeType']),
       safTreeUri: _readTrimmed(settings['safTreeUri']),
+      simpleRecentOpenConfigs: _parseSimpleRecentOpenConfigs(
+        settings['simpleRecentOpenConfigs'],
+      ),
     );
   }
 
@@ -207,6 +291,30 @@ class UserSettingsData {
         username: legacyUsername,
       ),
     ];
+  }
+
+  static List<SimpleRecentOpenConfig> _parseSimpleRecentOpenConfigs(
+    Object? raw,
+  ) {
+    if (raw is! List) return const <SimpleRecentOpenConfig>[];
+    final parsed = <SimpleRecentOpenConfig>[];
+    for (final candidate in raw) {
+      final config = SimpleRecentOpenConfig.fromMap(candidate);
+      if (config == null) continue;
+      if (parsed.any((existing) => existing.dedupeKey == config.dedupeKey)) {
+        continue;
+      }
+      parsed.add(config);
+    }
+    parsed.sort((a, b) {
+      final aTime = a.updatedAt;
+      final bTime = b.updatedAt;
+      if (aTime == null && bTime == null) return 0;
+      if (aTime == null) return 1;
+      if (bTime == null) return -1;
+      return bTime.compareTo(aTime);
+    });
+    return parsed;
   }
 }
 
@@ -262,6 +370,30 @@ class UserRepository {
   Future<void> setIsPro({required String uid, required bool isPro}) {
     return _firestore.collection(_usersCollection).doc(uid).set({
       'settings': {'isPro': isPro},
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> rememberSimpleOpenConfig({
+    required String uid,
+    required SimpleRecentOpenConfig config,
+  }) async {
+    final settings = await getUserSettings(uid);
+    final now = DateTime.now();
+    final touched = config.touch(now);
+    final next = <SimpleRecentOpenConfig>[
+      touched,
+      ...settings.simpleRecentOpenConfigs.where(
+        (candidate) => candidate.dedupeKey != touched.dedupeKey,
+      ),
+    ].take(8).toList();
+
+    await _firestore.collection(_usersCollection).doc(uid).set({
+      'settings': {
+        'simpleRecentOpenConfigs': next
+            .map((config) => config.toMap())
+            .toList(),
+      },
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
