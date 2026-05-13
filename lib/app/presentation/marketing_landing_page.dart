@@ -66,67 +66,6 @@ class MarketingLandingPage extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 28),
-                    Wrap(
-                      spacing: 18,
-                      runSpacing: 18,
-                      children: <Widget>[
-                        _StoreCard(
-                          title: 'Play Store',
-                          subtitle:
-                              'Install Calcrow on Android phones and tablets.',
-                          badge: 'Android',
-                          accent: const Color(0xFF1F8F68),
-                          actionLabel: 'Download for Android',
-                          onTap: () => openExternalUrl(playStoreUrl),
-                        ),
-                        _StoreCard(
-                          title: 'App Store',
-                          subtitle: _hasAppStoreUrl
-                              ? 'Get the iPhone version from the App Store.'
-                              : 'Add your App Store listing URL here before launch.',
-                          badge: 'iPhone',
-                          accent: const Color(0xFF2B5FD9),
-                          actionLabel: _hasAppStoreUrl
-                              ? 'Download for iPhone'
-                              : 'Coming soon',
-                          onTap: _hasAppStoreUrl
-                              ? () => openExternalUrl(appStoreUrl)
-                              : null,
-                        ),
-                        _StoreCard(
-                          title: 'Web Client',
-                          subtitle:
-                              'Open Calcrow directly in the browser and start editing.',
-                          badge: 'Browser',
-                          accent: const Color(0xFFE36A44),
-                          actionLabel: 'Open web client',
-                          onTap: () => openSameTabUrl(webClientPath),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 28),
-                    Wrap(
-                      spacing: 18,
-                      runSpacing: 18,
-                      children: const <Widget>[
-                        _FeaturePill(
-                          title: 'Open CSV, XLSX, ODS',
-                          text:
-                              'Bring existing timesheets in without converting them first.',
-                        ),
-                        _FeaturePill(
-                          title: 'Simple daily editor',
-                          text:
-                              'Update the important fields fast and keep formulas intact.',
-                        ),
-                        _FeaturePill(
-                          title: 'Save back out',
-                          text:
-                              'Download updated files from the browser when you are done.',
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
                     Row(
                       children: <Widget>[
                         TextButton(
@@ -238,17 +177,17 @@ class _HeroCopy extends StatelessWidget {
               color: const Color(0xFFFFE6DB),
               borderRadius: BorderRadius.circular(999),
             ),
-            child: Text(
-              'Clean worklog editing',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFFB45231),
-                fontWeight: FontWeight.w700,
+              child: Text(
+                'Simple worklog editor',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFFB45231),
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
           ),
           const SizedBox(height: 20),
           Text(
-            'Fill Sheets on the go.',
+              'Edit worklogs quickly.',
             style: theme.textTheme.headlineLarge?.copyWith(
               fontSize: 56,
               height: 0.96,
@@ -257,7 +196,7 @@ class _HeroCopy extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Text(
-            'Open your existing files, update daily hours in a focused editor, and keep the export flow simple across phone and browser.',
+              'Open CSV, XLSX, or ODS files, edit the focused row in Simple mode, then download or save changes to cloud.',
             style: theme.textTheme.bodyLarge?.copyWith(
               fontSize: 18,
               color: const Color(0xFF4C4F55),
@@ -268,13 +207,25 @@ class _HeroCopy extends StatelessWidget {
             spacing: 12,
             runSpacing: 12,
             children: <Widget>[
-              ElevatedButton(
-                onPressed: () =>
-                    openSameTabUrl(MarketingLandingPage.webClientPath),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8),
-                  child: Text('Open web client'),
-                ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  ElevatedButton(
+                    onPressed: () =>
+                        openSameTabUrl(MarketingLandingPage.webClientPath),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Text('Open web client'),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Info: cannot edit local files',
+                    style: theme.textTheme.bodySmall,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
               InkWell(
                 onTap: () =>
@@ -322,7 +273,7 @@ class _PreviewPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            'One app, three ways in.',
+            'Simple editor preview',
             style: textTheme.headlineSmall?.copyWith(
               color: const Color(0xFFF6F3EE),
               fontFamily: 'Georgia',
@@ -332,22 +283,19 @@ class _PreviewPanel extends StatelessWidget {
           const _FlowStep(
             number: '01',
             title: 'Install on Android',
-            text:
-                'Keep Calcrow on hand for quick daily updates during the workday.',
+            text: 'Keep Calcrow on hand for quick daily updates.',
           ),
           const SizedBox(height: 12),
           const _FlowStep(
             number: '02',
-            title: 'Launch in the browser',
-            text:
-                'Open the web client when you want the same editor on a larger screen.',
+            title: 'Open files',
+            text: 'Open local or cloud spreadsheets to edit.',
           ),
           const SizedBox(height: 12),
           const _FlowStep(
             number: '03',
-            title: 'Export cleanly',
-            text:
-                'Save finished files back out after making changes in simple mode.',
+            title: 'Edit & save',
+            text: 'Edit the focused row in Simple mode and download or save.',
           ),
           const SizedBox(height: 22),
           Container(
@@ -357,23 +305,108 @@ class _PreviewPanel extends StatelessWidget {
               borderRadius: BorderRadius.circular(24),
               border: Border.all(color: const Color(0xFF36474B)),
             ),
-            child: Column(
-              children: const <Widget>[
-                _MiniSheetRow(
-                  values: <String>['Date', 'Start', 'End', 'Total'],
+                child: Column(
+              children: <Widget>[
+                const _MiniSheetRow(
+                  values: <String>['Date', 'Project', 'Start', 'End', 'Total'],
                 ),
-                SizedBox(height: 10),
-                _MiniSheetRow(
-                  values: <String>['13/03', '08:05', '16:32', '08:27'],
+                const SizedBox(height: 10),
+                const _MiniSheetRow(
+                  values: <String>['12/05', 'Client B', '07:45', '15:30', '07:45'],
                 ),
-                SizedBox(height: 10),
-                _MiniSheetRow(
-                  values: <String>['14/03', '07:58', '16:14', '08:16'],
+                const SizedBox(height: 10),
+                Row(
+                  children: <Widget>[
+                    // Highlighted row cells use green backgrounds for focus
+                    Expanded(
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2E8B57),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Text('13/05', style: TextStyle(color: Colors.white)),
+                      ),
+                    ),
+                    Expanded(
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2E8B57),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Text('Client A', style: TextStyle(color: Colors.white)),
+                      ),
+                    ),
+                    Expanded(
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2E8B57),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Text('08:00', style: TextStyle(color: Colors.white)),
+                      ),
+                    ),
+                    Expanded(
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2E8B57),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Text('16:00', style: TextStyle(color: Colors.white)),
+                      ),
+                    ),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF34A853),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const <Widget>[
+                            Text('08:00', style: TextStyle(color: Colors.white)),
+                            SizedBox(width: 8),
+                            Icon(Icons.edit, size: 16, color: Colors.white),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(height: 10),
-                _MiniSheetRow(
-                  values: <String>['Sum', ' ', ' ', '16:43'],
-                  highlight: true,
+                const SizedBox(height: 10),
+                const _MiniSheetRow(
+                  values: <String>['14/05', 'Client C', '09:00', '17:00', '08:00'],
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Focused row highlighted — edit fields in Simple mode',
+                    style: textTheme.bodySmall?.copyWith(color: const Color(0xFFB7C1C3)),
+                  ),
                 ),
               ],
             ),
