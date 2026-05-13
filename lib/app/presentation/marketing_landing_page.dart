@@ -13,8 +13,6 @@ class MarketingLandingPage extends StatelessWidget {
   static const String appStoreUrl = '';
   static const String webClientPath = '/?app=1';
 
-  bool get _hasAppStoreUrl => appStoreUrl.trim().isNotEmpty;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -23,17 +21,7 @@ class MarketingLandingPage extends StatelessWidget {
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: <Color>[
-              Color(0xFFF7E8D6),
-              Color(0xFFF5F1EA),
-              Color(0xFFE4F0EA),
-            ],
-          ),
-        ),
+        color: const Color(0xFFF5F1EA),
         child: SafeArea(
           child: SingleChildScrollView(
             padding: EdgeInsets.fromLTRB(
@@ -44,46 +32,34 @@ class MarketingLandingPage extends StatelessWidget {
             ),
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1180),
+                constraints: const BoxConstraints(maxWidth: 920),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
                     _TopBar(onOpenWeb: () => openSameTabUrl(webClientPath)),
                     const SizedBox(height: 28),
+                    _HeroCopy(theme: theme),
+                    const SizedBox(height: 18),
+                    _PreviewPanel(theme: theme),
+                    const SizedBox(height: 18),
                     Wrap(
-                      spacing: 24,
-                      runSpacing: 24,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: <Widget>[
-                        SizedBox(
-                          width: width < 900 ? 860 : 560,
-                          child: _HeroCopy(theme: theme),
-                        ),
-                        SizedBox(
-                          width: width < 900 ? 860 : 560,
-                          child: _PreviewPanel(theme: theme),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 28),
-                    Row(
+                      alignment: WrapAlignment.center,
+                      spacing: 12,
+                      runSpacing: 8,
                       children: <Widget>[
                         TextButton(
                           onPressed: () => openSameTabUrl('/privacy-policy/'),
                           child: const Text('Privacy Policy'),
                         ),
-                        const SizedBox(width: 8),
                         TextButton(
                           onPressed: () =>
                               openSameTabUrl('/privacy-policy-ads/'),
                           child: const Text('Ads Privacy'),
                         ),
-                        const SizedBox(width: 8),
                         TextButton(
                           onPressed: () => openSameTabUrl('/support/'),
                           child: const Text('Support'),
                         ),
-                        const SizedBox(width: 8),
                         TextButton(
                           onPressed: () => openSameTabUrl('/delete-account/'),
                           child: const Text('Delete Account'),
@@ -157,16 +133,9 @@ class _HeroCopy extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(36),
-        border: Border.all(color: const Color(0xFFE6D9CB)),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-            color: Color(0x14000000),
-            blurRadius: 32,
-            offset: Offset(0, 18),
-          ),
-        ],
+        color: Colors.white.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: const Color(0xFFE7DBCF)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -177,32 +146,33 @@ class _HeroCopy extends StatelessWidget {
               color: const Color(0xFFFFE6DB),
               borderRadius: BorderRadius.circular(999),
             ),
-              child: Text(
-                'Simple worklog editor',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFFB45231),
-                  fontWeight: FontWeight.w700,
-                ),
+            child: Text(
+              'worklog editor',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: const Color(0xFFB45231),
+                fontWeight: FontWeight.w700,
               ),
+            ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           Text(
-              'Edit worklogs quickly.',
+            'Sheet manipulation on the go.',
             style: theme.textTheme.headlineLarge?.copyWith(
-              fontSize: 56,
-              height: 0.96,
+              fontSize: 48,
+              height: 1.0,
               fontFamily: 'Georgia',
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
           Text(
-              'Open CSV, XLSX, or ODS files, edit the focused row in Simple mode, then download or save changes to cloud.',
+            'Open CSV, XLSX, or ODS files, edit the focused row in Simple mode, and save back to local or cloud storage.',
             style: theme.textTheme.bodyLarge?.copyWith(
-              fontSize: 18,
+              fontSize: 17,
+              height: 1.45,
               color: const Color(0xFF4C4F55),
             ),
           ),
-          const SizedBox(height: 26),
+          const SizedBox(height: 20),
           Wrap(
             spacing: 12,
             runSpacing: 12,
@@ -221,15 +191,14 @@ class _HeroCopy extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Info: cannot edit local files',
+                    'Web client cannot edit local files.',
                     style: theme.textTheme.bodySmall,
                     textAlign: TextAlign.center,
                   ),
                 ],
               ),
               InkWell(
-                onTap: () =>
-                    openExternalUrl(MarketingLandingPage.playStoreUrl),
+                onTap: () => openExternalUrl(MarketingLandingPage.playStoreUrl),
                 child: kIsWeb
                     ? SvgPicture.network(
                         'public/store-badges/google-play-en.svg',
@@ -259,218 +228,166 @@ class _PreviewPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: const Color(0xFF1D2628),
-        borderRadius: BorderRadius.circular(36),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-            color: Color(0x24000000),
-            blurRadius: 38,
-            offset: Offset(0, 24),
-          ),
-        ],
+        color: const Color(0xFF232D2D),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: const Color(0xFF334143)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            'Simple editor preview',
+            'Desktop to mobile, optimized to fit.',
             style: textTheme.headlineSmall?.copyWith(
               color: const Color(0xFFF6F3EE),
               fontFamily: 'Georgia',
             ),
           ),
-          const SizedBox(height: 18),
-          const _FlowStep(
-            number: '01',
-            title: 'Install on Android',
-            text: 'Keep Calcrow on hand for quick daily updates.',
+          const SizedBox(height: 8),
+          Text(
+            'Focused row editing',
+            style: textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFFB7C1C3),
+              height: 1.45,
+            ),
           ),
-          const SizedBox(height: 12),
-          const _FlowStep(
-            number: '02',
-            title: 'Open files',
-            text: 'Open local or cloud spreadsheets to edit.',
-          ),
-          const SizedBox(height: 12),
-          const _FlowStep(
-            number: '03',
-            title: 'Edit & save',
-            text: 'Edit the focused row in Simple mode and download or save.',
-          ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 16),
           Container(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF263235),
-              borderRadius: BorderRadius.circular(24),
+              color: const Color(0xFF283436),
+              borderRadius: BorderRadius.circular(22),
               border: Border.all(color: const Color(0xFF36474B)),
             ),
-                child: Column(
+            child: Column(
               children: <Widget>[
                 const _MiniSheetRow(
                   values: <String>['Date', 'Project', 'Start', 'End', 'Total'],
                 ),
                 const SizedBox(height: 10),
                 const _MiniSheetRow(
-                  values: <String>['12/05', 'Client B', '07:45', '15:30', '07:45'],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: <Widget>[
-                    // Highlighted row cells use green backgrounds for focus
-                    Expanded(
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 8),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2E8B57),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Text('13/05', style: TextStyle(color: Colors.white)),
-                      ),
-                    ),
-                    Expanded(
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 8),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2E8B57),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Text('Client A', style: TextStyle(color: Colors.white)),
-                      ),
-                    ),
-                    Expanded(
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 8),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2E8B57),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Text('08:00', style: TextStyle(color: Colors.white)),
-                      ),
-                    ),
-                    Expanded(
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 8),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2E8B57),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Text('16:00', style: TextStyle(color: Colors.white)),
-                      ),
-                    ),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF34A853),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const <Widget>[
-                            Text('08:00', style: TextStyle(color: Colors.white)),
-                            SizedBox(width: 8),
-                            Icon(Icons.edit, size: 16, color: Colors.white),
-                          ],
-                        ),
-                      ),
-                    ),
+                  values: <String>[
+                    '12/05',
+                    'Client B',
+                    '07:45',
+                    '15:30',
+                    '07:45',
                   ],
                 ),
                 const SizedBox(height: 10),
                 const _MiniSheetRow(
-                  values: <String>['14/05', 'Client C', '09:00', '17:00', '08:00'],
+                  values: <String>[
+                    '13/05',
+                    'Client A',
+                    '08:00',
+                    '16:00',
+                    '08:00',
+                  ],
+                  highlight: true,
+                ),
+                const SizedBox(height: 10),
+                const _MiniSheetRow(
+                  values: <String>[
+                    '14/05',
+                    'Client C',
+                    '09:00',
+                    '17:00',
+                    '08:00',
+                  ],
                 ),
                 const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'Focused row highlighted — edit fields in Simple mode',
-                    style: textTheme.bodySmall?.copyWith(color: const Color(0xFFB7C1C3)),
+                    'Focused row is highlighted',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: const Color(0xFFB7C1C3),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF283436),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: const Color(0xFF36474B)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Mobile two-column view',
+                  style: textTheme.titleMedium?.copyWith(
+                    color: const Color(0xFFF6F3EE),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    SizedBox(
+                      width: 176,
+                      child: Column(
+                        children: const <Widget>[
+                          _MobilePreviewCell(text: 'Date'),
+                          SizedBox(height: 8),
+                          _MobilePreviewCell(text: 'Project'),
+                          SizedBox(height: 8),
+                          _MobilePreviewCell(text: 'Start'),
+                          SizedBox(height: 8),
+                          _MobilePreviewCell(text: 'End'),
+                          SizedBox(height: 8),
+                          _MobilePreviewCell(text: 'Total'),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    SizedBox(
+                      width: 176,
+                      child: Column(
+                        children: const <Widget>[
+                          _MobilePreviewCell(text: '13/05', highlighted: true),
+                          SizedBox(height: 8),
+                          _MobilePreviewCell(
+                            text: 'Client A',
+                            highlighted: true,
+                          ),
+                          SizedBox(height: 8),
+                          _MobilePreviewCell(text: '08:00', highlighted: true),
+                          SizedBox(height: 8),
+                          _MobilePreviewCell(text: '16:00', highlighted: true),
+                          SizedBox(height: 8),
+                          _MobilePreviewCell(text: '08:00', highlighted: true),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Same row, compacted for mobile screens',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: const Color(0xFFB7C1C3),
+                  ),
+                ),
+              ],
 
-class _FlowStep extends StatelessWidget {
-  const _FlowStep({
-    required this.number,
-    required this.title,
-    required this.text,
-  });
-
-  final String number;
-  final String title;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Container(
-          width: 46,
-          height: 46,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: const Color(0xFFE36A44),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Text(
-            number,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
             ),
           ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Color(0xFFF6F3EE),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                text,
-                style: const TextStyle(color: Color(0xFFB7C1C3), height: 1.4),
-              ),
-            ],
+          const SizedBox(height: 8),
+          Text(
+            'Note: this sheet is just an example',
+            style: textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFFB7C1C3),
+              height: 1.45,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -495,7 +412,7 @@ class _MiniSheetRow extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: highlight
-                      ? const Color(0xFFE36A44)
+                      ? const Color(0xFF3A8F61)
                       : const Color(0xFF314043),
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -503,7 +420,7 @@ class _MiniSheetRow extends StatelessWidget {
                   value,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: highlight ? Colors.white : const Color(0xFFF4F1EB),
+                    color: highlight ? Colors.white : const Color(0xFFF0ECE5),
                     fontWeight: highlight ? FontWeight.w700 : FontWeight.w600,
                   ),
                 ),
@@ -515,113 +432,37 @@ class _MiniSheetRow extends StatelessWidget {
   }
 }
 
-class _StoreCard extends StatelessWidget {
-  const _StoreCard({
-    required this.title,
-    required this.subtitle,
-    required this.badge,
-    required this.accent,
-    required this.actionLabel,
-    required this.onTap,
-  });
+class _MobilePreviewCell extends StatelessWidget {
+  const _MobilePreviewCell({required this.text, this.highlighted = false});
 
-  final String title;
-  final String subtitle;
-  final String badge;
-  final Color accent;
-  final String actionLabel;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final card = Container(
-      width: 360,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: const Color(0xFFE5D9CC)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              badge,
-              style: TextStyle(
-                color: accent,
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            title,
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(fontFamily: 'Georgia'),
-          ),
-          const SizedBox(height: 8),
-          Text(subtitle),
-          const SizedBox(height: 18),
-          Row(
-            children: <Widget>[
-              Text(
-                actionLabel,
-                style: TextStyle(
-                  color: onTap == null ? const Color(0xFF9A938B) : accent,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const Spacer(),
-              Icon(
-                onTap == null ? Icons.lock_clock_rounded : Icons.arrow_forward,
-                color: onTap == null ? const Color(0xFF9A938B) : accent,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-
-    if (onTap == null) return card;
-    return InkWell(
-      borderRadius: BorderRadius.circular(28),
-      onTap: onTap,
-      child: card,
-    );
-  }
-}
-
-class _FeaturePill extends StatelessWidget {
-  const _FeaturePill({required this.title, required this.text});
-
-  final String title;
   final String text;
+  final bool highlighted;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 280,
-      padding: const EdgeInsets.all(18),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE5D9CC)),
+        color: highlighted
+            ? const Color(0xFF4CAF75).withValues(alpha: 0.16)
+            : const Color(0xFF1F292B),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: highlighted
+              ? const Color(0xFF4CAF75).withValues(alpha: 0.35)
+              : const Color(0xFF36474B),
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Text(text),
-        ],
+      child: Text(
+        text,
+        textAlign: TextAlign.left,
+        style: TextStyle(
+          color: highlighted
+              ? const Color(0xFFF6F3EE)
+              : const Color(0xFFDDE4E1),
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
