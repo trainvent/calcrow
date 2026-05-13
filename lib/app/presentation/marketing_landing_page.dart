@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import 'web_link_opener_stub.dart'
     if (dart.library.html) 'web_link_opener_web.dart';
@@ -274,13 +276,18 @@ class _HeroCopy extends StatelessWidget {
                   child: Text('Open web client'),
                 ),
               ),
-              OutlinedButton(
-                onPressed: () =>
+              InkWell(
+                onTap: () =>
                     openExternalUrl(MarketingLandingPage.playStoreUrl),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8),
-                  child: Text('Android download'),
-                ),
+                child: kIsWeb
+                    ? SvgPicture.network(
+                        'public/store-badges/google-play-en.svg',
+                        height: 56,
+                      )
+                    : SvgPicture.asset(
+                        'assets/store-badges/google-play-en.svg',
+                        height: 56,
+                      ),
               ),
             ],
           ),
