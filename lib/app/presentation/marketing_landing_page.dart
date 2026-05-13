@@ -66,6 +66,31 @@ class MarketingLandingPage extends StatelessWidget {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 6),
+                    Center(
+                      child: Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: <Widget>[
+                          Text(
+                            'Calcrow is delivered by ',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                          TextButton(
+                            onPressed: () =>
+                                openExternalUrl('https://next.trainvent.com/'),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 0,
+                              ),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Text('Trainvent'),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -97,12 +122,13 @@ class _TopBar extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Container(
-                width: 10,
-                height: 10,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE36A44),
-                  shape: BoxShape.circle,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: Image.asset(
+                  'assets/images/AppIcon_1024_square.png',
+                  width: 14,
+                  height: 14,
+                  fit: BoxFit.cover,
                 ),
               ),
               const SizedBox(width: 10),
@@ -117,7 +143,7 @@ class _TopBar extends StatelessWidget {
           ),
         ),
         const Spacer(),
-        TextButton(onPressed: onOpenWeb, child: const Text('Open app')),
+        TextButton(onPressed: onOpenWeb, child: const Text('Web Client')),
       ],
     );
   }
@@ -375,7 +401,6 @@ class _PreviewPanel extends StatelessWidget {
                   ),
                 ),
               ],
-
             ),
           ),
           const SizedBox(height: 8),
