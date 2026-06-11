@@ -172,3 +172,4 @@ functions/lib/
 functions/.env*
 
 .firebase/
+.env
