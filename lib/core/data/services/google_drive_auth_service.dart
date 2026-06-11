@@ -105,14 +105,30 @@ class GoogleDriveAuthService {
     const configuredWebClientId = String.fromEnvironment(
       'GOOGLE_WEB_CLIENT_ID',
     );
+    const configuredIosClientId = String.fromEnvironment('IOS_OAUTH_CLIENT_ID');
     final webClientId = configuredWebClientId.trim();
+    final iosClientId = configuredIosClientId.trim();
     return GoogleSignIn(
-      clientId: kIsWeb && webClientId.isNotEmpty ? webClientId : null,
+      clientId: _clientIdForCurrentPlatform(
+        webClientId: webClientId,
+        iosClientId: iosClientId,
+      ),
       scopes: const <String>[
         'email',
         'https://www.googleapis.com/auth/drive',
         'https://www.googleapis.com/auth/spreadsheets',
       ],
     );
+  }
+
+  String? _clientIdForCurrentPlatform({
+    required String webClientId,
+    required String iosClientId,
+  }) {
+    if (kIsWeb) return webClientId.isEmpty ? null : webClientId;
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return iosClientId.isEmpty ? null : iosClientId;
+    }
+    return null;
   }
 }

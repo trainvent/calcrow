@@ -169,6 +169,17 @@ class _TodayPageState extends State<TodayPage> {
           (_simpleImportedSourceBytes?.isNotEmpty ?? false)) &&
       (_simpleImportedFileName?.trim().isNotEmpty == true);
 
+  bool get _supportsLocalFileEditing =>
+      kIsWeb || defaultTargetPlatform != TargetPlatform.iOS;
+
+  _SimpleDocumentSource get _effectiveSimpleDocumentSource {
+    if (!_supportsLocalFileEditing &&
+        _simpleDocumentSource == _SimpleDocumentSource.local) {
+      return _SimpleDocumentSource.cloud;
+    }
+    return _simpleDocumentSource;
+  }
+
   Future<void> _runWithDocumentOpeningIndicator(
     Future<void> Function() action,
   ) async {
@@ -248,6 +259,7 @@ class _TodayPageState extends State<TodayPage> {
   }
 
   Future<void> _chooseLocalDocumentForSimple() async {
+    if (!_supportsLocalFileEditing) return;
     if (_isChoosingLocalDocument || _isOpeningDocument) return;
     setState(() {
       _simpleDocumentSource = _SimpleDocumentSource.local;
@@ -300,6 +312,7 @@ class _TodayPageState extends State<TodayPage> {
   }
 
   Future<void> _openOrChooseLocalDocumentForSimple() async {
+    if (!_supportsLocalFileEditing) return;
     final canReopenRememberedLocal =
         _rememberLocalDocumentForReopen &&
         (_simpleImportedPath?.trim().isNotEmpty == true ||
@@ -541,7 +554,7 @@ class _TodayPageState extends State<TodayPage> {
   }
 
   Future<void> _openSelectedSimpleDocument() async {
-    switch (_simpleDocumentSource) {
+    switch (_effectiveSimpleDocumentSource) {
       case _SimpleDocumentSource.local:
         await _openOrChooseLocalDocumentForSimple();
       case _SimpleDocumentSource.cloud:
@@ -2805,13 +2818,14 @@ class _TodayPageState extends State<TodayPage> {
                     hasRememberedLocalFile: false,
                   );
               return _ChooseDocumentCard(
-                selectedSource: _simpleDocumentSource,
+                selectedSource: _effectiveSimpleDocumentSource,
                 localSubtitle: data.localSubtitle,
                 cloudSubtitle: data.cloudSubtitle,
                 isChoosingLocalDocument: _isChoosingLocalDocument,
                 isChoosingCloudFile: _isChoosingCloudFile,
                 hasRememberedLocalFile: data.hasRememberedLocalFile,
                 hasSelectedCloudFile: data.hasSelectedCloudFile,
+                showLocalDocument: _supportsLocalFileEditing,
                 onSourceChanged: (source) {
                   setState(() => _simpleDocumentSource = source);
                 },
@@ -2844,7 +2858,7 @@ class _TodayPageState extends State<TodayPage> {
                       onPressed:
                           _isOpeningDocument ||
                               _isChoosingCloudFile ||
-                              (_simpleDocumentSource ==
+                              (_effectiveSimpleDocumentSource ==
                                       _SimpleDocumentSource.local &&
                                   !_hasRememberedLocalDocument)
                           ? null
@@ -2914,13 +2928,15 @@ class _TodayPageState extends State<TodayPage> {
         ? 'Set Datatypes and bear in mind that calculated fields are read-only.'
         : 'This file has no usable type row yet. Pick the editable field formats once before saving.';
     final canForgetRememberedLocal =
+        _supportsLocalFileEditing &&
         _rememberLocalDocumentForReopen &&
         _simpleDocumentTarget is _LocalSimpleDocumentTarget &&
         (_simpleImportedPath?.trim().isNotEmpty == true ||
             (_simpleImportedSourceBytes?.isNotEmpty ?? false));
     final canOpenLocalDocumentFromCard =
-        _simpleDocumentTarget == null ||
-        _simpleDocumentTarget is _LocalSimpleDocumentTarget;
+        (_supportsLocalFileEditing && _simpleDocumentTarget == null) ||
+        (_supportsLocalFileEditing &&
+            _simpleDocumentTarget is _LocalSimpleDocumentTarget);
     final canCreateOpenEndDateRow =
         _simpleOpenMode == _SimpleOpenMode.dateBasedOpenEnd;
 
@@ -3297,6 +3313,10 @@ class _TodayPageState extends State<TodayPage> {
   }
 
   Widget _buildSetupView(ThemeData theme) {
+    final setupTip = _supportsLocalFileEditing
+        ? 'Tip: pick a local file first, then edit daily rows. For cloud-based files, connect Google Drive or WebDAV in Settings and use Edit Cloud Document here.'
+        : 'Tip: connect Google Drive or WebDAV in Settings, then use Edit Cloud Document here.';
+
     return Column(
       children: [
         _SetupCard(
@@ -3306,18 +3326,17 @@ class _TodayPageState extends State<TodayPage> {
           onTap: _createNewCsv,
         ),
         const SizedBox(height: 10),
-        _SetupCard(
-          title: 'Select Local File',
-          subtitle:
-              _importedFileName ?? 'Open an existing CSV from this device',
-          icon: Icons.folder_open_rounded,
-          onTap: _importCsv,
-        ),
-        const SizedBox(height: 14),
-        Text(
-          'Tip: pick a local file first, then edit daily rows. For cloud-based files, connect Google Drive or WebDAV in Settings and use Edit Cloud Document here.',
-          style: theme.textTheme.bodyMedium,
-        ),
+        if (_supportsLocalFileEditing) ...[
+          _SetupCard(
+            title: 'Select Local File',
+            subtitle:
+                _importedFileName ?? 'Open an existing CSV from this device',
+            icon: Icons.folder_open_rounded,
+            onTap: _importCsv,
+          ),
+          const SizedBox(height: 14),
+        ],
+        Text(setupTip, style: theme.textTheme.bodyMedium),
       ],
     );
   }
@@ -3663,6 +3682,7 @@ class _ChooseDocumentCard extends StatelessWidget {
     required this.isChoosingCloudFile,
     required this.hasRememberedLocalFile,
     required this.hasSelectedCloudFile,
+    required this.showLocalDocument,
     required this.onSourceChanged,
     required this.onChooseLocal,
     required this.onClearLocal,
@@ -3676,6 +3696,7 @@ class _ChooseDocumentCard extends StatelessWidget {
   final bool isChoosingCloudFile;
   final bool hasRememberedLocalFile;
   final bool hasSelectedCloudFile;
+  final bool showLocalDocument;
   final ValueChanged<_SimpleDocumentSource> onSourceChanged;
   final VoidCallback onChooseLocal;
   final VoidCallback onClearLocal;
@@ -3692,27 +3713,28 @@ class _ChooseDocumentCard extends StatelessWidget {
           children: [
             Text('Choose Document', style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
-            _DocumentSourceTile(
-              selected: selectedSource == _SimpleDocumentSource.local,
-              title: 'Local document',
-              subtitle: localSubtitle,
-              icon: Icons.folder_open_rounded,
-              trailing: isChoosingLocalDocument
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : null,
-              onTap: onChooseLocal,
-              clearAction: hasRememberedLocalFile
-                  ? _InlineSetupAction(
-                      icon: Icons.clear,
-                      tooltip: 'Clear remembered local file',
-                      onTap: onClearLocal,
-                    )
-                  : null,
-            ),
+            if (showLocalDocument)
+              _DocumentSourceTile(
+                selected: selectedSource == _SimpleDocumentSource.local,
+                title: 'Local document',
+                subtitle: localSubtitle,
+                icon: Icons.folder_open_rounded,
+                trailing: isChoosingLocalDocument
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : null,
+                onTap: onChooseLocal,
+                clearAction: hasRememberedLocalFile
+                    ? _InlineSetupAction(
+                        icon: Icons.clear,
+                        tooltip: 'Clear remembered local file',
+                        onTap: onClearLocal,
+                      )
+                    : null,
+              ),
             _DocumentSourceTile(
               selected: selectedSource == _SimpleDocumentSource.cloud,
               title: 'Cloud document',

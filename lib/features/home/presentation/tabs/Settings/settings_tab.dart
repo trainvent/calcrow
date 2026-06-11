@@ -39,6 +39,9 @@ class _SettingsTabState extends State<SettingsTab> {
   final SimpleSheetPersistenceService _sheetPersistenceService =
       SimpleSheetPersistenceService();
 
+  bool get _showSafFolderSettings =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -66,7 +69,7 @@ class _SettingsTabState extends State<SettingsTab> {
                   ),
                 ),
               ),
-            if (session == null) ...[
+            if (session == null && _showSafFolderSettings) ...[
               const SizedBox(height: 12),
               Card(
                 child: Column(
@@ -236,42 +239,50 @@ class _SettingsTabState extends State<SettingsTab> {
                               onTap: () =>
                                   _openEntitlementScreen(session: session),
                             ),
-                            const Divider(height: 1),
-                            ListTile(
-                              leading: const Icon(
-                                Icons.folder_special_outlined,
-                              ),
-                              title: const Text('Manage SAF folder'),
-                              subtitle: Text(_safFolderSubtitle(settings)),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                              child: _buildSafActionGrid(
-                                setButton: OutlinedButton(
-                                  onPressed: _isUpdatingSafFolder
-                                      ? null
-                                      : () => _setSafFolder(session: session),
-                                  child: const Text('Set'),
+                            if (_showSafFolderSettings) ...[
+                              const Divider(height: 1),
+                              ListTile(
+                                leading: const Icon(
+                                  Icons.folder_special_outlined,
                                 ),
-                                clearButton: TextButton(
-                                  onPressed: _isUpdatingSafFolder
-                                      ? null
-                                      : () => _clearSafFolder(session: session),
-                                  child: const Text('Clear'),
-                                ),
+                                title: const Text('Manage SAF folder'),
+                                subtitle: Text(_safFolderSubtitle(settings)),
                               ),
-                            ),
-                            if (_isUpdatingSafFolder)
-                              const Padding(
-                                padding: EdgeInsets.only(bottom: 12),
-                                child: SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  12,
+                                ),
+                                child: _buildSafActionGrid(
+                                  setButton: OutlinedButton(
+                                    onPressed: _isUpdatingSafFolder
+                                        ? null
+                                        : () => _setSafFolder(session: session),
+                                    child: const Text('Set'),
+                                  ),
+                                  clearButton: TextButton(
+                                    onPressed: _isUpdatingSafFolder
+                                        ? null
+                                        : () =>
+                                              _clearSafFolder(session: session),
+                                    child: const Text('Clear'),
                                   ),
                                 ),
                               ),
+                              if (_isUpdatingSafFolder)
+                                const Padding(
+                                  padding: EdgeInsets.only(bottom: 12),
+                                  child: SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                ),
+                            ],
                             const Divider(height: 1),
                             SwitchListTile(
                               secondary: const Icon(Icons.tune_rounded),
