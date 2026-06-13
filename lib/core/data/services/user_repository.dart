@@ -153,7 +153,6 @@ T? _firstWhereOrNull<T>(Iterable<T> items, bool Function(T item) test) {
 class UserSettingsData {
   const UserSettingsData({
     this.defaultDateFormat = 'YYYY-MM-DD',
-    this.advancedFeaturesEnabled = false,
     this.isPro = false,
     this.cloudSyncProvider,
     this.googleDriveLinked = false,
@@ -175,7 +174,6 @@ class UserSettingsData {
   });
 
   final String defaultDateFormat;
-  final bool advancedFeaturesEnabled;
   final bool isPro;
   final CloudSyncProvider? cloudSyncProvider;
   final bool googleDriveLinked;
@@ -223,7 +221,6 @@ class UserSettingsData {
           (settings['defaultDateFormat'] as String?)?.trim().isNotEmpty == true
           ? (settings['defaultDateFormat'] as String).trim()
           : 'YYYY-MM-DD',
-      advancedFeaturesEnabled: settings['advancedFeaturesEnabled'] == true,
       isPro: settings['isPro'] == true,
       cloudSyncProvider:
           parsedCloudProvider ??
@@ -358,13 +355,6 @@ class UserRepository {
   Future<UserSettingsData> getUserSettings(String uid) async {
     final settings = await _dbService.getUserSettings(uid);
     return UserSettingsData.fromMap(settings);
-  }
-
-  Future<void> setAdvancedFeaturesEnabled({
-    required String uid,
-    required bool enabled,
-  }) {
-    return _dbService.setAdvancedFeaturesEnabled(uid: uid, enabled: enabled);
   }
 
   Future<void> setIsPro({required String uid, required bool isPro}) {

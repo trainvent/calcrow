@@ -33,7 +33,6 @@ class _SettingsTabState extends State<SettingsTab> {
   bool _isLinkingGoogle = false;
   bool _isLinkingWebDav = false;
   bool _isOpeningRevenueCat = false;
-  bool _isUpdatingAdvancedFeatures = false;
   bool _isUpdatingSafFolder = false;
   static final SafUtil _safUtil = SafUtil();
   final SimpleSheetPersistenceService _sheetPersistenceService =
@@ -295,21 +294,16 @@ class _SettingsTabState extends State<SettingsTab> {
                                   ),
                                 ),
                             ],
-                            const Divider(height: 1),
-                            SwitchListTile(
-                              secondary: const Icon(Icons.tune_rounded),
-                              title: const Text('Advanced features'),
-                              subtitle: const Text(
-                                'Show the advanced Today layout for power-user tools.',
-                              ),
-                              value: _advancedFeaturesEnabled(settings),
-                              onChanged: _isUpdatingAdvancedFeatures
-                                  ? null
-                                  : (value) => _setAdvancedFeaturesEnabled(
-                                      session: session,
-                                      enabled: value,
-                                    ),
-                            ),
+                            // const Divider(height: 1),
+                            // SwitchListTile(
+                            //   secondary: const Icon(Icons.tune_rounded),
+                            //   title: const Text('Advanced features'),
+                            //   subtitle: const Text(
+                            //     'Paused for this release while the advanced layout is rebuilt.',
+                            //   ),
+                            //   value: false,
+                            //   onChanged: null,
+                            // ),
                           ],
                         ),
                       ),
@@ -370,10 +364,6 @@ class _SettingsTabState extends State<SettingsTab> {
 
   bool _isGoogleDriveLinked(UserSettingsData? settings) {
     return settings?.googleDriveLinked == true;
-  }
-
-  bool _advancedFeaturesEnabled(UserSettingsData? settings) {
-    return settings?.advancedFeaturesEnabled == true;
   }
 
   bool _isWebDavLinked(UserSettingsData? settings) {
@@ -442,40 +432,6 @@ class _SettingsTabState extends State<SettingsTab> {
 
   String _cloudProviderLabel(CloudSyncProvider provider) {
     return ServiceLocator.simpleCloudDocumentService.providerLabel(provider);
-  }
-
-  Future<void> _setAdvancedFeaturesEnabled({
-    required AuthSession session,
-    required bool enabled,
-  }) async {
-    if (_isUpdatingAdvancedFeatures) return;
-    final messenger = ScaffoldMessenger.of(context);
-    setState(() => _isUpdatingAdvancedFeatures = true);
-    try {
-      await ServiceLocator.dbService.setAdvancedFeaturesEnabled(
-        uid: session.uid,
-        enabled: enabled,
-      );
-      if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            enabled
-                ? 'Advanced features enabled.'
-                : 'Advanced features disabled.',
-          ),
-        ),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(content: Text('Could not update advanced features: $error')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isUpdatingAdvancedFeatures = false);
-      }
-    }
   }
 
   String _safFolderSubtitle(UserSettingsData? settings) {

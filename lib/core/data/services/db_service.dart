@@ -236,16 +236,6 @@ class DbService {
     }, SetOptions(merge: true));
   }
 
-  Future<void> setAdvancedFeaturesEnabled({
-    required String uid,
-    required bool enabled,
-  }) {
-    return _firestore.collection(_usersCollection).doc(uid).set({
-      'settings': {'advancedFeaturesEnabled': enabled},
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-  }
-
   Future<String> issueEmailVerificationCode({required String uid}) async {
     final code = _randomSixDigitCode();
     final expiresAt = DateTime.now().add(const Duration(minutes: 10));
