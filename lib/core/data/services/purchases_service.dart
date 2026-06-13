@@ -30,7 +30,8 @@ class PurchasesService {
   final StreamController<EntitlementTier> _entitlementController =
       StreamController<EntitlementTier>.broadcast();
 
-  Stream<EntitlementTier> get entitlementStream => _entitlementController.stream;
+  Stream<EntitlementTier> get entitlementStream =>
+      _entitlementController.stream;
 
   EntitlementTier _currentTier = EntitlementTier.free;
   EntitlementTier get currentTier => _currentTier;
@@ -51,10 +52,11 @@ class PurchasesService {
     if (_isAllowlistedProEmail(_appUserEmail)) {
       _setTier(EntitlementTier.pro);
     }
-    if (kIsWeb) return;
+    final trimmedApiKey = apiKey.trim();
+    if (kIsWeb || trimmedApiKey.isEmpty) return;
     await Purchases.setLogLevel(LogLevel.debug);
     await Purchases.configure(
-      PurchasesConfiguration(apiKey)..appUserID = appUserId,
+      PurchasesConfiguration(trimmedApiKey)..appUserID = appUserId,
     );
     _appUserId = appUserId;
     _isInitialized = true;
@@ -136,7 +138,8 @@ class PurchasesService {
   }
 
   void _onCustomerInfoUpdated(CustomerInfo info) {
-    final isPro = info.entitlements.all[_proEntitlementId]?.isActive == true ||
+    final isPro =
+        info.entitlements.all[_proEntitlementId]?.isActive == true ||
         (kDebugMode && info.activeSubscriptions.isNotEmpty) ||
         _isAllowlistedProEmail(_appUserEmail);
     _setTier(isPro ? EntitlementTier.pro : EntitlementTier.free);

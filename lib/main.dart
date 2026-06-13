@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:developer';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -17,18 +20,50 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   ServiceLocator.setup();
-  await AdsConsentService.instance.init();
-  if (AdsConsentService.instance.isSupported) {
-    await MobileAds.instance.initialize();
-  }
-  await ServiceLocator.diagnosticsService.init();
   await installDiagnosticsErrorHandlers();
-  await PurchasesService.instance.init(
-    apiKey: _revenueCatApiKeyForCurrentBuild(),
-    appUserId: ServiceLocator.authService.currentSession?.uid,
-    appUserEmail: ServiceLocator.authService.currentSession?.email,
-  );
   runApp(const CalcrowApp());
+  unawaited(_initializeOptionalServices());
+}
+
+Future<void> _initializeOptionalServices() async {
+  await _runStartupStep('ads', () async {
+    await AdsConsentService.instance.init();
+    if (AdsConsentService.instance.isSupported) {
+      await MobileAds.instance.initialize();
+    }
+  });
+  await _runStartupStep('diagnostics', () async {
+    await ServiceLocator.diagnosticsService.init();
+  });
+  await _runStartupStep('purchases', () async {
+    await PurchasesService.instance.init(
+      apiKey: _revenueCatApiKeyForCurrentBuild(),
+      appUserId: ServiceLocator.authService.currentSession?.uid,
+      appUserEmail: ServiceLocator.authService.currentSession?.email,
+    );
+  });
+}
+
+Future<void> _runStartupStep(
+  String label,
+  Future<void> Function() action,
+) async {
+  try {
+    await action();
+  } catch (error, stackTrace) {
+    log(
+      'Optional startup step failed: $label',
+      error: error,
+      stackTrace: stackTrace,
+    );
+    unawaited(
+      ServiceLocator.diagnosticsService.recordError(
+        error,
+        stackTrace,
+        reason: 'Optional startup step failed: $label',
+      ),
+    );
+  }
 }
 
 String _revenueCatApiKeyForCurrentBuild() {
