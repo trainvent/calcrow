@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:excel/excel.dart' as excel_pkg;
@@ -8,99 +7,59 @@ import 'package:calcrow/core/sheet_type_logic/csv_codec.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/xlsx_codec.dart';
 
-void main() {
-  group('Critical sheet codec flows', () {
-    test('CSV parse/build roundtrip preserves schema and rows', () {
-      final sourceBytes = Uint8List.fromList(
-        utf8.encode(
-          'name,date,notes\n'
-          'text,date,text\n'
-          'Alice,2026-01-01,hello\n',
-        ),
-      );
+import 'support/sheet_test_helpers.dart';
 
-      final parsed = CsvSheetCodec.parse(
-        bytes: sourceBytes,
-        fileName: 'sample.csv',
-        path: '/tmp/sample.csv',
+void main() {
+  group('CSV codec', () {
+    test('CSV parse/build roundtrip preserves schema and rows', () {
+      final parsed = parseCsv(
+        'name,date,notes\n'
+        'text,date,text\n'
+        'Alice,2026-01-01,hello\n',
       );
 
       expect(parsed.headers, ['name', 'date', 'notes']);
-      expect(parsed.rows.length, 1);
+      expect(parsed.valueTypes, ['text', 'date', 'text']);
+      expect(parsed.hasTypeRow, isTrue);
+      expect(parsed.rows, [
+        ['Alice', '2026-01-01', 'hello'],
+      ]);
 
-      final updated = SimpleSheetData(
-        fileName: parsed.fileName,
-        path: parsed.path,
-        format: parsed.format,
-        headers: parsed.headers,
-        valueTypes: parsed.valueTypes,
-        readOnlyColumns: parsed.readOnlyColumns,
+      final updated = copySheetData(
+        parsed,
         rows: <List<String>>[
           ...parsed.rows,
           <String>['Bob', '2026-01-02', 'world'],
         ],
-        pendingTypeSelectionColumns: parsed.pendingTypeSelectionColumns,
-        csvDelimiter: parsed.csvDelimiter,
-        hasTypeRow: parsed.hasTypeRow,
-        headerRowIndex: parsed.headerRowIndex,
-        startColumnIndex: parsed.startColumnIndex,
-        sourceBytes: parsed.sourceBytes,
       );
 
-      final rebuilt = CsvSheetCodec.buildBytes(updated);
-      final reparsed = CsvSheetCodec.parse(
-        bytes: rebuilt,
-        fileName: 'sample.csv',
-        path: '/tmp/sample.csv',
-      );
+      final reparsed = parseCsvBytes(CsvSheetCodec.buildBytes(updated));
 
       expect(reparsed.headers, ['name', 'date', 'notes']);
-      expect(reparsed.rows.length, 2);
-      expect(reparsed.rows[0], ['Alice', '2026-01-01', 'hello']);
-      expect(reparsed.rows[1], ['Bob', '2026-01-02', 'world']);
+      expect(reparsed.valueTypes, ['text', 'date', 'text']);
+      expect(reparsed.rows, [
+        ['Alice', '2026-01-01', 'hello'],
+        ['Bob', '2026-01-02', 'world'],
+      ]);
     });
 
     test(
       'CSV with headers only can be parsed and persisted with first row',
       () {
-        final sourceBytes = Uint8List.fromList(
-          utf8.encode('Date,Hours,Notes\n'),
-        );
-
-        final parsed = CsvSheetCodec.parse(
-          bytes: sourceBytes,
-          fileName: 'open_end.csv',
-          path: '/tmp/open_end.csv',
-        );
+        final parsed = parseCsv('Date,Hours,Notes\n');
 
         expect(parsed.headers, ['Date', 'Hours', 'Notes']);
         expect(parsed.valueTypes, ['date', 'decimal', 'text']);
         expect(parsed.rows, isEmpty);
 
-        final updated = SimpleSheetData(
-          fileName: parsed.fileName,
-          path: parsed.path,
-          format: parsed.format,
-          headers: parsed.headers,
-          valueTypes: parsed.valueTypes,
-          readOnlyColumns: parsed.readOnlyColumns,
+        final updated = copySheetData(
+          parsed,
           rows: const <List<String>>[
             <String>['2026-05-11', '8', 'first row'],
           ],
-          pendingTypeSelectionColumns: parsed.pendingTypeSelectionColumns,
-          csvDelimiter: parsed.csvDelimiter,
-          hasTypeRow: parsed.hasTypeRow,
-          headerRowIndex: parsed.headerRowIndex,
-          startColumnIndex: parsed.startColumnIndex,
-          sourceBytes: parsed.sourceBytes,
         );
 
-        final rebuilt = CsvSheetCodec.buildBytes(updated);
-        final reparsed = CsvSheetCodec.parse(
-          bytes: rebuilt,
-          fileName: 'open_end.csv',
-          path: '/tmp/open_end.csv',
-        );
+        final reparsed = parseCsvBytes(CsvSheetCodec.buildBytes(updated));
 
         expect(reparsed.headers, ['Date', 'Hours', 'Notes']);
         expect(reparsed.rows, [
@@ -110,75 +69,146 @@ void main() {
     );
 
     test(
+      'CSV preserves delimiter and quotes cells that contain delimiters',
+      () {
+        final parsed = parseCsv(
+          'Date;Hours;Notes\n'
+          'date;decimal;text\n'
+          '2026-05-11;8;plain\n',
+        );
+
+        expect(parsed.csvDelimiter, ';');
+
+        final updated = copySheetData(
+          parsed,
+          rows: const <List<String>>[
+            <String>['2026-05-11', '8', 'contains; delimiter'],
+            <String>['2026-05-12', '7.5', 'contains "quote"'],
+          ],
+        );
+
+        final encoded = String.fromCharCodes(CsvSheetCodec.buildBytes(updated));
+        expect(encoded, contains('"contains; delimiter"'));
+        expect(encoded, contains('"contains ""quote"""'));
+
+        final reparsed = parseCsvBytes(CsvSheetCodec.buildBytes(updated));
+        expect(reparsed.csvDelimiter, ';');
+        expect(reparsed.rows, [
+          ['2026-05-11', '8', 'contains; delimiter'],
+          ['2026-05-12', '7.5', 'contains "quote"'],
+        ]);
+      },
+    );
+  });
+
+  group('XLSX codec', () {
+    test(
       'XLSX with headers only can be parsed and persisted with first row',
       () {
-        final workbook = excel_pkg.Excel.createExcel();
-        final sheetName = workbook.getDefaultSheet() ?? 'Sheet1';
-        final sheet = workbook[sheetName];
-        sheet
-            .cell(
-              excel_pkg.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0),
-            )
-            .value = excel_pkg.TextCellValue(
-          'name',
-        );
-        sheet
-            .cell(
-              excel_pkg.CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: 0),
-            )
-            .value = excel_pkg.TextCellValue(
-          'date',
-        );
-        sheet
-            .cell(
-              excel_pkg.CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: 0),
-            )
-            .value = excel_pkg.TextCellValue(
-          'notes',
-        );
-
-        final encoded = workbook.encode();
-        expect(encoded, isNotNull);
-        final sourceBytes = Uint8List.fromList(encoded!);
-
-        final parsed = XlsxSheetCodec.parse(
-          bytes: sourceBytes,
-          fileName: 'sample.xlsx',
-          path: '/tmp/sample.xlsx',
+        final parsed = parseXlsx(
+          buildWorkbookBytes([
+            ['name', 'date', 'notes'],
+          ]),
         );
 
         expect(parsed.headers, ['name', 'date', 'notes']);
         expect(parsed.rows, isEmpty);
 
-        final updated = SimpleSheetData(
-          fileName: parsed.fileName,
-          path: parsed.path,
-          format: parsed.format,
-          headers: parsed.headers,
-          valueTypes: parsed.valueTypes,
-          readOnlyColumns: parsed.readOnlyColumns,
+        final updated = copySheetData(
+          parsed,
           rows: const <List<String>>[
             <String>['Bob', '2026-01-02', 'first row'],
           ],
-          pendingTypeSelectionColumns: parsed.pendingTypeSelectionColumns,
-          hasTypeRow: parsed.hasTypeRow,
-          headerRowIndex: parsed.headerRowIndex,
-          startColumnIndex: parsed.startColumnIndex,
-          xlsxSheetName: parsed.xlsxSheetName,
-          workbook: parsed.workbook,
         );
 
-        final rebuilt = XlsxSheetCodec.buildBytes(updated);
-        final reparsed = XlsxSheetCodec.parse(
-          bytes: rebuilt,
-          fileName: 'sample.xlsx',
-          path: '/tmp/sample.xlsx',
-        );
+        final reparsed = parseXlsx(XlsxSheetCodec.buildBytes(updated));
 
         expect(reparsed.headers, ['name', 'date', 'notes']);
-        expect(reparsed.rows.length, 1);
-        expect(reparsed.rows.first, ['Bob', '2026-01-02', 'first row']);
+        expect(reparsed.rows, [
+          ['Bob', '2026-01-02', 'first row'],
+        ]);
       },
     );
+
+    test('XLSX roundtrip preserves edited rows and inferred value types', () {
+      final parsed = parseXlsx(
+        buildWorkbookBytes([
+          ['name', 'date', 'hours'],
+          ['text', 'date', 'decimal'],
+          ['Alice', '2026-01-01', '8'],
+        ]),
+      );
+
+      expect(parsed.headers, ['name', 'date', 'hours']);
+      expect(parsed.valueTypes, ['text', 'date', 'int']);
+      expect(parsed.rows, [
+        ['Alice', '2026-01-01', '8'],
+      ]);
+
+      final updated = copySheetData(
+        parsed,
+        rows: const <List<String>>[
+          <String>['Alice', '2026-01-01', '8.5'],
+          <String>['Bob', '2026-01-02', '7'],
+        ],
+      );
+
+      final reparsed = parseXlsx(XlsxSheetCodec.buildBytes(updated));
+
+      expect(reparsed.headers, ['name', 'date', 'hours']);
+      expect(reparsed.valueTypes, ['text', 'date', 'decimal']);
+      expect(reparsed.rows, [
+        ['Alice', '2026-01-01', '8.5'],
+        ['Bob', '2026-01-02', '7'],
+      ]);
+    });
   });
+}
+
+SimpleSheetData parseCsv(String content) {
+  return parseCsvBytes(utf8Bytes(content));
+}
+
+SimpleSheetData parseCsvBytes(Uint8List bytes) {
+  return CsvSheetCodec.parse(
+    bytes: bytes,
+    fileName: 'sample.csv',
+    path: '/tmp/sample.csv',
+  );
+}
+
+Uint8List buildWorkbookBytes(List<List<String>> rows) {
+  final workbook = excel_pkg.Excel.createExcel();
+  final sheetName = workbook.getDefaultSheet() ?? 'Sheet1';
+  final sheet = workbook[sheetName];
+  for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+    for (
+      var columnIndex = 0;
+      columnIndex < rows[rowIndex].length;
+      columnIndex++
+    ) {
+      sheet
+          .cell(
+            excel_pkg.CellIndex.indexByColumnRow(
+              columnIndex: columnIndex,
+              rowIndex: rowIndex,
+            ),
+          )
+          .value = excel_pkg.TextCellValue(
+        rows[rowIndex][columnIndex],
+      );
+    }
+  }
+
+  final encoded = workbook.encode();
+  expect(encoded, isNotNull);
+  return Uint8List.fromList(encoded!);
+}
+
+SimpleSheetData parseXlsx(Uint8List bytes) {
+  return XlsxSheetCodec.parse(
+    bytes: bytes,
+    fileName: 'sample.xlsx',
+    path: '/tmp/sample.xlsx',
+  );
 }

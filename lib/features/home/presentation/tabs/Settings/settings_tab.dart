@@ -15,7 +15,6 @@ import '../../../../../core/data/services/simple_sheet_persistence_service.dart'
 import '../../../../../core/data/services/user_repository.dart';
 import '../../../../../core/data/services/webdav_service.dart';
 import 'data_collection_page.dart';
-import 'entitlement_page.dart';
 import 'webdav_error_presentation.dart';
 import '../../../../auth/presentation/sign_in_sheet.dart';
 import '../../../../../app/presentation/web_link_opener_stub.dart'
@@ -33,6 +32,7 @@ class _SettingsTabState extends State<SettingsTab> {
   static const String _googleDriveLogTag = 'CalcrowGoogleDrive';
   bool _isLinkingGoogle = false;
   bool _isLinkingWebDav = false;
+  bool _isOpeningRevenueCat = false;
   bool _isUpdatingAdvancedFeatures = false;
   bool _isUpdatingSafFolder = false;
   static final SafUtil _safUtil = SafUtil();
@@ -235,9 +235,21 @@ class _SettingsTabState extends State<SettingsTab> {
                                     ? 'Pro enabled.'
                                     : 'Open subscription and purchase options.',
                               ),
-                              trailing: const Icon(Icons.chevron_right_rounded),
-                              onTap: () =>
-                                  _openEntitlementScreen(session: session),
+                              trailing: _isOpeningRevenueCat
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.chevron_right_rounded),
+                              onTap: _isOpeningRevenueCat
+                                  ? null
+                                  : () => _openRevenueCatEntitlementFlow(
+                                      session: session,
+                                      isPro: settings?.isPro == true,
+                                    ),
                             ),
                             if (_showSafFolderSettings) ...[
                               const Divider(height: 1),
@@ -1226,17 +1238,38 @@ class _SettingsTabState extends State<SettingsTab> {
     return result;
   }
 
-  Future<void> _openEntitlementScreen({required AuthSession session}) async {
+  Future<void> _openRevenueCatEntitlementFlow({
+    required AuthSession session,
+    required bool isPro,
+  }) async {
     if (!mounted) return;
-    await PurchasesService.instance.syncAppUser(
-      session.uid,
-      email: session.email,
-    );
-    await PurchasesService.instance.refreshCustomerInfo();
-    if (!mounted) return;
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (context) => const EntitlementPage()));
+    setState(() => _isOpeningRevenueCat = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await PurchasesService.instance.syncAppUser(
+        session.uid,
+        email: session.email,
+      );
+      await PurchasesService.instance.refreshCustomerInfo();
+      if (isPro) {
+        await PurchasesService.instance.presentCustomerCenter();
+      } else {
+        await PurchasesService.instance.presentPaywall();
+      }
+      await PurchasesService.instance.refreshCustomerInfo();
+    } on PurchasesServiceException catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not open subscription options: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isOpeningRevenueCat = false);
+      }
+    }
   }
 
   Future<void> _openDataCollectionPage() async {

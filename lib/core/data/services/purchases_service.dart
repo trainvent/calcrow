@@ -137,6 +137,30 @@ class PurchasesService {
     }
   }
 
+  Future<void> presentCustomerCenter() async {
+    if (kIsWeb) {
+      throw const PurchasesServiceException(
+        'RevenueCat customer center is not supported on web builds.',
+      );
+    }
+    if (!_isInitialized) {
+      throw const PurchasesServiceException(
+        'RevenueCat is not initialized for this build.',
+      );
+    }
+    try {
+      await RevenueCatUI.presentCustomerCenter(
+        onRestoreCompleted: _onCustomerInfoUpdated,
+      );
+      await refreshCustomerInfo();
+    } catch (error, stackTrace) {
+      log('presentCustomerCenter error: $error\n$stackTrace');
+      throw PurchasesServiceException(
+        'Could not open subscription center: $error',
+      );
+    }
+  }
+
   void _onCustomerInfoUpdated(CustomerInfo info) {
     final isPro =
         info.entitlements.all[_proEntitlementId]?.isActive == true ||

@@ -7,7 +7,6 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../../../core/constants/internal_constants.dart';
 import '../../../core/data/di/service_locator.dart';
 import '../../../core/data/services/purchases_service.dart';
-import 'tabs/Settings/entitlement_page.dart';
 
 class FreeModeBottomTile extends StatelessWidget {
   const FreeModeBottomTile({
@@ -207,12 +206,10 @@ class _BannerAdTileState extends State<_BannerAdTile> {
     }
 
     return switch (_lastLoadFailure!.kind) {
-      _BannerLoadFailureKind.noFill =>
-        'Ad unavailable now (Google no fill).',
+      _BannerLoadFailureKind.noFill => 'Ad unavailable now (Google no fill).',
       _BannerLoadFailureKind.appIssue =>
         'Ad unavailable due to app/config issue.',
-      _BannerLoadFailureKind.unknown =>
-        'Ad unavailable (unknown cause).',
+      _BannerLoadFailureKind.unknown => 'Ad unavailable (unknown cause).',
     };
   }
 
@@ -381,10 +378,24 @@ class _PromoUpgradeTile extends StatelessWidget {
   }
 
   static VoidCallback _defaultUpgradeTap(BuildContext context) {
-    return () {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (context) => const EntitlementPage()));
+    return () async {
+      final messenger = ScaffoldMessenger.of(context);
+      final session = ServiceLocator.authService.currentSession;
+      try {
+        await PurchasesService.instance.syncAppUser(
+          session?.uid,
+          email: session?.email,
+        );
+        await PurchasesService.instance.presentPaywall();
+      } on PurchasesServiceException catch (error) {
+        messenger.showSnackBar(SnackBar(content: Text(error.message)));
+      } catch (error) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Could not open subscription options: $error'),
+          ),
+        );
+      }
     };
   }
 }
