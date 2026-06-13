@@ -67,10 +67,19 @@ Future<void> _runStartupStep(
 }
 
 String _revenueCatApiKeyForCurrentBuild() {
-  if (!kIsWeb &&
-      kReleaseMode &&
-      defaultTargetPlatform == TargetPlatform.android) {
-    return IConst.revenueCatGoogleAPIKey;
+  if (kReleaseMode) {
+    if (kIsWeb) return IConst.revenueCatWebAPIKey;
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return IConst.revenueCatGoogleAPIKey;
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+        return IConst.revenueCatAppleAPIKey;
+      case TargetPlatform.fuchsia:
+      case TargetPlatform.linux:
+      case TargetPlatform.windows:
+        return '';
+    }
   }
 
   return IConst.revenueCatTestAPIKey;

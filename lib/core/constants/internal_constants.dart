@@ -36,8 +36,16 @@ class IConst {
     'REVENUECAT_TEST_API_KEY',
     defaultValue: '',
   );
+  static const String revenueCatAppleAPIKey = String.fromEnvironment(
+    'REVENUECAT_APPLE_API_KEY',
+    defaultValue: '',
+  );
   static const String revenueCatGoogleAPIKey = String.fromEnvironment(
     'REVENUECAT_GOOGLE_API_KEY',
+    defaultValue: '',
+  );
+  static const String revenueCatWebAPIKey = String.fromEnvironment(
+    'REVENUECAT_WEB_API_KEY',
     defaultValue: '',
   );
 }
