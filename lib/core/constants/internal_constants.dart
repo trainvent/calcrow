@@ -48,4 +48,8 @@ class IConst {
     'REVENUECAT_WEB_API_KEY',
     defaultValue: '',
   );
+  static const bool useTestPurchases = bool.fromEnvironment(
+    'USE_TEST_PURCHASES',
+    defaultValue: false,
+  );
 }

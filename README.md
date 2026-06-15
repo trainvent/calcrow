@@ -96,6 +96,10 @@ Run tests:
 flutter test --dart-define-from-file=.env
 ```
 
+Set `USE_TEST_PURCHASES=true` in the active env file only when you want local
+runs to use the RevenueCat test API key. Debug builds otherwise use the same
+platform RevenueCat key as release builds.
+
 Analyze:
 
 ```bash
