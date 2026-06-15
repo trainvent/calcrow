@@ -61,14 +61,14 @@ cloud target.
 ## Project Structure
 
 - `lib/main.dart`: app entry point
-- `lib/features/home/presentation/home_shell.dart`: home shell
-- `lib/features/home/presentation/tabs/Today/today_page.dart`: Today tab and
+- `lib/features/home/home_shell.dart`: home shell
+- `lib/features/home/today/today_page.dart`: Today tab and
   Simple-mode UI
-- `lib/features/home/presentation/sheet_preview_store.dart`: preview state
+- `lib/features/home/sheet/sheet_preview_store.dart`: preview state
 - `lib/core/sheet_type_logic/simple_sheet_file_service.dart`: shared simple file
   parsing/persist helpers
-- `lib/core/sheet_type_logic/csv_logic.dart`: CSV parsing and writing
-- `lib/core/sheet_type_logic/xlsx_logic.dart`: XLSX parsing and writing
+- `lib/core/sheet_type_logic/csv_codec.dart`: CSV parsing and writing
+- `lib/core/sheet_type_logic/xlsx_codec.dart`: XLSX parsing and writing
 - `lib/core/sheet_type_logic/ods_codec.dart`: ODS parsing and writing
 - `lib/core/data/services/simple_local_document_service.dart`: local file picker
   and local document opening
@@ -100,6 +100,12 @@ Analyze:
 
 ```bash
 flutter analyze
+```
+
+Build iOS release archives with the same configured services:
+
+```bash
+./ci_scripts/build_ios.sh
 ```
 
 ## Web Deploy

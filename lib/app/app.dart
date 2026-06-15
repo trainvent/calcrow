@@ -6,10 +6,10 @@ import 'package:flutter/material.dart';
 import '../core/data/di/service_locator.dart';
 import '../core/data/services/auth_service.dart';
 import '../core/data/services/purchases_service.dart';
+import '../features/home/home_shell.dart';
+import '../features/onboarding/onboarding_screen.dart';
 import 'presentation/marketing_landing_page.dart';
 import 'theme/app_theme.dart';
-import '../features/home/presentation/home_shell.dart';
-import '../features/onboarding/presentation/onboarding_screen.dart';
 
 class CalcrowApp extends StatefulWidget {
   const CalcrowApp({super.key});

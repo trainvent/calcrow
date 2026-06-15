@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../../core/data/services/webdav_service.dart';
+import 'package:calcrow/core/data/services/webdav_service.dart';
 
 void showWebDavErrorSnackBar({
   required BuildContext context,

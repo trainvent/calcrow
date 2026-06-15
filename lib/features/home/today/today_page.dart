@@ -6,11 +6,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:calcrow/app/widgets/triangle_loading_indicator.dart';
 import 'package:calcrow/core/data/di/service_locator.dart';
-import 'package:calcrow/features/home/presentation/tabs/Today/advanced/advanced_widgets/notes_widget.dart';
-import 'package:calcrow/features/home/presentation/tabs/Today/advanced/advanced_widgets/row_definement_widget.dart';
-import 'package:calcrow/features/home/presentation/tabs/Today/advanced/advanced_widgets/smart_data_widget.dart';
-import 'package:calcrow/features/home/presentation/tabs/Today/advanced/advanced_widgets/wellbeing_widget.dart';
-import 'package:calcrow/features/home/presentation/tabs/Today/advanced/advanced_widgets/workhours_widget.dart';
+import 'package:calcrow/features/home/today/advanced/widgets/notes_widget.dart';
+import 'package:calcrow/features/home/today/advanced/widgets/row_definement_widget.dart';
+import 'package:calcrow/features/home/today/advanced/widgets/smart_data_widget.dart';
+import 'package:calcrow/features/home/today/advanced/widgets/wellbeing_widget.dart';
+import 'package:calcrow/features/home/today/advanced/widgets/workhours_widget.dart';
 import 'package:calcrow/core/data/services/simple_cloud_document_service.dart';
 import 'package:calcrow/core/data/services/google_drive_sync_service.dart';
 import 'package:calcrow/core/data/services/simple_local_document_service.dart';
@@ -18,10 +18,9 @@ import 'package:calcrow/core/data/services/simple_sheet_persistence_service.dart
 import 'package:calcrow/core/data/services/user_repository.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/simple_sheet_file_service.dart';
-import 'package:calcrow/features/home/presentation/tabs/Today/simple/widgets/select_time_widget.dart';
-import 'package:calcrow/features/home/presentation/tabs/Today/simple/widgets/timespan_widget.dart';
-
-import '../Sheet/sheet_preview_store.dart';
+import 'package:calcrow/features/home/sheet/sheet_preview_store.dart';
+import 'package:calcrow/features/home/today/simple/widgets/select_time_widget.dart';
+import 'package:calcrow/features/home/today/simple/widgets/timespan_widget.dart';
 
 enum _WidgetBlock { rowDefinement, workhours, smartData, wellbeing, notes }
 

@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 
 class SmartDataWidget extends StatelessWidget {
-  const SmartDataWidget({
-    super.key,
-    required this.energyLevel,
-  });
+  const SmartDataWidget({super.key, required this.energyLevel});
 
   final double energyLevel;
 

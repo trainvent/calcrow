@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:calcrow/core/data/services/webdav_service.dart';
-import 'package:calcrow/features/home/presentation/tabs/Settings/webdav_error_presentation.dart';
+import 'package:calcrow/features/home/settings/webdav_error_presentation.dart';
 
 void main() {
   testWidgets(

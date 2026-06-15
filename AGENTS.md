@@ -2,17 +2,17 @@
 
 ## Product Focus
 - Primary UI surface is **Simple mode**.
-- Treat `lib/features/home/presentation/tabs/simple/today_tab_simple.dart` as the default target for feature work.
-- `lib/features/home/presentation/tabs/advanced/today_tab_advanced.dart` is **not a priority**. Only change advanced mode if the user explicitly asks.
+- Treat `lib/features/home/today/today_page.dart` and `lib/features/home/today/simple/` as the default targets for feature work.
+- `lib/features/home/today/advanced/` is **not a priority**. Only change advanced mode if the user explicitly asks.
 
 ## Code Areas That Matter Most
 - App entry: `lib/main.dart`
-- Home shell: `lib/features/home/presentation/home_shell.dart`
-- Today tab selector: `lib/features/home/presentation/tabs/today_tab.dart`
-- Simple editor: `lib/features/home/presentation/tabs/simple/today_tab_simple.dart`
-- Sheet preview store: `lib/features/home/presentation/sheet_preview_store.dart`
-- CSV logic: `lib/core/sheet_type_logic/csv_logic.dart`
-- XLSX logic: `lib/core/sheet_type_logic/xlsx_logic.dart`
+- Home shell: `lib/features/home/home_shell.dart`
+- Today tab selector: `lib/features/home/today/today_tab.dart`
+- Simple editor: `lib/features/home/today/today_page.dart`
+- Sheet preview store: `lib/features/home/sheet/sheet_preview_store.dart`
+- CSV logic: `lib/core/sheet_type_logic/csv_codec.dart`
+- XLSX logic: `lib/core/sheet_type_logic/xlsx_codec.dart`
 - File models: `lib/core/sheet_type_logic/sheet_file_models.dart`
 
 ## Working Rules

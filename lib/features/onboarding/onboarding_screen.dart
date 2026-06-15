@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../auth/presentation/sign_in_sheet.dart';
+import 'package:calcrow/features/auth/sign_in_sheet.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key, required this.onComplete});
@@ -47,7 +47,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (!mounted) return;
     if (done ?? false) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Signed in. You can continue using the app.')),
+        const SnackBar(
+          content: Text('Signed in. You can continue using the app.'),
+        ),
       );
     }
   }

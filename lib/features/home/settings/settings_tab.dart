@@ -6,20 +6,21 @@ import 'package:http/http.dart' as http;
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:saf_util/saf_util.dart';
 
-import '../../../../../core/data/di/service_locator.dart';
-import '../../../../../core/data/services/auth_service.dart';
-import '../../../../../core/data/services/google_drive_auth_service.dart';
-import '../../../../../core/data/services/google_drive_sync_service.dart';
-import '../../../../../core/data/services/purchases_service.dart';
-import '../../../../../core/data/services/simple_sheet_persistence_service.dart';
-import '../../../../../core/data/services/user_repository.dart';
-import '../../../../../core/data/services/webdav_service.dart';
+import 'package:calcrow/app/presentation/web_link_opener_stub.dart'
+    if (dart.library.html) 'package:calcrow/app/presentation/web_link_opener_web.dart';
+import 'package:calcrow/core/constants/internal_constants.dart';
+import 'package:calcrow/core/data/di/service_locator.dart';
+import 'package:calcrow/core/data/services/auth_service.dart';
+import 'package:calcrow/core/data/services/google_drive_auth_service.dart';
+import 'package:calcrow/core/data/services/google_drive_sync_service.dart';
+import 'package:calcrow/core/data/services/purchases_service.dart';
+import 'package:calcrow/core/data/services/simple_sheet_persistence_service.dart';
+import 'package:calcrow/core/data/services/user_repository.dart';
+import 'package:calcrow/core/data/services/webdav_service.dart';
+import 'package:calcrow/features/auth/sign_in_sheet.dart';
+
 import 'data_collection_page.dart';
 import 'webdav_error_presentation.dart';
-import '../../../../auth/presentation/sign_in_sheet.dart';
-import '../../../../../app/presentation/web_link_opener_stub.dart'
-    if (dart.library.html) '../../../../../app/presentation/web_link_opener_web.dart';
-import '../../../../../core/constants/internal_constants.dart';
 
 class SettingsTab extends StatefulWidget {
   const SettingsTab({super.key});
@@ -168,7 +169,7 @@ class _SettingsTabState extends State<SettingsTab> {
                             const Divider(height: 1),
                             ListTile(
                               leading: const Icon(Icons.link_rounded),
-                              title: const Text('Link Google account'),
+                              title: const Text('Connect Google Drive'),
                               subtitle: Text(_googleDriveSubtitle(settings)),
                               trailing: _isLinkingGoogle
                                   ? const SizedBox(
@@ -393,13 +394,13 @@ class _SettingsTabState extends State<SettingsTab> {
   String _googleDriveSubtitle(UserSettingsData? settings) {
     final linked = _isGoogleDriveLinked(settings);
     if (!linked) {
-      return 'Sign in with Google and grant Drive read/write permissions.';
+      return 'Grant Drive read/write permissions for cloud document sync.';
     }
     final email = settings?.googleDriveEmail;
     if (email != null && email.isNotEmpty) {
       return 'Linked as $email';
     }
-    return 'Google Drive connected';
+    return 'Connected to Google Drive';
   }
 
   String _webDavSubtitle(UserSettingsData? settings) {
@@ -504,11 +505,11 @@ class _SettingsTabState extends State<SettingsTab> {
               .linkAccount();
         } on GoogleDriveAuthException catch (error) {
           throw GoogleDriveAuthException(
-            'Sign-in step failed: ${error.message}',
+            'Google Drive authorization failed: ${error.message}',
           );
         }
 
-        late final http.Client client;
+        http.Client? client;
         try {
           client = await ServiceLocator.googleDriveAuthService
               .getAuthenticatedClient();
@@ -517,7 +518,7 @@ class _SettingsTabState extends State<SettingsTab> {
             'Authenticated client step failed: ${error.message}',
           );
         } finally {
-          client.close();
+          client?.close();
         }
         await ServiceLocator.userRepository.setGoogleDriveLinked(
           uid: uid,
@@ -527,7 +528,7 @@ class _SettingsTabState extends State<SettingsTab> {
         messenger.showSnackBar(
           SnackBar(
             content: Text(
-              'Google linked: ${linkResult.email}. Choose a Drive file next.',
+              'Google Drive connected: ${linkResult.email}. Choose a Drive file next.',
             ),
           ),
         );

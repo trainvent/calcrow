@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/data/di/service_locator.dart';
-import '../../../core/data/services/purchases_service.dart';
+import 'package:calcrow/core/data/di/service_locator.dart';
+import 'package:calcrow/core/data/services/purchases_service.dart';
+
 import 'free_mode_bottom_tile.dart';
-import 'tabs/Settings/settings_tab.dart';
-import 'tabs/Sheet/sheet_preview_tab.dart';
-import 'tabs/Today/today_tab.dart';
+import 'settings/settings_tab.dart';
+import 'sheet/sheet_preview_tab.dart';
+import 'today/today_tab.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});

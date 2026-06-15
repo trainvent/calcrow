@@ -5,8 +5,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/data/di/service_locator.dart';
-import '../../../core/data/services/auth_service.dart';
+import 'package:calcrow/core/data/di/service_locator.dart';
+import 'package:calcrow/core/data/services/auth_service.dart';
 
 enum _AuthStep {
   signIn,
@@ -99,10 +99,8 @@ class _SignInSheetState extends State<SignInSheet> {
     });
 
     try {
-      final session = await ServiceLocator.authService.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      final session = await ServiceLocator.authService
+          .signInWithEmailAndPassword(email: email, password: password);
       await ServiceLocator.dbService.createUserIfMissing(
         uid: session.uid,
         email: session.email,
@@ -136,7 +134,9 @@ class _SignInSheetState extends State<SignInSheet> {
     final confirm = _confirmPasswordController.text.trim();
 
     if (email.isEmpty || password.isEmpty || confirm.isEmpty) {
-      setState(() => _errorText = 'Email, password and confirmation are required.');
+      setState(
+        () => _errorText = 'Email, password and confirmation are required.',
+      );
       return;
     }
     if (password != confirm) {
@@ -216,7 +216,9 @@ class _SignInSheetState extends State<SignInSheet> {
     final uid = _pendingUid;
     final code = _codeController.text.trim();
     if (uid == null) {
-      setState(() => _errorText = 'Missing verification context. Sign in again.');
+      setState(
+        () => _errorText = 'Missing verification context. Sign in again.',
+      );
       return;
     }
     if (code.length != 6) {
@@ -266,7 +268,9 @@ class _SignInSheetState extends State<SignInSheet> {
     final uid = _pendingUid;
     final email = _pendingEmail;
     if (uid == null || email == null) {
-      setState(() => _errorText = 'Missing verification context. Sign in again.');
+      setState(
+        () => _errorText = 'Missing verification context. Sign in again.',
+      );
       return;
     }
 
@@ -354,7 +358,9 @@ class _SignInSheetState extends State<SignInSheet> {
       return;
     }
     if (newPassword.isEmpty || confirmPassword.isEmpty) {
-      setState(() => _errorText = 'New password and confirmation are required.');
+      setState(
+        () => _errorText = 'New password and confirmation are required.',
+      );
       return;
     }
     if (newPassword.length < 6) {
@@ -443,7 +449,9 @@ class _SignInSheetState extends State<SignInSheet> {
                   controller: _confirmPasswordController,
                   obscureText: true,
                   autofillHints: const [AutofillHints.password],
-                  decoration: const InputDecoration(labelText: 'Confirm password'),
+                  decoration: const InputDecoration(
+                    labelText: 'Confirm password',
+                  ),
                 ),
               ],
               if (_step == _AuthStep.verifyEmail) ...[
@@ -686,7 +694,9 @@ class _SignInSheetState extends State<SignInSheet> {
         return 'Too many attempts. Try again later.';
       default:
         final message = error.message?.trim();
-        if (message == null || message.isEmpty || message.toLowerCase() == 'error') {
+        if (message == null ||
+            message.isEmpty ||
+            message.toLowerCase() == 'error') {
           return 'Authentication failed (${error.code}).';
         }
         return '$message (${error.code})';
@@ -703,7 +713,9 @@ class _SignInSheetState extends State<SignInSheet> {
         return 'Network error. Check connection and try again.';
       default:
         final message = error.message?.trim();
-        if (message == null || message.isEmpty || message.toLowerCase() == 'error') {
+        if (message == null ||
+            message.isEmpty ||
+            message.toLowerCase() == 'error') {
           return 'Request failed (${error.code}).';
         }
         return '$message (${error.code})';

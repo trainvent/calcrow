@@ -37,6 +37,7 @@ class PurchasesService {
   EntitlementTier get currentTier => _currentTier;
 
   bool _isInitialized = false;
+  String? _initFailureMessage;
   String? _appUserId;
   String? _appUserEmail;
   Set<String> _defaultProEmails = <String>{};
@@ -53,16 +54,29 @@ class PurchasesService {
       _setTier(EntitlementTier.pro);
     }
     final trimmedApiKey = apiKey.trim();
-    if (kIsWeb || trimmedApiKey.isEmpty) return;
-    await Purchases.setLogLevel(LogLevel.debug);
-    await Purchases.configure(
-      PurchasesConfiguration(trimmedApiKey)..appUserID = appUserId,
-    );
-    _appUserId = appUserId;
-    _isInitialized = true;
-    Purchases.addCustomerInfoUpdateListener(_onCustomerInfoUpdated);
-    final customerInfo = await Purchases.getCustomerInfo();
-    _onCustomerInfoUpdated(customerInfo);
+    if (kIsWeb) return;
+    if (trimmedApiKey.isEmpty) {
+      _initFailureMessage =
+          'Purchases are unavailable in this build. The App Store build is missing its purchase configuration.';
+      return;
+    }
+    try {
+      await Purchases.setLogLevel(LogLevel.debug);
+      await Purchases.configure(
+        PurchasesConfiguration(trimmedApiKey)..appUserID = appUserId,
+      );
+      _appUserId = appUserId;
+      _isInitialized = true;
+      _initFailureMessage = null;
+      Purchases.addCustomerInfoUpdateListener(_onCustomerInfoUpdated);
+      final customerInfo = await Purchases.getCustomerInfo();
+      _onCustomerInfoUpdated(customerInfo);
+    } catch (error, stackTrace) {
+      log('Purchases init failed: $error\n$stackTrace');
+      _initFailureMessage =
+          'Purchases are temporarily unavailable. Please try again later.';
+      rethrow;
+    }
   }
 
   Future<void> syncAppUser(String? uid, {String? email}) async {
@@ -108,8 +122,9 @@ class PurchasesService {
       );
     }
     if (!_isInitialized) {
-      throw const PurchasesServiceException(
-        'RevenueCat is not initialized for this build.',
+      throw PurchasesServiceException(
+        _initFailureMessage ??
+            'Purchases are unavailable in this build. Please update the app and try again.',
       );
     }
     try {
@@ -117,12 +132,12 @@ class PurchasesService {
       final offering = offerings.current;
       if (offering == null) {
         throw const PurchasesServiceException(
-          'No current RevenueCat offering is configured. Set one in the RevenueCat dashboard first.',
+          'Purchases are unavailable right now. Please try again later.',
         );
       }
       if (offering.availablePackages.isEmpty) {
-        throw PurchasesServiceException(
-          'The current RevenueCat offering "${offering.identifier}" has no packages.',
+        throw const PurchasesServiceException(
+          'Purchases are unavailable right now. Please try again later.',
         );
       }
 
@@ -133,7 +148,9 @@ class PurchasesService {
       rethrow;
     } catch (error, stackTrace) {
       log('presentPaywall error: $error\n$stackTrace');
-      throw PurchasesServiceException('Could not open paywall: $error');
+      throw const PurchasesServiceException(
+        'Could not open subscription options. Please try again later.',
+      );
     }
   }
 
@@ -144,8 +161,9 @@ class PurchasesService {
       );
     }
     if (!_isInitialized) {
-      throw const PurchasesServiceException(
-        'RevenueCat is not initialized for this build.',
+      throw PurchasesServiceException(
+        _initFailureMessage ??
+            'Purchases are unavailable in this build. Please update the app and try again.',
       );
     }
     try {
@@ -155,8 +173,8 @@ class PurchasesService {
       await refreshCustomerInfo();
     } catch (error, stackTrace) {
       log('presentCustomerCenter error: $error\n$stackTrace');
-      throw PurchasesServiceException(
-        'Could not open subscription center: $error',
+      throw const PurchasesServiceException(
+        'Could not open subscription options. Please try again later.',
       );
     }
   }

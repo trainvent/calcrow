@@ -1,5 +1,5 @@
 import 'package:calcrow/core/data/services/purchases_service.dart';
-import 'package:calcrow/features/home/presentation/free_mode_bottom_tile.dart';
+import 'package:calcrow/features/home/free_mode_bottom_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

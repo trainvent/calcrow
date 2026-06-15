@@ -41,7 +41,9 @@ class GoogleDriveAuthService {
       final signIn = _googleSignIn ??= _buildGoogleSignIn();
       final account = await signIn.signIn();
       if (account == null) {
-        throw const GoogleDriveAuthException('Google sign-in was canceled.');
+        throw const GoogleDriveAuthException(
+          'Google Drive authorization was canceled.',
+        );
       }
       final auth = await account.authentication;
       final token = auth.accessToken;
@@ -60,7 +62,7 @@ class GoogleDriveAuthService {
     } catch (error) {
       if (error is GoogleDriveAuthException) rethrow;
       throw GoogleDriveAuthException(
-        'Google sign-in failed (${error.runtimeType}): $error',
+        'Google Drive authorization failed (${error.runtimeType}): $error',
       );
     }
   }
@@ -73,7 +75,7 @@ class GoogleDriveAuthService {
       account ??= await signIn.signIn();
       if (account == null) {
         throw const GoogleDriveAuthException(
-          'Google account is not linked in this session. Sign in to Google Drive again to refresh access.',
+          'Google Drive is not connected in this session. Connect Google Drive again to refresh access.',
         );
       }
       final headers = await account.authHeaders;

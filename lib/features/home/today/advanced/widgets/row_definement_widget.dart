@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 
 class RowDefinementWidget extends StatelessWidget {
-  const RowDefinementWidget({
-    super.key,
-    required this.dateController,
-  });
+  const RowDefinementWidget({super.key, required this.dateController});
 
   final TextEditingController dateController;
 

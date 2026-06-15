@@ -1,5 +1,5 @@
 import 'package:calcrow/app/app.dart';
-import 'package:calcrow/features/onboarding/presentation/onboarding_screen.dart';
+import 'package:calcrow/features/onboarding/onboarding_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

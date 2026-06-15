@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-import '../../../../../app/presentation/web_link_opener_stub.dart'
-    if (dart.library.html) '../../../../../app/presentation/web_link_opener_web.dart';
-import '../../../../../core/constants/internal_constants.dart';
-import '../../../../../core/data/di/service_locator.dart';
-import '../../../../../core/data/services/purchases_service.dart';
+import 'package:calcrow/app/presentation/web_link_opener_stub.dart'
+    if (dart.library.html) 'package:calcrow/app/presentation/web_link_opener_web.dart';
+import 'package:calcrow/core/constants/internal_constants.dart';
+import 'package:calcrow/core/data/di/service_locator.dart';
+import 'package:calcrow/core/data/services/purchases_service.dart';
 
 class DataCollectionPage extends StatefulWidget {
   const DataCollectionPage({super.key});

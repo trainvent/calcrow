@@ -42,8 +42,9 @@ class SelectTimeWidget extends StatelessWidget {
   TimeOfDay? _parseTime(String value) {
     if (value.isEmpty) return null;
 
-    final baseMatch = RegExp(r'^(\d{1,2}):(\d{2})(?::(\d{2}))?$')
-        .firstMatch(value);
+    final baseMatch = RegExp(
+      r'^(\d{1,2}):(\d{2})(?::(\d{2}))?$',
+    ).firstMatch(value);
     if (baseMatch != null) {
       final hour = int.tryParse(baseMatch.group(1) ?? '');
       final minute = int.tryParse(baseMatch.group(2) ?? '');
@@ -52,9 +53,10 @@ class SelectTimeWidget extends StatelessWidget {
       return TimeOfDay(hour: hour, minute: minute);
     }
 
-    final amPmMatch = RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)$',
-            caseSensitive: false)
-        .firstMatch(value);
+    final amPmMatch = RegExp(
+      r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)$',
+      caseSensitive: false,
+    ).firstMatch(value);
     if (amPmMatch != null) {
       var hour = int.tryParse(amPmMatch.group(1) ?? '');
       final minute = int.tryParse(amPmMatch.group(2) ?? '');

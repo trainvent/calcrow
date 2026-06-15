@@ -4,9 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-import '../../../core/constants/internal_constants.dart';
-import '../../../core/data/di/service_locator.dart';
-import '../../../core/data/services/purchases_service.dart';
+import 'package:calcrow/core/constants/internal_constants.dart';
+import 'package:calcrow/core/data/di/service_locator.dart';
+import 'package:calcrow/core/data/services/purchases_service.dart';
 
 class FreeModeBottomTile extends StatelessWidget {
   const FreeModeBottomTile({
