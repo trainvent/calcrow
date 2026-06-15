@@ -4,30 +4,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('guest startup shows onboarding before entering the app', (
+  testWidgets('signed-out startup shows account-gated onboarding', (
     tester,
   ) async {
     await tester.pumpWidget(const CalcrowApp());
 
     expect(find.text('Track workdays in under a minute'), findsOneWidget);
-    expect(find.text('Skip for now'), findsOneWidget);
+    expect(find.text('Skip for now'), findsNothing);
   });
 
-  testWidgets('onboarding skip action completes onboarding', (tester) async {
-    var completed = false;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: OnboardingScreen(
-          onComplete: () {
-            completed = true;
-          },
-        ),
-      ),
-    );
+  testWidgets('onboarding requires sign in on final page', (tester) async {
+    await tester.pumpWidget(MaterialApp(home: const OnboardingScreen()));
 
-    await tester.tap(find.text('Skip for now'));
-    await tester.pump();
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
 
-    expect(completed, isTrue);
+    expect(find.text('Sign in or create account'), findsOneWidget);
+    expect(find.text('Start without account'), findsNothing);
   });
 }

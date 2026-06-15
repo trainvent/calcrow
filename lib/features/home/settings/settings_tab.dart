@@ -61,8 +61,8 @@ class _SettingsTabState extends State<SettingsTab> {
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.person_outline_rounded),
-                  title: const Text('Using guest mode'),
-                  subtitle: const Text('Sign in is optional and enables sync.'),
+                  title: const Text('Signed out'),
+                  subtitle: const Text('Sign in to use Calcrow.'),
                   trailing: TextButton(
                     onPressed: () => _openSignInSheet(context),
                     child: const Text('Sign in'),
@@ -108,7 +108,7 @@ class _SettingsTabState extends State<SettingsTab> {
                     const Padding(
                       padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
                       child: Text(
-                        'Guest mode stores SAF folder only for this app session.',
+                        'Sign in to save this Android folder setting to your account.',
                       ),
                     ),
                   ],

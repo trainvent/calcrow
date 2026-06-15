@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:calcrow/features/auth/sign_in_sheet.dart';
 
 class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({super.key, required this.onComplete});
-
-  final VoidCallback onComplete;
+  const OnboardingScreen({super.key});
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -47,15 +45,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (!mounted) return;
     if (done ?? false) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Signed in. You can continue using the app.'),
-        ),
+        const SnackBar(content: Text('Signed in. Welcome to Calcrow.')),
       );
     }
-  }
-
-  void _continueWithoutAccount() {
-    widget.onComplete();
   }
 
   @override
@@ -77,13 +69,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
             child: Column(
               children: [
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: _continueWithoutAccount,
-                    child: const Text('Skip for now'),
-                  ),
-                ),
+                const SizedBox(height: 44),
                 Expanded(
                   child: PageView.builder(
                     controller: _controller,
@@ -123,21 +109,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     child: const Text('Continue'),
                   ),
                 if (isLast)
-                  Column(
-                    children: [
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _continueWithoutAccount,
-                          child: const Text('Start without account'),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextButton(
-                        onPressed: _openAuthSheet,
-                        child: const Text('Sign in or create account'),
-                      ),
-                    ],
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _openAuthSheet,
+                      child: const Text('Sign in or create account'),
+                    ),
                   ),
               ],
             ),

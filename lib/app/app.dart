@@ -19,7 +19,6 @@ class CalcrowApp extends StatefulWidget {
 }
 
 class _CalcrowAppState extends State<CalcrowApp> {
-  bool _didCompleteOnboarding = false;
   StreamSubscription<AuthSession?>? _authSubscription;
   StreamSubscription<EntitlementTier>? _entitlementSubscription;
   String? _currentRevenueCatUid;
@@ -80,41 +79,17 @@ class _CalcrowAppState extends State<CalcrowApp> {
           child: _WebSelectionHost(
             child: _DiagnosticsConsentHost(
               enabled: !_showMarketingLanding(),
-              child: _AppEntry(
-                didCompleteOnboarding: _didCompleteOnboarding,
-                onCompleteOnboarding: _completeOnboarding,
-              ),
+              child: _AppEntry(isSignedIn: false),
             ),
           ),
         ),
       );
     }
 
-    return StreamBuilder<AuthSession?>(
-      stream: ServiceLocator.authService.authStateChanges(),
-      initialData: ServiceLocator.authService.currentSession,
-      builder: (context, snapshot) {
-        final session = snapshot.data;
-        if (session == null) {
-          return _buildMaterialApp(isSignedIn: false);
-        }
-        if (session.emailVerified) {
-          return _buildMaterialApp(isSignedIn: true);
-        }
-
-        return StreamBuilder<bool>(
-          stream: ServiceLocator.dbService.watchUserEmailVerified(session.uid),
-          initialData: false,
-          builder: (context, verificationSnapshot) {
-            final isSignedIn = verificationSnapshot.data ?? false;
-            return _buildMaterialApp(isSignedIn: isSignedIn);
-          },
-        );
-      },
-    );
+    return _buildMaterialApp(child: const _AuthGate());
   }
 
-  Widget _buildMaterialApp({required bool isSignedIn}) {
+  Widget _buildMaterialApp({required Widget child}) {
     return MaterialApp(
       title: 'Calcrow',
       debugShowCheckedModeBanner: false,
@@ -124,11 +99,7 @@ class _CalcrowAppState extends State<CalcrowApp> {
         child: _WebSelectionHost(
           child: _DiagnosticsConsentHost(
             enabled: !_showMarketingLanding(),
-            child: _AppEntry(
-              isSignedIn: isSignedIn,
-              didCompleteOnboarding: _didCompleteOnboarding,
-              onCompleteOnboarding: _completeOnboarding,
-            ),
+            child: child,
           ),
         ),
       ),
@@ -144,11 +115,35 @@ class _CalcrowAppState extends State<CalcrowApp> {
     if (wantsApp) return false;
     return path.isEmpty || path == '/';
   }
+}
 
-  void _completeOnboarding() {
-    setState(() {
-      _didCompleteOnboarding = true;
-    });
+class _AuthGate extends StatelessWidget {
+  const _AuthGate();
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<AuthSession?>(
+      stream: ServiceLocator.authService.authStateChanges(),
+      initialData: ServiceLocator.authService.currentSession,
+      builder: (context, snapshot) {
+        final session = snapshot.data;
+        if (session == null) {
+          return const _AppEntry(isSignedIn: false);
+        }
+        if (session.emailVerified) {
+          return const _AppEntry(isSignedIn: true);
+        }
+
+        return StreamBuilder<bool>(
+          stream: ServiceLocator.dbService.watchUserEmailVerified(session.uid),
+          initialData: false,
+          builder: (context, verificationSnapshot) {
+            final isSignedIn = verificationSnapshot.data ?? false;
+            return _AppEntry(isSignedIn: isSignedIn);
+          },
+        );
+      },
+    );
   }
 }
 
@@ -214,22 +209,16 @@ class _AdsConsentHostState extends State<_AdsConsentHost> {
 }
 
 class _AppEntry extends StatelessWidget {
-  const _AppEntry({
-    required this.didCompleteOnboarding,
-    required this.onCompleteOnboarding,
-    this.isSignedIn = false,
-  });
+  const _AppEntry({required this.isSignedIn});
 
   final bool isSignedIn;
-  final bool didCompleteOnboarding;
-  final VoidCallback onCompleteOnboarding;
 
   @override
   Widget build(BuildContext context) {
-    if (isSignedIn || didCompleteOnboarding) {
+    if (isSignedIn) {
       return const HomeShell();
     }
-    return OnboardingScreen(onComplete: onCompleteOnboarding);
+    return const OnboardingScreen();
   }
 }
 

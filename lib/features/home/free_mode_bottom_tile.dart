@@ -7,6 +7,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:calcrow/core/constants/internal_constants.dart';
 import 'package:calcrow/core/data/di/service_locator.dart';
 import 'package:calcrow/core/data/services/purchases_service.dart';
+import 'package:calcrow/features/auth/sign_in_sheet.dart';
 
 class FreeModeBottomTile extends StatelessWidget {
   const FreeModeBottomTile({
@@ -381,10 +382,14 @@ class _PromoUpgradeTile extends StatelessWidget {
     return () async {
       final messenger = ScaffoldMessenger.of(context);
       final session = ServiceLocator.authService.currentSession;
+      if (session == null) {
+        await showSignInSheet<bool>(context);
+        return;
+      }
       try {
         await PurchasesService.instance.syncAppUser(
-          session?.uid,
-          email: session?.email,
+          session.uid,
+          email: session.email,
         );
         await PurchasesService.instance.presentPaywall();
       } on PurchasesServiceException catch (error) {
