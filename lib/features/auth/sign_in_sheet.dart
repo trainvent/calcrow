@@ -5,6 +5,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'package:calcrow/app/presentation/web_link_opener_stub.dart'
+    if (dart.library.html) 'package:calcrow/app/presentation/web_link_opener_web.dart';
+import 'package:calcrow/core/constants/internal_constants.dart';
 import 'package:calcrow/core/data/di/service_locator.dart';
 import 'package:calcrow/core/data/services/auth_service.dart';
 
@@ -71,6 +74,7 @@ class _SignInSheetState extends State<SignInSheet> {
   String? _pendingEmail;
   String? _debugCode;
   bool _isUsingLocalDebugVerification = false;
+  bool _acceptedLegalTerms = false;
 
   @override
   void dispose() {
@@ -145,6 +149,13 @@ class _SignInSheetState extends State<SignInSheet> {
     }
     if (password.length < 6) {
       setState(() => _errorText = 'Password must be at least 6 characters.');
+      return;
+    }
+    if (!_acceptedLegalTerms) {
+      setState(
+        () => _errorText =
+            'Accept the Terms of Use and Privacy Policy to create an account.',
+      );
       return;
     }
 
@@ -453,6 +464,22 @@ class _SignInSheetState extends State<SignInSheet> {
                     labelText: 'Confirm password',
                   ),
                 ),
+                const SizedBox(height: 10),
+                _LegalAgreementControl(
+                  value: _acceptedLegalTerms,
+                  onChanged: _isLoading
+                      ? null
+                      : (value) {
+                          setState(() {
+                            _acceptedLegalTerms = value ?? false;
+                            if (_acceptedLegalTerms &&
+                                _errorText ==
+                                    'Accept the Terms of Use and Privacy Policy to create an account.') {
+                              _errorText = null;
+                            }
+                          });
+                        },
+                ),
               ],
               if (_step == _AuthStep.verifyEmail) ...[
                 TextField(
@@ -562,6 +589,7 @@ class _SignInSheetState extends State<SignInSheet> {
                           _errorText = null;
                           _debugCode = null;
                           _codeController.clear();
+                          _acceptedLegalTerms = false;
                         }),
                   child: const Text('I already have an account'),
                 ),
@@ -750,6 +778,59 @@ class _SignInSheetState extends State<SignInSheet> {
       return 'FirebaseException(plugin: ${error.plugin}, code: ${error.code}, message: $message)';
     }
     return error.toString();
+  }
+}
+
+class _LegalAgreementControl extends StatelessWidget {
+  const _LegalAgreementControl({required this.value, required this.onChanged});
+
+  final bool value;
+  final ValueChanged<bool?>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CheckboxListTile(
+              value: value,
+              onChanged: onChanged,
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: const Text(
+                'I agree to the Terms of Use and Privacy Policy.',
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  TextButton(
+                    onPressed: () => openExternalUrl(IConst.termsOfUseUrl),
+                    child: const Text('Terms of Use'),
+                  ),
+                  TextButton(
+                    onPressed: () => openExternalUrl(IConst.privacyPolicyUrl),
+                    child: const Text('Privacy Policy'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

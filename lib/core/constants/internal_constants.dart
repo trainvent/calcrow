@@ -8,6 +8,11 @@ class IConst {
     'PRIVACY_POLICY_ADS_URL',
     defaultValue: 'https://calcrow.com/privacy-policy-ads/',
   );
+  static const String termsOfUseUrl = String.fromEnvironment(
+    'TERMS_OF_USE_URL',
+    defaultValue:
+        'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
+  );
   static const String deleteAccountUrl = String.fromEnvironment(
     'DELETE_ACCOUNT_URL',
     defaultValue: 'https://calcrow.com/delete-account/',

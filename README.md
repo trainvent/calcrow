@@ -100,6 +100,11 @@ Set `USE_TEST_PURCHASES=true` in the active env file only when you want local
 runs to use the RevenueCat test API key. Debug builds otherwise use the same
 platform RevenueCat key as release builds.
 
+For App Store subscription review, keep `PRIVACY_POLICY_URL` and
+`TERMS_OF_USE_URL` functional, add both links to the RevenueCat paywall, and
+mirror those links in App Store Connect metadata. The default Terms URL is
+Apple's standard EULA.
+
 Analyze:
 
 ```bash
