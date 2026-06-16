@@ -10,8 +10,7 @@ class IConst {
   );
   static const String termsOfUseUrl = String.fromEnvironment(
     'TERMS_OF_USE_URL',
-    defaultValue:
-        'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
+    defaultValue: 'https://calcrow.com/terms-of-use/',
   );
   static const String deleteAccountUrl = String.fromEnvironment(
     'DELETE_ACCOUNT_URL',

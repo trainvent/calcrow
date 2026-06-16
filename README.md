@@ -102,8 +102,7 @@ platform RevenueCat key as release builds.
 
 For App Store subscription review, keep `PRIVACY_POLICY_URL` and
 `TERMS_OF_USE_URL` functional, add both links to the RevenueCat paywall, and
-mirror those links in App Store Connect metadata. The default Terms URL is
-Apple's standard EULA.
+mirror those links in App Store Connect metadata.
 
 Analyze:
 

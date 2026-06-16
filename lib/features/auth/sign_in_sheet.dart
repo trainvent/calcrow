@@ -154,7 +154,7 @@ class _SignInSheetState extends State<SignInSheet> {
     if (!_acceptedLegalTerms) {
       setState(
         () => _errorText =
-            'Accept the Terms of Use and Privacy Policy to create an account.',
+            'Accept the Terms of Use, Privacy Policy, and Ads Privacy Policy to create an account.',
       );
       return;
     }
@@ -474,7 +474,7 @@ class _SignInSheetState extends State<SignInSheet> {
                             _acceptedLegalTerms = value ?? false;
                             if (_acceptedLegalTerms &&
                                 _errorText ==
-                                    'Accept the Terms of Use and Privacy Policy to create an account.') {
+                                    'Accept the Terms of Use, Privacy Policy, and Ads Privacy Policy to create an account.') {
                               _errorText = null;
                             }
                           });
@@ -807,7 +807,7 @@ class _LegalAgreementControl extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               dense: true,
               title: const Text(
-                'I agree to the Terms of Use and Privacy Policy.',
+                'I agree to the Terms of Use, Privacy Policy, and Ads Privacy Policy.',
               ),
             ),
             Padding(
@@ -823,6 +823,11 @@ class _LegalAgreementControl extends StatelessWidget {
                   TextButton(
                     onPressed: () => openExternalUrl(IConst.privacyPolicyUrl),
                     child: const Text('Privacy Policy'),
+                  ),
+                  TextButton(
+                    onPressed: () =>
+                        openExternalUrl(IConst.privacyPolicyAdsUrl),
+                    child: const Text('Ads Privacy'),
                   ),
                 ],
               ),
