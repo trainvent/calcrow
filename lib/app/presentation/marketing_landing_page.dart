@@ -208,26 +208,6 @@ class _HeroCopy extends StatelessWidget {
             spacing: 12,
             runSpacing: 12,
             children: <Widget>[
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  ElevatedButton(
-                    onPressed: () =>
-                        openSameTabUrl(MarketingLandingPage.webClientPath),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8),
-                      child: Text('Open web client'),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Web client cannot edit local files.',
-                    style: theme.textTheme.bodySmall,
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
               InkWell(
                 onTap: () => openExternalUrl(MarketingLandingPage.playStoreUrl),
                 child: kIsWeb
