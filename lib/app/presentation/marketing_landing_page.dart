@@ -10,7 +10,8 @@ class MarketingLandingPage extends StatelessWidget {
 
   static const String playStoreUrl =
       'https://play.google.com/store/apps/details?id=de.lemarq.calcrow';
-  static const String appStoreUrl = '';
+  static const String appStoreUrl =
+      'https://apps.apple.com/us/app/calcrow/id6760388420';
   static const String webClientPath = '/?app=1';
 
   @override
@@ -236,6 +237,18 @@ class _HeroCopy extends StatelessWidget {
                       )
                     : SvgPicture.asset(
                         'assets/store-badges/google-play-en.svg',
+                        height: 56,
+                      ),
+              ),
+              InkWell(
+                onTap: () => openExternalUrl(MarketingLandingPage.appStoreUrl),
+                child: kIsWeb
+                    ? SvgPicture.network(
+                        'public/store-badges/app-store-en.svg',
+                        height: 56,
+                      )
+                    : SvgPicture.asset(
+                        'assets/store-badges/app-store-en.svg',
                         height: 56,
                       ),
               ),
