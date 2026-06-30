@@ -166,6 +166,32 @@ class SimpleCloudDocumentService {
     };
   }
 
+  Future<CloudFileMetadata> createDocument({
+    required String fileName,
+    required Uint8List bytes,
+    required String mimeType,
+    String? parentFolderId,
+  }) async {
+    final session = _requireSession();
+    final settings = await _userRepository.getUserSettings(session.uid);
+    final provider = _requireProvider(settings);
+    return switch (provider) {
+      CloudSyncProvider.googleDrive => _createGoogleDriveDocument(
+        fileName: fileName,
+        bytes: bytes,
+        mimeType: mimeType,
+        parentFolderId: parentFolderId,
+      ),
+      CloudSyncProvider.webDav => _createWebDavDocument(
+        sessionUid: session.uid,
+        fileName: fileName,
+        bytes: bytes,
+        mimeType: mimeType,
+        parentFolderPath: parentFolderId,
+      ),
+    };
+  }
+
   Future<CloudSimpleDocumentOpenResult> openDocument({
     required CloudFileMetadata file,
     required ParseSimpleSheetData parseSheetData,
@@ -399,6 +425,70 @@ class SimpleCloudDocumentService {
           utf8.encode('Date,Start,End,Break (min),Notes\n'),
         ),
         mimeType: 'text/csv',
+      );
+    } on WebDavException catch (error) {
+      throw CloudSimpleDocumentException(error.message);
+    }
+    return CloudFileMetadata(
+      provider: CloudSyncProvider.webDav,
+      id: file.path,
+      name: file.name,
+      mimeType: file.mimeType,
+      modifiedTime: file.modifiedTime,
+    );
+  }
+
+  Future<CloudFileMetadata> _createGoogleDriveDocument({
+    required String fileName,
+    required Uint8List bytes,
+    required String mimeType,
+    String? parentFolderId,
+  }) async {
+    final client = await _googleDriveAuthService.getAuthenticatedClient();
+    try {
+      final file = await _googleDriveSyncService.createSyncFile(
+        authenticatedClient: client,
+        fileName: fileName,
+        bytes: bytes,
+        mimeType: mimeType,
+        parentFolderId: parentFolderId,
+      );
+      return CloudFileMetadata(
+        provider: CloudSyncProvider.googleDrive,
+        id: file.id,
+        name: file.name,
+        mimeType: file.mimeType,
+        modifiedTime: file.modifiedTime,
+      );
+    } on GoogleDriveAuthException catch (error) {
+      throw CloudSimpleDocumentException(error.message);
+    } on GoogleDriveSyncException catch (error) {
+      throw CloudSimpleDocumentException(error.message);
+    } finally {
+      client.close();
+    }
+  }
+
+  Future<CloudFileMetadata> _createWebDavDocument({
+    required String sessionUid,
+    required String fileName,
+    required Uint8List bytes,
+    required String mimeType,
+    String? parentFolderPath,
+  }) async {
+    await _restoreWebDavCredentialsIfNeeded(sessionUid);
+    final relativePath = [
+      if (parentFolderPath != null && parentFolderPath.trim().isNotEmpty)
+        parentFolderPath.trim().replaceAll(RegExp(r'/+$'), ''),
+      fileName,
+    ].join('/');
+    late final WebDavFileMetadata file;
+    try {
+      file = await _webDavService.uploadFileBytes(
+        uid: sessionUid,
+        relativePath: relativePath,
+        bytes: bytes,
+        mimeType: mimeType,
       );
     } on WebDavException catch (error) {
       throw CloudSimpleDocumentException(error.message);

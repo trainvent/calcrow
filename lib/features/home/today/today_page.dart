@@ -19,12 +19,17 @@ import 'package:calcrow/core/data/services/user_repository.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/simple_sheet_file_service.dart';
 import 'package:calcrow/features/home/sheet/sheet_preview_store.dart';
+import 'package:calcrow/features/home/today/simple/create_doc_page.dart';
 import 'package:calcrow/features/home/today/simple/widgets/select_time_widget.dart';
 import 'package:calcrow/features/home/today/simple/widgets/timespan_widget.dart';
 
 enum _WidgetBlock { rowDefinement, workhours, smartData, wellbeing, notes }
 
 enum _SimpleOpenMode { dateBased, dateBasedOpenEnd, textBased }
+
+enum _SimpleSetupAction { open, create }
+
+enum _SimpleCreateDestination { local, cloud }
 
 enum _SimpleDocumentSource { local, cloud }
 
@@ -129,7 +134,8 @@ class _TodayPageState extends State<TodayPage> {
   bool _isChoosingCloudFile = false;
   _SimpleDocumentTarget? _simpleDocumentTarget;
   LocalSimpleDocumentSelection? _selectedLocalDocument;
-  _SimpleOpenMode _simpleOpenMode = _SimpleOpenMode.dateBased;
+  _SimpleOpenMode _simpleOpenMode = _SimpleOpenMode.dateBasedOpenEnd;
+  _SimpleSetupAction _simpleSetupAction = _SimpleSetupAction.open;
   _SimpleDocumentSource _simpleDocumentSource = _SimpleDocumentSource.local;
   int? _simpleTextSelectionColumnIndex;
   String? _simpleTextSelectionValue;
@@ -261,6 +267,7 @@ class _TodayPageState extends State<TodayPage> {
     if (!_supportsLocalFileEditing) return;
     if (_isChoosingLocalDocument || _isOpeningDocument) return;
     setState(() {
+      _simpleSetupAction = _SimpleSetupAction.open;
       _simpleDocumentSource = _SimpleDocumentSource.local;
       _isChoosingLocalDocument = true;
     });
@@ -458,7 +465,10 @@ class _TodayPageState extends State<TodayPage> {
       return;
     }
 
-    setState(() => _isChoosingCloudFile = true);
+    setState(() {
+      _simpleSetupAction = _SimpleSetupAction.open;
+      _isChoosingCloudFile = true;
+    });
     try {
       final settings = await ServiceLocator.userRepository.getUserSettings(
         session.uid,
@@ -553,12 +563,210 @@ class _TodayPageState extends State<TodayPage> {
   }
 
   Future<void> _openSelectedSimpleDocument() async {
+    setState(() {
+      _simpleOpenMode = _SimpleOpenMode.dateBasedOpenEnd;
+      _simpleSetupAction = _SimpleSetupAction.open;
+    });
     switch (_effectiveSimpleDocumentSource) {
       case _SimpleDocumentSource.local:
         await _openOrChooseLocalDocumentForSimple();
       case _SimpleDocumentSource.cloud:
         await _openOrChooseCloudSyncFile();
     }
+  }
+
+  Future<void> _createSimpleDocument() async {
+    setState(() {
+      _simpleOpenMode = _SimpleOpenMode.dateBasedOpenEnd;
+      _simpleSetupAction = _SimpleSetupAction.create;
+    });
+    final draft = await Navigator.of(context).push<SimpleDocumentDraft>(
+      MaterialPageRoute(builder: (context) => const CreateDocPage()),
+    );
+    if (!mounted || draft == null) return;
+
+    final sheetData = SimpleSheetData(
+      fileName: draft.fileName,
+      path: null,
+      format: SimpleFileFormat.csv,
+      headers: draft.headers,
+      valueTypes: draft.valueTypes,
+      readOnlyColumns: List<bool>.filled(draft.headers.length, false),
+      rows: const <List<String>>[],
+      csvDelimiter: ',',
+      hasTypeRow: true,
+      headerRowIndex: 0,
+      startColumnIndex: 0,
+    );
+    final destination = await showDialog<_SimpleCreateDestination>(
+      context: context,
+      builder: (context) =>
+          _CreateDestinationDialog(showLocal: _supportsLocalFileEditing),
+    );
+    if (!mounted || destination == null) return;
+    switch (destination) {
+      case _SimpleCreateDestination.local:
+        await _createLocalSimpleDocument(sheetData);
+      case _SimpleCreateDestination.cloud:
+        await _createCloudSimpleDocument(sheetData);
+    }
+  }
+
+  Future<void> _createLocalSimpleDocument(SimpleSheetData sheetData) async {
+    try {
+      final bytes = SimpleSheetFileService.buildBytes(sheetData);
+      final result = await _sheetPersistenceService.persistBytes(
+        SimplePersistRequest(
+          bytes: bytes,
+          fileName: sheetData.fileName,
+          typeGroup: _csvTypeGroup,
+          mimeType: 'text/csv',
+          confirmButtonText: 'Create CSV',
+          mode: SimplePersistMode.asIs,
+        ),
+      );
+      if (!mounted) return;
+
+      final savedSheetData = _copySimpleSheetData(
+        sheetData,
+        fileName: result.resolvedFileName,
+        path: result.savedPath,
+        sourceBytes: bytes,
+      );
+      final loaded = await _loadSimpleProfileData(
+        savedSheetData,
+        target: _LocalSimpleDocumentTarget(existingPath: result.savedPath),
+      );
+      if (!loaded || !mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Created ${result.resolvedFileName}.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      if (error is StateError && error.message == 'Save canceled.') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Create document canceled.')),
+        );
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not create local document: $error')),
+      );
+    }
+  }
+
+  Future<void> _createCloudSimpleDocument(SimpleSheetData sheetData) async {
+    final folder = await _pickCloudCreateFolder();
+    if (!mounted || folder == null) return;
+
+    await _runWithDocumentOpeningIndicator(() async {
+      final messenger = ScaffoldMessenger.of(context);
+      try {
+        final bytes = SimpleSheetFileService.buildBytes(sheetData);
+        final metadata = await ServiceLocator.simpleCloudDocumentService
+            .createDocument(
+              fileName: sheetData.fileName,
+              bytes: bytes,
+              mimeType: 'text/csv',
+              parentFolderId: folder.id,
+            );
+        await ServiceLocator.simpleCloudDocumentService.setSelectedSyncFile(
+          file: metadata,
+        );
+        if (!mounted) return;
+
+        final savedSheetData = _copySimpleSheetData(
+          sheetData,
+          fileName: metadata.name,
+          path: null,
+          sourceBytes: bytes,
+        );
+        final loaded = await _loadSimpleProfileData(
+          savedSheetData,
+          target: _CloudSimpleDocumentTarget(
+            provider: metadata.provider,
+            fileId: metadata.id,
+            fileName: metadata.name,
+            mimeType: metadata.mimeType,
+          ),
+        );
+        if (!loaded || !mounted) return;
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Created ${metadata.name} in ${folder.name}.'),
+          ),
+        );
+      } on CloudSimpleDocumentException catch (error) {
+        if (!mounted) return;
+        messenger.showSnackBar(SnackBar(content: Text(error.message)));
+      } catch (error) {
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(content: Text('Could not create cloud document: $error')),
+        );
+      }
+    });
+  }
+
+  Future<_CloudFolderPickResult?> _pickCloudCreateFolder() async {
+    final session = ServiceLocator.authService.currentSession;
+    if (session == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Connect a cloud provider in Settings first.'),
+        ),
+      );
+      return null;
+    }
+
+    try {
+      final settings = await ServiceLocator.userRepository.getUserSettings(
+        session.uid,
+      );
+      if (!mounted) return null;
+      final provider = ServiceLocator.simpleCloudDocumentService
+          .activeProviderFromSettings(settings);
+      if (provider == null) {
+        throw const CloudSimpleDocumentException(
+          'No cloud provider is active. Choose Google Drive or WebDAV in Settings first.',
+        );
+      }
+      return showDialog<_CloudFolderPickResult>(
+        context: context,
+        builder: (context) => _CloudFolderPickerDialog(provider: provider),
+      );
+    } on CloudSimpleDocumentException catch (error) {
+      if (!mounted) return null;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+      return null;
+    }
+  }
+
+  SimpleSheetData _copySimpleSheetData(
+    SimpleSheetData data, {
+    required String fileName,
+    required String? path,
+    required Uint8List? sourceBytes,
+  }) {
+    return SimpleSheetData(
+      fileName: fileName,
+      path: path,
+      format: data.format,
+      headers: data.headers,
+      valueTypes: data.valueTypes,
+      readOnlyColumns: data.readOnlyColumns,
+      rows: data.rows,
+      pendingTypeSelectionColumns: data.pendingTypeSelectionColumns,
+      csvDelimiter: data.csvDelimiter,
+      hasTypeRow: data.hasTypeRow,
+      headerRowIndex: data.headerRowIndex,
+      startColumnIndex: data.startColumnIndex,
+      xlsxSheetName: data.xlsxSheetName,
+      workbook: data.workbook,
+      sourceBytes: sourceBytes,
+    );
   }
 
   Future<void> _setRecentSimpleOpeningConfiguration() async {
@@ -2682,6 +2890,7 @@ class _TodayPageState extends State<TodayPage> {
           children: [
             _TopHeader(
               isAdvancedMode: _isAdvancedMode,
+              showBackButton: _isAdvancedMode || _hasSimpleSchema,
               showModeSwitch: false,
               headerTitle: _headerTitle,
               setupDone: _setupDone,
@@ -2750,6 +2959,7 @@ class _TodayPageState extends State<TodayPage> {
 
   Widget _buildSimpleView(ThemeData theme) {
     if (!_hasSimpleSchema) {
+      const setupOpenMode = _SimpleOpenMode.dateBasedOpenEnd;
       return Column(
         children: [
           Card(
@@ -2761,44 +2971,30 @@ class _TodayPageState extends State<TodayPage> {
                   Text('Opening Mode', style: theme.textTheme.titleMedium),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<_SimpleOpenMode>(
-                    initialValue: _simpleOpenMode,
+                    initialValue: setupOpenMode,
                     decoration: const InputDecoration(
                       labelText: 'How to open the sheet',
                     ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: _SimpleOpenMode.dateBased,
-                        child: Text('Dates one a day'),
-                      ),
+                    items: const <DropdownMenuItem<_SimpleOpenMode>>[
                       DropdownMenuItem(
                         value: _SimpleOpenMode.dateBasedOpenEnd,
                         child: Text('Dates open end'),
-                      ),
-                      DropdownMenuItem(
-                        value: _SimpleOpenMode.textBased,
-                        child: Text('Text based'),
                       ),
                     ],
                     onChanged: (value) {
                       if (value == null) return;
                       setState(() {
-                        _simpleOpenMode = value;
-                        if (value != _SimpleOpenMode.textBased) {
-                          _simpleTextSelectionColumnIndex = null;
-                          _simpleTextSelectionValue = null;
-                        }
+                        _simpleOpenMode = _SimpleOpenMode.dateBasedOpenEnd;
+                        _simpleTextSelectionColumnIndex = null;
+                        _simpleTextSelectionValue = null;
                       });
                     },
                   ),
                   const SizedBox(height: 8),
-                  Text(switch (_simpleOpenMode) {
-                    _SimpleOpenMode.dateBased =>
-                      'Open the row for today only. If today is missing, the file stays blocked.',
-                    _SimpleOpenMode.dateBasedOpenEnd =>
-                      'Open today if it exists, otherwise start a new row for today.',
-                    _SimpleOpenMode.textBased =>
-                      'Pick a text field and then choose a specific entry name to open.',
-                  }, style: theme.textTheme.bodyMedium),
+                  Text(
+                    'Open today if it exists, otherwise start a new row for today.',
+                    style: theme.textTheme.bodyMedium,
+                  ),
                 ],
               ),
             ),
@@ -2816,26 +3012,45 @@ class _TodayPageState extends State<TodayPage> {
                     hasSelectedCloudFile: false,
                     hasRememberedLocalFile: false,
                   );
-              return _ChooseDocumentCard(
-                selectedSource: _effectiveSimpleDocumentSource,
-                localSubtitle: data.localSubtitle,
-                cloudSubtitle: data.cloudSubtitle,
-                isChoosingLocalDocument: _isChoosingLocalDocument,
-                isChoosingCloudFile: _isChoosingCloudFile,
-                hasRememberedLocalFile: data.hasRememberedLocalFile,
-                hasSelectedCloudFile: data.hasSelectedCloudFile,
-                showLocalDocument: _supportsLocalFileEditing,
-                onSourceChanged: (source) {
-                  setState(() => _simpleDocumentSource = source);
-                },
-                onChooseLocal: data.hasRememberedLocalFile
-                    ? () => setState(
-                        () =>
-                            _simpleDocumentSource = _SimpleDocumentSource.local,
-                      )
-                    : _chooseLocalDocumentForSimple,
-                onClearLocal: _forgetRememberedLocalDocument,
-                onClearCloud: _clearSelectedCloudSyncFile,
+              return Column(
+                children: [
+                  _ChooseDocumentCard(
+                    selected: _simpleSetupAction == _SimpleSetupAction.open,
+                    selectedSource: _effectiveSimpleDocumentSource,
+                    localSubtitle: data.localSubtitle,
+                    cloudSubtitle: data.cloudSubtitle,
+                    isChoosingLocalDocument: _isChoosingLocalDocument,
+                    isChoosingCloudFile: _isChoosingCloudFile,
+                    hasRememberedLocalFile: data.hasRememberedLocalFile,
+                    hasSelectedCloudFile: data.hasSelectedCloudFile,
+                    showLocalDocument: _supportsLocalFileEditing,
+                    onSelected: () => setState(
+                      () => _simpleSetupAction = _SimpleSetupAction.open,
+                    ),
+                    onSourceChanged: (source) {
+                      setState(() {
+                        _simpleSetupAction = _SimpleSetupAction.open;
+                        _simpleDocumentSource = source;
+                      });
+                    },
+                    onChooseLocal: data.hasRememberedLocalFile
+                        ? () => setState(() {
+                            _simpleSetupAction = _SimpleSetupAction.open;
+                            _simpleDocumentSource = _SimpleDocumentSource.local;
+                          })
+                        : _chooseLocalDocumentForSimple,
+                    onClearLocal: _forgetRememberedLocalDocument,
+                    onClearCloud: _clearSelectedCloudSyncFile,
+                  ),
+                  const SizedBox(height: 14),
+                  _CreateDocumentCard(
+                    selected: _simpleSetupAction == _SimpleSetupAction.create,
+                    onSelected: () => setState(
+                      () => _simpleSetupAction = _SimpleSetupAction.create,
+                    ),
+                    onCreate: _createSimpleDocument,
+                  ),
+                ],
               );
             },
           ),
@@ -2857,12 +3072,19 @@ class _TodayPageState extends State<TodayPage> {
                       onPressed:
                           _isOpeningDocument ||
                               _isChoosingCloudFile ||
-                              (_effectiveSimpleDocumentSource ==
+                              (_simpleSetupAction == _SimpleSetupAction.open &&
+                                  _effectiveSimpleDocumentSource ==
                                       _SimpleDocumentSource.local &&
                                   !_hasRememberedLocalDocument)
                           ? null
-                          : _openSelectedSimpleDocument,
-                      child: const Text('Open'),
+                          : _simpleSetupAction == _SimpleSetupAction.open
+                          ? _openSelectedSimpleDocument
+                          : _createSimpleDocument,
+                      child: Text(
+                        _simpleSetupAction == _SimpleSetupAction.open
+                            ? 'Open'
+                            : 'Create',
+                      ),
                     ),
                   ),
                 ],
@@ -3674,6 +3896,7 @@ class _SimpleRecentConfigDialog extends StatelessWidget {
 
 class _ChooseDocumentCard extends StatelessWidget {
   const _ChooseDocumentCard({
+    required this.selected,
     required this.selectedSource,
     required this.localSubtitle,
     required this.cloudSubtitle,
@@ -3682,12 +3905,14 @@ class _ChooseDocumentCard extends StatelessWidget {
     required this.hasRememberedLocalFile,
     required this.hasSelectedCloudFile,
     required this.showLocalDocument,
+    required this.onSelected,
     required this.onSourceChanged,
     required this.onChooseLocal,
     required this.onClearLocal,
     required this.onClearCloud,
   });
 
+  final bool selected;
   final _SimpleDocumentSource selectedSource;
   final String localSubtitle;
   final String cloudSubtitle;
@@ -3696,6 +3921,7 @@ class _ChooseDocumentCard extends StatelessWidget {
   final bool hasRememberedLocalFile;
   final bool hasSelectedCloudFile;
   final bool showLocalDocument;
+  final VoidCallback onSelected;
   final ValueChanged<_SimpleDocumentSource> onSourceChanged;
   final VoidCallback onChooseLocal;
   final VoidCallback onClearLocal;
@@ -3705,57 +3931,146 @@ class _ChooseDocumentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Choose Document', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 8),
-            if (showLocalDocument)
+      color: selected
+          ? theme.colorScheme.primaryContainer.withValues(alpha: 0.36)
+          : null,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: selected ? theme.colorScheme.primary : Colors.transparent,
+          width: selected ? 1.4 : 1,
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onSelected,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    Icon(
+                      selected
+                          ? Icons.radio_button_checked_rounded
+                          : Icons.radio_button_unchecked_rounded,
+                      color: selected ? theme.colorScheme.primary : null,
+                    ),
+                    const SizedBox(width: 8),
+                    Text('Choose Document', style: theme.textTheme.titleMedium),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (showLocalDocument)
+                _DocumentSourceTile(
+                  selected: selectedSource == _SimpleDocumentSource.local,
+                  title: 'Local document',
+                  subtitle: localSubtitle,
+                  icon: Icons.folder_open_rounded,
+                  trailing: isChoosingLocalDocument
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : null,
+                  onTap: onChooseLocal,
+                  clearAction: hasRememberedLocalFile
+                      ? _InlineSetupAction(
+                          icon: Icons.clear,
+                          tooltip: 'Clear remembered local file',
+                          onTap: onClearLocal,
+                        )
+                      : null,
+                ),
               _DocumentSourceTile(
-                selected: selectedSource == _SimpleDocumentSource.local,
-                title: 'Local document',
-                subtitle: localSubtitle,
-                icon: Icons.folder_open_rounded,
-                trailing: isChoosingLocalDocument
+                selected: selectedSource == _SimpleDocumentSource.cloud,
+                title: 'Cloud document',
+                subtitle: cloudSubtitle,
+                icon: Icons.cloud_outlined,
+                trailing: isChoosingCloudFile
                     ? const SizedBox(
                         width: 22,
                         height: 22,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : null,
-                onTap: onChooseLocal,
-                clearAction: hasRememberedLocalFile
+                onTap: () => onSourceChanged(_SimpleDocumentSource.cloud),
+                clearAction: hasSelectedCloudFile
                     ? _InlineSetupAction(
                         icon: Icons.clear,
-                        tooltip: 'Clear remembered local file',
-                        onTap: onClearLocal,
+                        tooltip: 'Clear remembered cloud file',
+                        onTap: onClearCloud,
                       )
                     : null,
               ),
-            _DocumentSourceTile(
-              selected: selectedSource == _SimpleDocumentSource.cloud,
-              title: 'Cloud document',
-              subtitle: cloudSubtitle,
-              icon: Icons.cloud_outlined,
-              trailing: isChoosingCloudFile
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : null,
-              onTap: () => onSourceChanged(_SimpleDocumentSource.cloud),
-              clearAction: hasSelectedCloudFile
-                  ? _InlineSetupAction(
-                      icon: Icons.clear,
-                      tooltip: 'Clear remembered cloud file',
-                      onTap: onClearCloud,
-                    )
-                  : null,
-            ),
-          ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CreateDocumentCard extends StatelessWidget {
+  const _CreateDocumentCard({
+    required this.selected,
+    required this.onSelected,
+    required this.onCreate,
+  });
+
+  final bool selected;
+  final VoidCallback onSelected;
+  final VoidCallback onCreate;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      color: selected
+          ? theme.colorScheme.primaryContainer.withValues(alpha: 0.36)
+          : null,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: selected ? theme.colorScheme.primary : Colors.transparent,
+          width: selected ? 1.4 : 1,
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onSelected,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    selected
+                        ? Icons.radio_button_checked_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                    color: selected ? theme.colorScheme.primary : null,
+                  ),
+                  const SizedBox(width: 8),
+                  Text('Create Document', style: theme.textTheme.titleMedium),
+                ],
+              ),
+              const SizedBox(height: 8),
+              _DocumentSourceTile(
+                selected: selected,
+                title: 'Create New',
+                subtitle: 'Define columns and field types for a fresh CSV.',
+                icon: Icons.add_circle_outline_rounded,
+                onTap: onCreate,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -3801,6 +4116,207 @@ class _DocumentSourceTile extends StatelessWidget {
             color: selected ? theme.colorScheme.primary : null,
           ),
       onTap: onTap,
+    );
+  }
+}
+
+class _CreateDestinationDialog extends StatelessWidget {
+  const _CreateDestinationDialog({required this.showLocal});
+
+  final bool showLocal;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Save New Document'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (showLocal)
+            ListTile(
+              leading: const Icon(Icons.folder_open_rounded),
+              title: const Text('Local'),
+              subtitle: const Text('Choose a save location on this device.'),
+              onTap: () =>
+                  Navigator.of(context).pop(_SimpleCreateDestination.local),
+            ),
+          ListTile(
+            leading: const Icon(Icons.cloud_outlined),
+            title: const Text('Cloud'),
+            subtitle: const Text('Choose a Google Drive or WebDAV folder.'),
+            onTap: () =>
+                Navigator.of(context).pop(_SimpleCreateDestination.cloud),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+}
+
+class _CloudFolderPickResult {
+  const _CloudFolderPickResult({required this.id, required this.name});
+
+  final String? id;
+  final String name;
+}
+
+class _CloudFolderPickerDialog extends StatefulWidget {
+  const _CloudFolderPickerDialog({required this.provider});
+
+  final CloudSyncProvider provider;
+
+  @override
+  State<_CloudFolderPickerDialog> createState() =>
+      _CloudFolderPickerDialogState();
+}
+
+class _CloudFolderPickerDialogState extends State<_CloudFolderPickerDialog> {
+  List<CloudBrowserEntry> _entries = const <CloudBrowserEntry>[];
+  late List<_CloudFolderNode> _folderStack = <_CloudFolderNode>[
+    _CloudFolderNode(
+      id: null,
+      name: widget.provider == CloudSyncProvider.googleDrive
+          ? 'My Drive'
+          : 'WebDAV root',
+    ),
+  ];
+  bool _isLoading = true;
+  String? _errorText;
+
+  String? get _currentFolderId => _folderStack.last.id;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFolder();
+  }
+
+  Future<void> _loadFolder() async {
+    setState(() {
+      _isLoading = true;
+      _errorText = null;
+    });
+    try {
+      final entries = await ServiceLocator.simpleCloudDocumentService
+          .listFolderEntries(folderId: _currentFolderId);
+      if (!mounted) return;
+      setState(() {
+        _entries = entries.where((entry) => entry.isFolder).toList();
+      });
+    } on CloudSimpleDocumentException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorText = error.message;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _openFolder(CloudBrowserEntry entry) {
+    setState(() {
+      _folderStack = <_CloudFolderNode>[
+        ..._folderStack,
+        _CloudFolderNode(id: entry.id, name: entry.name),
+      ];
+    });
+    _loadFolder();
+  }
+
+  void _goUp() {
+    if (_folderStack.length <= 1) return;
+    setState(() {
+      _folderStack = _folderStack.sublist(0, _folderStack.length - 1);
+    });
+    _loadFolder();
+  }
+
+  void _useCurrentFolder() {
+    Navigator.of(context).pop(
+      _CloudFolderPickResult(
+        id: _currentFolderId,
+        name: _folderStack.last.name,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final folderLabel = _folderStack.map((node) => node.name).join(' / ');
+    return AlertDialog(
+      title: const Text('Choose Folder'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  onPressed: _folderStack.length > 1 ? _goUp : null,
+                  icon: const Icon(Icons.arrow_upward_rounded),
+                  tooltip: 'Up one folder',
+                ),
+                Expanded(
+                  child: Text(
+                    folderLabel,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_isLoading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: CircularProgressIndicator(),
+              )
+            else if (_errorText != null)
+              SelectableText(_errorText!)
+            else if (_entries.isEmpty)
+              const Text('This folder has no subfolders.'),
+            if (!_isLoading && _errorText == null && _entries.isNotEmpty)
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: _entries
+                      .map(
+                        (entry) => ListTile(
+                          leading: const Icon(Icons.folder_outlined),
+                          title: Text(entry.name),
+                          subtitle: const Text('Folder'),
+                          onTap: () => _openFolder(entry),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _isLoading || _errorText != null
+              ? null
+              : _useCurrentFolder,
+          child: const Text('Use This Folder'),
+        ),
+      ],
     );
   }
 }
@@ -4001,6 +4517,7 @@ class _CloudFilePickerDialogState extends State<_CloudFilePickerDialog> {
 class _TopHeader extends StatelessWidget {
   const _TopHeader({
     required this.isAdvancedMode,
+    required this.showBackButton,
     required this.showModeSwitch,
     required this.headerTitle,
     required this.setupDone,
@@ -4012,6 +4529,7 @@ class _TopHeader extends StatelessWidget {
   });
 
   final bool isAdvancedMode;
+  final bool showBackButton;
   final bool showModeSwitch;
   final String headerTitle;
   final bool setupDone;
@@ -4029,12 +4547,14 @@ class _TopHeader extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           children: [
-            IconButton(
-              tooltip: 'Back',
-              onPressed: onBack,
-              icon: const Icon(Icons.arrow_back_rounded),
-            ),
-            const SizedBox(width: 10),
+            if (showBackButton) ...[
+              IconButton(
+                tooltip: 'Back',
+                onPressed: onBack,
+                icon: const Icon(Icons.arrow_back_rounded),
+              ),
+              const SizedBox(width: 10),
+            ],
             Expanded(
               child: Text(headerTitle, style: theme.textTheme.titleMedium),
             ),
