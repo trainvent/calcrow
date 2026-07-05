@@ -1733,41 +1733,6 @@ class _TodayPageState extends State<TodayPage> {
     try {
       final saveResult = await _persistSimpleSheet(mode: mode);
       if (!mounted) return;
-      try {
-        final syncFileName = await _syncSimpleSheetToCloud();
-        if (!mounted) return;
-        if (syncFileName != null) {
-          final targetSettings = await ServiceLocator.userRepository
-              .getCurrentUserSettings();
-          final provider = targetSettings == null
-              ? null
-              : ServiceLocator.simpleCloudDocumentService
-                    .activeProviderFromSettings(targetSettings);
-          final providerLabel = provider == null
-              ? 'cloud'
-              : ServiceLocator.simpleCloudDocumentService.providerLabel(
-                  provider,
-                );
-          messenger.showSnackBar(
-            SnackBar(
-              content: Text(
-                'Row saved to ${saveResult.locationLabel} and synced to $providerLabel ($syncFileName).',
-              ),
-            ),
-          );
-          return;
-        }
-      } on CloudSimpleDocumentException catch (error) {
-        if (!mounted) return;
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              'Row saved to ${saveResult.locationLabel}, but cloud sync failed: ${error.message}',
-            ),
-          ),
-        );
-        return;
-      }
       messenger.showSnackBar(SnackBar(content: Text(_saveMessage(saveResult))));
     } catch (error) {
       if (!mounted) return;
@@ -2048,46 +2013,6 @@ class _TodayPageState extends State<TodayPage> {
       );
     }
     return _persistSimpleCsv(mode: mode);
-  }
-
-  Future<String?> _syncSimpleSheetToCloud() async {
-    if (_simpleDocumentTarget is _CloudSimpleDocumentTarget) {
-      return null;
-    }
-    if (!ServiceLocator.isSetup) return null;
-
-    final session = ServiceLocator.authService.currentSession;
-    if (session == null) return null;
-
-    final settings = await ServiceLocator.userRepository.getUserSettings(
-      session.uid,
-    );
-    final existingCloudFile = ServiceLocator.simpleCloudDocumentService
-        .selectedSyncFileFromSettings(settings);
-    if (existingCloudFile == null) return null;
-
-    final format = _simpleImportedFormat ?? SimpleFileFormat.csv;
-    final simpleData = _buildSimpleSheetDataForPersist();
-    final bytes =
-        existingCloudFile.mimeType ==
-            GoogleDriveSyncService.googleSheetsMimeType
-        ? Uint8List(0)
-        : SimpleSheetFileService.buildBytes(simpleData);
-    final mimeType = SimpleSheetFileService.mimeTypeForFormat(format);
-    final fileName = _simpleSuggestedFileName(
-      defaultExtension: SimpleSheetFileService.defaultExtensionForFormat(
-        format,
-      ),
-    );
-    final metadata = await ServiceLocator.simpleCloudDocumentService
-        .persistDocument(
-          existingFile: existingCloudFile,
-          fileName: fileName,
-          bytes: bytes,
-          outputMimeType: mimeType,
-          simpleData: simpleData,
-        );
-    return metadata.name;
   }
 
   Future<SimplePersistResult> _persistSimpleCsv({
