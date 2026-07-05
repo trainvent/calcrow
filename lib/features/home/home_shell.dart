@@ -4,9 +4,9 @@ import 'package:calcrow/core/data/di/service_locator.dart';
 import 'package:calcrow/core/data/services/purchases_service.dart';
 
 import 'free_mode_bottom_tile.dart';
+import 'editing/selection_page.dart';
 import 'settings/settings_tab.dart';
 import 'sheet/sheet_preview_tab.dart';
-import 'today/today_tab.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
@@ -18,7 +18,7 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _currentIndex = 0;
 
-  final _tabs = const [TodayTab(), SheetPreviewTab(), SettingsTab()];
+  final _tabs = const [SelectionPage(), SheetPreviewTab(), SettingsTab()];
 
   @override
   Widget build(BuildContext context) {

@@ -4,13 +4,14 @@ import 'package:excel/excel.dart' as excel_pkg;
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:calcrow/app/widgets/triangle_loading_indicator.dart';
 import 'package:calcrow/core/data/di/service_locator.dart';
-import 'package:calcrow/features/home/today/advanced/widgets/notes_widget.dart';
-import 'package:calcrow/features/home/today/advanced/widgets/row_definement_widget.dart';
-import 'package:calcrow/features/home/today/advanced/widgets/smart_data_widget.dart';
-import 'package:calcrow/features/home/today/advanced/widgets/wellbeing_widget.dart';
-import 'package:calcrow/features/home/today/advanced/widgets/workhours_widget.dart';
+import 'package:calcrow/features/home/editing/advanced/widgets/notes_widget.dart';
+import 'package:calcrow/features/home/editing/advanced/widgets/row_definement_widget.dart';
+import 'package:calcrow/features/home/editing/advanced/widgets/smart_data_widget.dart';
+import 'package:calcrow/features/home/editing/advanced/widgets/wellbeing_widget.dart';
+import 'package:calcrow/features/home/editing/advanced/widgets/workhours_widget.dart';
 import 'package:calcrow/core/data/services/simple_cloud_document_service.dart';
 import 'package:calcrow/core/data/services/google_drive_sync_service.dart';
 import 'package:calcrow/core/data/services/simple_local_document_service.dart';
@@ -19,9 +20,10 @@ import 'package:calcrow/core/data/services/user_repository.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/simple_sheet_file_service.dart';
 import 'package:calcrow/features/home/sheet/sheet_preview_store.dart';
-import 'package:calcrow/features/home/today/simple/create_doc_page.dart';
-import 'package:calcrow/features/home/today/simple/widgets/select_time_widget.dart';
-import 'package:calcrow/features/home/today/simple/widgets/timespan_widget.dart';
+import 'package:calcrow/features/home/editing/simple/create_doc_page.dart';
+import 'package:calcrow/features/home/editing/simple/widgets/select_time_widget.dart';
+import 'package:calcrow/features/home/editing/simple/widgets/timespan_widget.dart';
+import 'package:open_filex/open_filex.dart';
 
 enum _WidgetBlock { rowDefinement, workhours, smartData, wellbeing, notes }
 
@@ -33,14 +35,18 @@ enum _SimpleCreateDestination { local, cloud }
 
 enum _SimpleDocumentSource { local, cloud }
 
-class TodayPage extends StatefulWidget {
-  const TodayPage({super.key});
+class EditingPage extends StatefulWidget {
+  const EditingPage({super.key});
 
   @override
-  State<TodayPage> createState() => _TodayPageState();
+  State<EditingPage> createState() => _EditingPageState();
 }
 
-class _TodayPageState extends State<TodayPage> {
+class _EditingPageState extends State<EditingPage> {
+  static const MethodChannel _platformChannel = MethodChannel(
+    'de.lemarq.calcrow/file_open',
+  );
+
   static const List<String> _simpleTypeOptions = <String>[
     'text',
     'date',
@@ -371,6 +377,58 @@ class _TodayPageState extends State<TodayPage> {
         await _importLocalDocumentForSimple();
       }
     });
+  }
+
+  Future<void> _openLocalDocumentFolderOrDocument() async {
+    if (!_supportsLocalFileEditing) return;
+
+    final path = _simpleImportedPath?.trim();
+    if (_simpleDocumentTarget is _LocalSimpleDocumentTarget &&
+        path != null &&
+        path.isNotEmpty) {
+      final opened = await _openLocalFileExternally(path);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        opened
+            ? const SnackBar(content: Text('Opened document in another app.'))
+            : const SnackBar(
+                content: Text('Could not open the file in another app.'),
+              ),
+      );
+      return;
+    }
+
+    await _openOrChooseLocalDocumentForSimple();
+  }
+
+  Future<bool> _openLocalFileExternally(String path) async {
+    if (kIsWeb) return false;
+    if (defaultTargetPlatform == TargetPlatform.android &&
+        path.toLowerCase().startsWith('content://')) {
+      try {
+        final result = await _platformChannel.invokeMethod<String>(
+          'openSafDocument',
+          <String, String>{
+            'uri': path,
+            'mimeType': _mimeTypeForLocalDocumentOpen(),
+          },
+        );
+        return result == 'done';
+      } catch (_) {
+        return false;
+      }
+    }
+
+    final result = await OpenFilex.open(
+      path,
+      type: _mimeTypeForLocalDocumentOpen(),
+    );
+    return result.type == ResultType.done;
+  }
+
+  String _mimeTypeForLocalDocumentOpen() {
+    final format = _simpleImportedFormat ?? SimpleFileFormat.csv;
+    return SimpleSheetFileService.mimeTypeForFormat(format);
   }
 
   Future<bool> _openCloudDocument({required CloudFileMetadata file}) async {
@@ -2909,7 +2967,31 @@ class _TodayPageState extends State<TodayPage> {
 
   Widget _buildSimpleView(ThemeData theme) {
     if (!_hasSimpleSchema) {
-      const setupOpenMode = _SimpleOpenMode.dateBasedOpenEnd;
+      final isCreateMode = _simpleSetupAction == _SimpleSetupAction.create;
+      final setupOpenMode = isCreateMode
+          ? _SimpleOpenMode.dateBasedOpenEnd
+          : _simpleOpenMode;
+      final openModeItems = isCreateMode
+          ? const <DropdownMenuItem<_SimpleOpenMode>>[
+              DropdownMenuItem(
+                value: _SimpleOpenMode.dateBasedOpenEnd,
+                child: Text('Dates open end'),
+              ),
+            ]
+          : const <DropdownMenuItem<_SimpleOpenMode>>[
+              DropdownMenuItem(
+                value: _SimpleOpenMode.dateBased,
+                child: Text('Dates open'),
+              ),
+              DropdownMenuItem(
+                value: _SimpleOpenMode.dateBasedOpenEnd,
+                child: Text('Dates open end'),
+              ),
+              DropdownMenuItem(
+                value: _SimpleOpenMode.textBased,
+                child: Text('Text based'),
+              ),
+            ];
       return Column(
         children: [
           Card(
@@ -2925,16 +3007,13 @@ class _TodayPageState extends State<TodayPage> {
                     decoration: const InputDecoration(
                       labelText: 'How to open the sheet',
                     ),
-                    items: const <DropdownMenuItem<_SimpleOpenMode>>[
-                      DropdownMenuItem(
-                        value: _SimpleOpenMode.dateBasedOpenEnd,
-                        child: Text('Dates open end'),
-                      ),
-                    ],
+                    items: openModeItems,
                     onChanged: (value) {
                       if (value == null) return;
                       setState(() {
-                        _simpleOpenMode = _SimpleOpenMode.dateBasedOpenEnd;
+                        _simpleOpenMode = isCreateMode
+                            ? _SimpleOpenMode.dateBasedOpenEnd
+                            : value;
                         _simpleTextSelectionColumnIndex = null;
                         _simpleTextSelectionValue = null;
                       });
@@ -2995,9 +3074,10 @@ class _TodayPageState extends State<TodayPage> {
                   const SizedBox(height: 14),
                   _CreateDocumentCard(
                     selected: _simpleSetupAction == _SimpleSetupAction.create,
-                    onSelected: () => setState(
-                      () => _simpleSetupAction = _SimpleSetupAction.create,
-                    ),
+                    onSelected: () => setState(() {
+                      _simpleSetupAction = _SimpleSetupAction.create;
+                      _simpleOpenMode = _SimpleOpenMode.dateBasedOpenEnd;
+                    }),
                     onCreate: _createSimpleDocument,
                   ),
                 ],
@@ -3098,12 +3178,6 @@ class _TodayPageState extends State<TodayPage> {
     final pendingTypeSelectionMessage = isSheetDocumentSource
         ? 'Set Datatypes and bear in mind that calculated fields are read-only.'
         : 'This file has no usable type row yet. Pick the editable field formats once before saving.';
-    final canForgetRememberedLocal =
-        _supportsLocalFileEditing &&
-        _rememberLocalDocumentForReopen &&
-        _simpleDocumentTarget is _LocalSimpleDocumentTarget &&
-        (_simpleImportedPath?.trim().isNotEmpty == true ||
-            (_simpleImportedSourceBytes?.isNotEmpty ?? false));
     final canOpenLocalDocumentFromCard =
         (_supportsLocalFileEditing && _simpleDocumentTarget == null) ||
         (_supportsLocalFileEditing &&
@@ -3127,14 +3201,6 @@ class _TodayPageState extends State<TodayPage> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          if (canForgetRememberedLocal) ...[
-                            _InlineSetupAction(
-                              icon: Icons.clear,
-                              tooltip: 'Clear remembered local file',
-                              onTap: _forgetRememberedLocalDocument,
-                            ),
-                            const SizedBox(width: 8),
-                          ],
                           Expanded(
                             child: Text(
                               _simpleImportedFileName == null
@@ -3164,8 +3230,12 @@ class _TodayPageState extends State<TodayPage> {
                 ),
                 if (canOpenLocalDocumentFromCard)
                   TextButton(
-                    onPressed: _openOrChooseLocalDocumentForSimple,
-                    child: const Text('Open Document'),
+                    onPressed: _openLocalDocumentFolderOrDocument,
+                    child: Text(
+                      _simpleDocumentTarget is _LocalSimpleDocumentTarget
+                          ? 'Open'
+                          : 'Open Document',
+                    ),
                   ),
               ],
             ),
