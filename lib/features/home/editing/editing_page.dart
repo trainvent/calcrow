@@ -658,7 +658,7 @@ class _EditingPageState extends State<EditingPage> {
     final sheetData = SimpleSheetData(
       fileName: draft.fileName,
       path: null,
-      format: SimpleFileFormat.csv,
+      format: draft.format,
       headers: draft.headers,
       valueTypes: draft.valueTypes,
       readOnlyColumns: List<bool>.filled(draft.headers.length, false),
@@ -667,6 +667,10 @@ class _EditingPageState extends State<EditingPage> {
       hasTypeRow: false,
       headerRowIndex: 0,
       startColumnIndex: 0,
+      xlsxSheetName: null,
+      workbook: draft.format == SimpleFileFormat.xlsx
+          ? excel_pkg.Excel.createExcel()
+          : null,
     );
     final destination = await showDialog<_SimpleCreateDestination>(
       context: context,
@@ -695,9 +699,11 @@ class _EditingPageState extends State<EditingPage> {
         SimplePersistRequest(
           bytes: bytes,
           fileName: sheetData.fileName,
-          typeGroup: _csvTypeGroup,
-          mimeType: 'text/csv',
-          confirmButtonText: 'Create CSV',
+          typeGroup: _typeGroupForFormat(sheetData.format),
+          mimeType: _mimeTypeForFormat(sheetData.format),
+          confirmButtonText: _createConfirmButtonTextForFormat(
+            sheetData.format,
+          ),
           preferredSafTreeUri: preferredSafTreeUri,
           mode: preferredSafTreeUri == null
               ? SimplePersistMode.asIs
@@ -814,7 +820,7 @@ class _EditingPageState extends State<EditingPage> {
             .createDocument(
               fileName: sheetData.fileName,
               bytes: bytes,
-              mimeType: 'text/csv',
+              mimeType: _mimeTypeForFormat(sheetData.format),
               parentFolderId: folder.id,
             );
         await ServiceLocator.simpleCloudDocumentService.setSelectedSyncFile(
@@ -2283,6 +2289,30 @@ class _EditingPageState extends State<EditingPage> {
 
   String _mimeTypeForFormat(SimpleFileFormat format) {
     return SimpleSheetFileService.mimeTypeForFormat(format);
+  }
+
+  XTypeGroup _typeGroupForFormat(SimpleFileFormat format) {
+    switch (format) {
+      case SimpleFileFormat.csv:
+        return _csvTypeGroup;
+      case SimpleFileFormat.xlsx:
+      case SimpleFileFormat.gsheet:
+        return _xlsxTypeGroup;
+      case SimpleFileFormat.ods:
+        return _odsTypeGroup;
+    }
+  }
+
+  String _createConfirmButtonTextForFormat(SimpleFileFormat format) {
+    switch (format) {
+      case SimpleFileFormat.csv:
+        return 'Create CSV';
+      case SimpleFileFormat.xlsx:
+      case SimpleFileFormat.gsheet:
+        return 'Create XLSX';
+      case SimpleFileFormat.ods:
+        return 'Create ODS';
+    }
   }
 
   Future<SimplePersistResult> _persistSimpleBytes({

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:excel/excel.dart' as excel_pkg;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:calcrow/core/sheet_type_logic/csv_codec.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
@@ -10,9 +11,12 @@ import 'package:calcrow/core/sheet_type_logic/xlsx_codec.dart';
 import 'support/sheet_test_helpers.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  SharedPreferences.setMockInitialValues(<String, Object>{});
+
   group('CSV codec', () {
-    test('CSV parse/build roundtrip preserves schema and rows', () {
-      final parsed = parseCsv(
+    test('CSV parse/build roundtrip preserves schema and rows', () async {
+      final parsed = await parseCsv(
         'name,date,notes\n'
         'text,date,text\n'
         'Alice,2026-01-01,hello\n',
@@ -33,7 +37,7 @@ void main() {
         ],
       );
 
-      final reparsed = parseCsvBytes(CsvSheetCodec.buildBytes(updated));
+      final reparsed = await parseCsvBytes(CsvSheetCodec.buildBytes(updated));
 
       expect(reparsed.headers, ['name', 'date', 'notes']);
       expect(reparsed.valueTypes, ['text', 'date', 'text']);
@@ -45,8 +49,8 @@ void main() {
 
     test(
       'CSV with headers only can be parsed and persisted with first row',
-      () {
-        final parsed = parseCsv('Date,Hours,Notes\n');
+      () async {
+        final parsed = await parseCsv('Date,Hours,Notes\n');
 
         expect(parsed.headers, ['Date', 'Hours', 'Notes']);
         expect(parsed.valueTypes, ['date', 'decimal', 'text']);
@@ -59,7 +63,7 @@ void main() {
           ],
         );
 
-        final reparsed = parseCsvBytes(CsvSheetCodec.buildBytes(updated));
+        final reparsed = await parseCsvBytes(CsvSheetCodec.buildBytes(updated));
 
         expect(reparsed.headers, ['Date', 'Hours', 'Notes']);
         expect(reparsed.rows, [
@@ -70,8 +74,8 @@ void main() {
 
     test(
       'CSV preserves delimiter and quotes cells that contain delimiters',
-      () {
-        final parsed = parseCsv(
+      () async {
+        final parsed = await parseCsv(
           'Date;Hours;Notes\n'
           'date;decimal;text\n'
           '2026-05-11;8;plain\n',
@@ -91,7 +95,7 @@ void main() {
         expect(encoded, contains('"contains; delimiter"'));
         expect(encoded, contains('"contains ""quote"""'));
 
-        final reparsed = parseCsvBytes(CsvSheetCodec.buildBytes(updated));
+        final reparsed = await parseCsvBytes(CsvSheetCodec.buildBytes(updated));
         expect(reparsed.csvDelimiter, ';');
         expect(reparsed.rows, [
           ['2026-05-11', '8', 'contains; delimiter'],
@@ -162,14 +166,34 @@ void main() {
         ['Bob', '2026-01-02', '7'],
       ]);
     });
+
+    test('XLSX can be built from a fresh simple document draft', () {
+      final workbook = excel_pkg.Excel.createExcel();
+      final draft = SimpleSheetData(
+        fileName: 'fresh.xlsx',
+        path: null,
+        format: SimpleFileFormat.xlsx,
+        headers: const <String>['Date', 'Start', 'End', 'Notes'],
+        valueTypes: const <String>['date', 'time', 'time', 'text'],
+        readOnlyColumns: List<bool>.filled(4, false),
+        rows: const <List<String>>[],
+        workbook: workbook,
+      );
+
+      final parsed = parseXlsx(XlsxSheetCodec.buildBytes(draft));
+
+      expect(parsed.headers, ['Date', 'Start', 'End', 'Notes']);
+      expect(parsed.rows, isEmpty);
+      expect(parsed.workbook, isNotNull);
+    });
   });
 }
 
-SimpleSheetData parseCsv(String content) {
+Future<SimpleSheetData> parseCsv(String content) {
   return parseCsvBytes(utf8Bytes(content));
 }
 
-SimpleSheetData parseCsvBytes(Uint8List bytes) {
+Future<SimpleSheetData> parseCsvBytes(Uint8List bytes) {
   return CsvSheetCodec.parse(
     bytes: bytes,
     fileName: 'sample.csv',

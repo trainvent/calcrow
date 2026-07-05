@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
+import 'package:calcrow/core/sheet_type_logic/simple_sheet_file_service.dart';
+import 'package:calcrow/features/home/editing/simple/widgets/moving_tile_widget.dart';
 
 class SimpleDocumentDraft {
   const SimpleDocumentDraft({
     required this.fileName,
+    required this.format,
     required this.headers,
     required this.valueTypes,
   });
 
   final String fileName;
+  final SimpleFileFormat format;
   final List<String> headers;
   final List<String> valueTypes;
 }
@@ -32,7 +37,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
   ];
 
   final TextEditingController _fileNameController = TextEditingController(
-    text: 'calcrow_simple.csv',
+    text: 'calcrow_simple',
   );
   final List<_SimpleColumnDraft> _columns = <_SimpleColumnDraft>[
     _SimpleColumnDraft(header: 'Date', type: 'date'),
@@ -41,6 +46,8 @@ class _CreateDocPageState extends State<CreateDocPage> {
     _SimpleColumnDraft(header: 'Pause', type: 'duration'),
     _SimpleColumnDraft(header: 'Notes', type: 'text'),
   ];
+  SimpleFileFormat _format = SimpleFileFormat.csv;
+  bool _isArranging = false;
   String? _errorText;
 
   @override
@@ -63,16 +70,38 @@ class _CreateDocPageState extends State<CreateDocPage> {
     if (_columns.length <= 1) return;
     final removed = _columns.removeAt(index);
     removed.dispose();
-    setState(() => _errorText = null);
+    setState(() {
+      if (_columns.length <= 1) _isArranging = false;
+      _errorText = null;
+    });
+  }
+
+  void _moveColumn(int fromIndex, int toIndex) {
+    if (toIndex < 0 || toIndex >= _columns.length || fromIndex == toIndex) {
+      return;
+    }
+    setState(() {
+      final moved = _columns.removeAt(fromIndex);
+      _columns.insert(toIndex, moved);
+      _errorText = null;
+    });
+  }
+
+  void _enterArrangeMode() {
+    if (_isArranging || _columns.length <= 1) return;
+    setState(() => _isArranging = true);
+  }
+
+  void _setFormat(SimpleFileFormat format) {
+    if (format == _format || format == SimpleFileFormat.ods) return;
+    setState(() {
+      _format = format;
+      _errorText = null;
+    });
   }
 
   void _submit() {
-    final rawFileName = _fileNameController.text.trim();
-    final fileName = rawFileName.isEmpty
-        ? 'calcrow_simple.csv'
-        : rawFileName.toLowerCase().endsWith('.csv')
-        ? rawFileName
-        : '$rawFileName.csv';
+    final fileName = _fileNameWithFormat(_fileNameController.text, _format);
     final headers = _columns
         .map((column) => column.headerController.text.trim())
         .where((header) => header.isNotEmpty)
@@ -99,84 +128,105 @@ class _CreateDocPageState extends State<CreateDocPage> {
     Navigator.of(context).pop(
       SimpleDocumentDraft(
         fileName: fileName,
+        format: _format,
         headers: headers,
         valueTypes: valueTypes,
       ),
     );
   }
 
+  String _fileNameWithFormat(String value, SimpleFileFormat format) {
+    final extension = _extensionForFormat(format);
+    final baseName = _baseFileName(value);
+    return '${baseName.isEmpty ? 'calcrow_simple' : baseName}.$extension';
+  }
+
+  String _baseFileName(String value) {
+    return value.trim().replaceFirst(
+      RegExp(r'\.(csv|xlsx|ods)$', caseSensitive: false),
+      '',
+    );
+  }
+
+  String _extensionForFormat(SimpleFileFormat format) {
+    return SimpleSheetFileService.defaultExtensionForFormat(format);
+  }
+
+  void _handleFileNameChanged(String value) {
+    final normalized = _baseFileName(value);
+    if (normalized != value) {
+      _fileNameController.value = TextEditingValue(
+        text: normalized,
+        selection: TextSelection.collapsed(offset: normalized.length),
+      );
+    }
+    if (_errorText != null) {
+      setState(() => _errorText = null);
+    }
+  }
+
   Widget _buildColumnEditor(int index) {
     final column = _columns[index];
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isCompact = constraints.maxWidth < 620;
-        final headerField = TextField(
-          controller: column.headerController,
-          decoration: InputDecoration(labelText: 'Column ${index + 1}'),
-          onChanged: (_) {
-            if (_errorText != null) {
-              setState(() => _errorText = null);
-            }
-          },
-        );
-        final typeField = DropdownButtonFormField<String>(
-          initialValue: column.type,
-          decoration: const InputDecoration(labelText: 'Type'),
-          items: _typeOptions
-              .map(
-                (type) =>
-                    DropdownMenuItem<String>(value: type, child: Text(type)),
-              )
-              .toList(),
-          onChanged: (value) {
-            if (value == null) return;
-            setState(() {
-              column.type = value;
-              _errorText = null;
-            });
-          },
-        );
-        final removeButton = IconButton(
-          tooltip: 'Remove column',
-          onPressed: _columns.length <= 1 ? null : () => _removeColumn(index),
-          icon: const Icon(Icons.remove_circle_outline_rounded),
-        );
-
-        if (isCompact) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                headerField,
-                const SizedBox(height: 10),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: typeField),
-                    const SizedBox(width: 8),
-                    removeButton,
-                  ],
-                ),
-              ],
-            ),
-          );
+    final headerField = TextField(
+      controller: column.headerController,
+      decoration: InputDecoration(labelText: 'Column ${index + 1}'),
+      onChanged: (_) {
+        if (_errorText != null) {
+          setState(() => _errorText = null);
         }
+      },
+    );
+    final typeField = DropdownButtonFormField<String>(
+      initialValue: column.type,
+      decoration: const InputDecoration(labelText: 'Type'),
+      items: _typeOptions
+          .map(
+            (type) => DropdownMenuItem<String>(value: type, child: Text(type)),
+          )
+          .toList(),
+      onChanged: (value) {
+        if (value == null) return;
+        setState(() {
+          column.type = value;
+          _errorText = null;
+        });
+      },
+    );
+    final removeButton = IconButton(
+      tooltip: 'Remove column',
+      onPressed: _columns.length <= 1 ? null : () => _removeColumn(index),
+      icon: const Icon(Icons.remove_circle_outline_rounded),
+    );
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Row(
+    return MovingTileWidget(
+      isArranging: _isArranging,
+      canMoveUp: index > 0,
+      canMoveDown: index < _columns.length - 1,
+      onEnterArrangeMode: _enterArrangeMode,
+      onMoveUp: () => _moveColumn(index, index - 1),
+      onMoveDown: () => _moveColumn(index, index + 1),
+      compactChild: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          headerField,
+          const SizedBox(height: 10),
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(flex: 3, child: headerField),
-              const SizedBox(width: 16),
-              Expanded(flex: 2, child: typeField),
+              Expanded(child: typeField),
               const SizedBox(width: 8),
               removeButton,
             ],
           ),
-        );
-      },
+        ],
+      ),
+      expandedChildren: [
+        Expanded(flex: 3, child: headerField),
+        const SizedBox(width: 16),
+        Expanded(flex: 2, child: typeField),
+        const SizedBox(width: 8),
+        removeButton,
+      ],
     );
   }
 
@@ -197,10 +247,38 @@ class _CreateDocPageState extends State<CreateDocPage> {
                   children: [
                     TextField(
                       controller: _fileNameController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'File name',
-                        suffixText: 'CSV',
+                        suffixText: '.${_extensionForFormat(_format)}',
                       ),
+                      onChanged: _handleFileNameChanged,
+                    ),
+                    const SizedBox(height: 16),
+                    SegmentedButton<SimpleFileFormat>(
+                      segments: const <ButtonSegment<SimpleFileFormat>>[
+                        ButtonSegment<SimpleFileFormat>(
+                          value: SimpleFileFormat.csv,
+                          label: Text('CSV'),
+                          icon: Icon(Icons.table_rows_outlined),
+                        ),
+                        ButtonSegment<SimpleFileFormat>(
+                          value: SimpleFileFormat.xlsx,
+                          label: Text('XLSX'),
+                          icon: Icon(Icons.grid_on_rounded),
+                        ),
+                        ButtonSegment<SimpleFileFormat>(
+                          value: SimpleFileFormat.ods,
+                          label: Text('ODS later'),
+                          icon: Icon(Icons.pending_outlined),
+                          enabled: false,
+                        ),
+                      ],
+                      selected: <SimpleFileFormat>{_format},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (selection) {
+                        if (selection.isEmpty) return;
+                        _setFormat(selection.first);
+                      },
                     ),
                     const SizedBox(height: 24),
                     Row(
@@ -209,6 +287,21 @@ class _CreateDocPageState extends State<CreateDocPage> {
                           child: Text(
                             'Fields',
                             style: theme.textTheme.titleMedium,
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: _isArranging
+                              ? 'Finish arranging'
+                              : 'Arrange fields',
+                          onPressed: _columns.length <= 1
+                              ? null
+                              : () => setState(
+                                  () => _isArranging = !_isArranging,
+                                ),
+                          icon: Icon(
+                            _isArranging
+                                ? Icons.check_rounded
+                                : Icons.swap_vert_rounded,
                           ),
                         ),
                         TextButton.icon(
@@ -274,4 +367,5 @@ class _SimpleColumnDraft {
     headerController.dispose();
   }
 }
-//!TODO Add support for xlsx and ods files
+
+//!TODO Add support for creating ODS files once ODS generation does not require a source document.
