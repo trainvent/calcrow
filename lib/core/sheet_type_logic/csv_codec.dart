@@ -1,17 +1,18 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'simple_type_hint_cache.dart';
 import 'sheet_file_models.dart';
 import 'simple_sheet_logic.dart';
 
 class CsvSheetCodec {
   const CsvSheetCodec._();
 
-  static SimpleSheetData parse({
+  static Future<SimpleSheetData> parse({
     required Uint8List bytes,
     required String fileName,
     required String? path,
-  }) {
+  }) async {
     final content = utf8.decode(bytes, allowMalformed: true);
     final rawLines = content.split(RegExp(r'\r?\n'));
     if (rawLines.isNotEmpty && rawLines.last.trim().isEmpty) {
@@ -72,10 +73,24 @@ class CsvSheetCodec {
       tableBounds.columnCount,
       rows,
     );
+    final cachedTypes = tableBounds.hasTypeRow
+        ? null
+        : await SimpleTypeHintCache.readCsvTypes(
+            fileName: fileName,
+            path: path,
+          );
     final typeInference = tableBounds.hasTypeRow
         ? _buildTypeInferenceFromTypeRow(
             headerCount: tableBounds.columnCount,
             secondLineValues: secondLineValues,
+          )
+        : cachedTypes != null && cachedTypes.length == tableBounds.columnCount
+        ? List<SimpleSheetTypeInference>.generate(
+            tableBounds.columnCount,
+            (index) => SimpleSheetTypeInference(
+              type: cachedTypes[index],
+              confirmedFromData: true,
+            ),
           )
         : _inferSimpleTypes(
             headers: headers,
@@ -83,6 +98,8 @@ class CsvSheetCodec {
             readOnlyColumns: readOnlyColumns,
           );
     final pendingTypeSelectionColumns = tableBounds.hasTypeRow
+        ? const <int>[]
+        : cachedTypes != null && cachedTypes.length == tableBounds.columnCount
         ? const <int>[]
         : List<int>.generate(tableBounds.columnCount, (index) => index).where((
             index,

@@ -19,11 +19,13 @@ import 'package:calcrow/core/data/services/simple_sheet_persistence_service.dart
 import 'package:calcrow/core/data/services/user_repository.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/simple_sheet_file_service.dart';
+import 'package:calcrow/core/sheet_type_logic/simple_type_hint_cache.dart';
 import 'package:calcrow/features/home/sheet/sheet_preview_store.dart';
 import 'package:calcrow/features/home/editing/simple/create_doc_page.dart';
 import 'package:calcrow/features/home/editing/simple/widgets/select_time_widget.dart';
 import 'package:calcrow/features/home/editing/simple/widgets/timespan_widget.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:saf_util/saf_util.dart';
 
 enum _WidgetBlock { rowDefinement, workhours, smartData, wellbeing, notes }
 
@@ -32,6 +34,8 @@ enum _SimpleOpenMode { dateBased, dateBasedOpenEnd, textBased }
 enum _SimpleSetupAction { open, create }
 
 enum _SimpleCreateDestination { local, cloud }
+
+enum _SimpleLocalCreateTarget { currentSafFolder, pickSafFolder }
 
 enum _SimpleDocumentSource { local, cloud }
 
@@ -87,6 +91,7 @@ class _EditingPageState extends State<EditingPage> {
   static const double _defaultMoodLevel = 0.45;
   static const double _defaultEnergyLevel = 0.62;
   static const int _previewRowLimit = 100;
+  static final SafUtil _safUtil = SafUtil();
   final SimpleSheetPersistenceService _sheetPersistenceService =
       SimpleSheetPersistenceService();
 
@@ -182,6 +187,9 @@ class _EditingPageState extends State<EditingPage> {
 
   bool get _supportsLocalFileEditing =>
       kIsWeb || defaultTargetPlatform != TargetPlatform.iOS;
+
+  bool get _isAndroidPlatform =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   _SimpleDocumentSource get _effectiveSimpleDocumentSource {
     if (!_supportsLocalFileEditing &&
@@ -656,7 +664,7 @@ class _EditingPageState extends State<EditingPage> {
       readOnlyColumns: List<bool>.filled(draft.headers.length, false),
       rows: const <List<String>>[],
       csvDelimiter: ',',
-      hasTypeRow: true,
+      hasTypeRow: false,
       headerRowIndex: 0,
       startColumnIndex: 0,
     );
@@ -681,7 +689,8 @@ class _EditingPageState extends State<EditingPage> {
   Future<void> _createLocalSimpleDocument(SimpleSheetData sheetData) async {
     try {
       final bytes = SimpleSheetFileService.buildBytes(sheetData);
-      final preferredSafTreeUri = await _preferredSafTreeUri();
+      final preferredSafTreeUri = await _safTreeUriForNewLocalDocument();
+      if (!mounted) return;
       final result = await _sheetPersistenceService.persistBytes(
         SimplePersistRequest(
           bytes: bytes,
@@ -696,6 +705,12 @@ class _EditingPageState extends State<EditingPage> {
         ),
       );
       if (!mounted) return;
+
+      await SimpleTypeHintCache.rememberCsvTypes(
+        fileName: result.resolvedFileName,
+        path: result.savedPath,
+        valueTypes: sheetData.valueTypes,
+      );
 
       final savedSheetData = _copySimpleSheetData(
         sheetData,
@@ -724,11 +739,67 @@ class _EditingPageState extends State<EditingPage> {
         );
         return;
       }
+      if (error is StateError &&
+          error.message == 'Could not acquire a writable SAF folder URI.') {
+        _exitSimpleEditor();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not acquire a writable SAF folder URI.'),
+          ),
+        );
+        return;
+      }
       _exitSimpleEditor();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Could not create local document: $error')),
       );
     }
+  }
+
+  Future<String?> _safTreeUriForNewLocalDocument() async {
+    final preferredSafTreeUri = await _preferredSafTreeUri();
+    if (!mounted) return preferredSafTreeUri;
+    if (!_isAndroidPlatform ||
+        preferredSafTreeUri == null ||
+        preferredSafTreeUri.isEmpty) {
+      return preferredSafTreeUri;
+    }
+    final target = await showDialog<_SimpleLocalCreateTarget>(
+      context: context,
+      builder: (context) => const _LocalCreateTargetDialog(),
+    );
+    if (!mounted) return null;
+    switch (target) {
+      case null:
+        throw StateError('Save canceled.');
+      case _SimpleLocalCreateTarget.currentSafFolder:
+        return preferredSafTreeUri;
+      case _SimpleLocalCreateTarget.pickSafFolder:
+        return _pickSafTreeUriForNewDocument();
+    }
+  }
+
+  Future<String?> _pickSafTreeUriForNewDocument() async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (!_isAndroidPlatform) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('SAF folder setup is Android-only.')),
+      );
+      return null;
+    }
+    final pickedDirectory = await _safUtil.pickDirectory(
+      writePermission: true,
+      persistablePermission: true,
+    );
+    final treeUri = pickedDirectory?.uri.trim();
+    if (treeUri == null || treeUri.isEmpty) {
+      throw StateError('Save canceled.');
+    }
+    final normalizedTreeUri = treeUri.trim();
+    if (!_sheetPersistenceService.canUseSafTreeUri(normalizedTreeUri)) {
+      throw StateError('Could not acquire a writable SAF folder URI.');
+    }
+    return normalizedTreeUri;
   }
 
   Future<void> _createCloudSimpleDocument(SimpleSheetData sheetData) async {
@@ -750,6 +821,12 @@ class _EditingPageState extends State<EditingPage> {
           file: metadata,
         );
         if (!mounted) return;
+
+        await SimpleTypeHintCache.rememberCsvTypes(
+          fileName: metadata.name,
+          path: metadata.id,
+          valueTypes: sheetData.valueTypes,
+        );
 
         final savedSheetData = _copySimpleSheetData(
           sheetData,
@@ -2155,6 +2232,13 @@ class _EditingPageState extends State<EditingPage> {
           outputMimeType: mimeType,
           simpleData: simpleData,
         );
+    if (format == SimpleFileFormat.csv) {
+      await SimpleTypeHintCache.rememberCsvTypes(
+        fileName: metadata.name,
+        path: metadata.id,
+        valueTypes: _simpleValueTypes,
+      );
+    }
     setState(() {
       _simpleImportedFileName = metadata.name;
       _simpleImportedPath = null;
@@ -2221,6 +2305,11 @@ class _EditingPageState extends State<EditingPage> {
         preferredSafTreeUri: preferredSafTreeUri,
         mode: mode,
       ),
+    );
+    await SimpleTypeHintCache.rememberCsvTypes(
+      fileName: result.resolvedFileName,
+      path: result.savedPath,
+      valueTypes: _simpleValueTypes,
     );
     setState(() {
       _simpleImportedPath = result.savedPath;
@@ -4171,6 +4260,44 @@ class _CreateDestinationDialog extends StatelessWidget {
             subtitle: const Text('Choose a Google Drive or WebDAV folder.'),
             onTap: () =>
                 Navigator.of(context).pop(_SimpleCreateDestination.cloud),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+}
+
+class _LocalCreateTargetDialog extends StatelessWidget {
+  const _LocalCreateTargetDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Choose SAF Folder'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.folder_special_outlined),
+            title: const Text('Current SAF folder'),
+            subtitle: const Text('Create the file in the configured folder.'),
+            onTap: () => Navigator.of(
+              context,
+            ).pop(_SimpleLocalCreateTarget.currentSafFolder),
+          ),
+          ListTile(
+            leading: const Icon(Icons.create_new_folder_outlined),
+            title: const Text('Pick SAF folder'),
+            subtitle: const Text('Choose a writable Android folder.'),
+            onTap: () => Navigator.of(
+              context,
+            ).pop(_SimpleLocalCreateTarget.pickSafFolder),
           ),
         ],
       ),

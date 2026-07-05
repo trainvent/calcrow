@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:calcrow/core/data/di/service_locator.dart';
 import 'package:calcrow/core/data/services/purchases_service.dart';
 
-import 'free_mode_bottom_tile.dart';
+import '../../app/widgets/free_mode_bottom_tile.dart';
 import 'editing/selection_page.dart';
 import 'settings/settings_tab.dart';
 import 'sheet/sheet_preview_tab.dart';

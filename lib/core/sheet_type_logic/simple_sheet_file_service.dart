@@ -27,7 +27,7 @@ class SimpleSheetFileService {
     );
     switch (format) {
       case SimpleFileFormat.csv:
-        return CsvSheetCodec.parse(
+        return await CsvSheetCodec.parse(
           bytes: bytes,
           fileName: fileName,
           path: path,
