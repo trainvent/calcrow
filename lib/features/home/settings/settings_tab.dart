@@ -1285,20 +1285,28 @@ class _SettingsTabState extends State<SettingsTab> {
         );
         return;
       }
-      if (session != null) {
-        await ServiceLocator.dbService.setSafFolderUri(
-          uid: session.uid,
-          treeUri: normalizedTreeUri,
-        );
-      }
       SimpleSheetPersistenceService.setRuntimeSafTreeUri(normalizedTreeUri);
+      var syncedToSettings = session == null;
+      if (session != null) {
+        try {
+          await ServiceLocator.dbService.setSafFolderUri(
+            uid: session.uid,
+            treeUri: normalizedTreeUri,
+          );
+          syncedToSettings = true;
+        } catch (_) {
+          syncedToSettings = false;
+        }
+      }
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            session == null
-                ? 'SAF folder saved for this app session.'
-                : 'SAF folder saved in settings.',
+            syncedToSettings
+                ? (session == null
+                      ? 'SAF folder saved for this app session.'
+                      : 'SAF folder saved in settings.')
+                : 'SAF folder saved for this app session. Settings sync failed.',
           ),
         ),
       );

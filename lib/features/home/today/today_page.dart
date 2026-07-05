@@ -583,7 +583,11 @@ class _TodayPageState extends State<TodayPage> {
     final draft = await Navigator.of(context).push<SimpleDocumentDraft>(
       MaterialPageRoute(builder: (context) => const CreateDocPage()),
     );
-    if (!mounted || draft == null) return;
+    if (!mounted) return;
+    if (draft == null) {
+      setState(() => _simpleSetupAction = _SimpleSetupAction.open);
+      return;
+    }
 
     final sheetData = SimpleSheetData(
       fileName: draft.fileName,
@@ -603,7 +607,11 @@ class _TodayPageState extends State<TodayPage> {
       builder: (context) =>
           _CreateDestinationDialog(showLocal: _supportsLocalFileEditing),
     );
-    if (!mounted || destination == null) return;
+    if (!mounted) return;
+    if (destination == null) {
+      setState(() => _simpleSetupAction = _SimpleSetupAction.open);
+      return;
+    }
     switch (destination) {
       case _SimpleCreateDestination.local:
         await _createLocalSimpleDocument(sheetData);
@@ -615,6 +623,7 @@ class _TodayPageState extends State<TodayPage> {
   Future<void> _createLocalSimpleDocument(SimpleSheetData sheetData) async {
     try {
       final bytes = SimpleSheetFileService.buildBytes(sheetData);
+      final preferredSafTreeUri = await _preferredSafTreeUri();
       final result = await _sheetPersistenceService.persistBytes(
         SimplePersistRequest(
           bytes: bytes,
@@ -622,7 +631,10 @@ class _TodayPageState extends State<TodayPage> {
           typeGroup: _csvTypeGroup,
           mimeType: 'text/csv',
           confirmButtonText: 'Create CSV',
-          mode: SimplePersistMode.asIs,
+          preferredSafTreeUri: preferredSafTreeUri,
+          mode: preferredSafTreeUri == null
+              ? SimplePersistMode.asIs
+              : SimplePersistMode.safPreferred,
         ),
       );
       if (!mounted) return;
@@ -637,18 +649,24 @@ class _TodayPageState extends State<TodayPage> {
         savedSheetData,
         target: _LocalSimpleDocumentTarget(existingPath: result.savedPath),
       );
-      if (!loaded || !mounted) return;
+      if (!mounted) return;
+      if (!loaded) {
+        _exitSimpleEditor();
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Created ${result.resolvedFileName}.')),
       );
     } catch (error) {
       if (!mounted) return;
       if (error is StateError && error.message == 'Save canceled.') {
+        _exitSimpleEditor();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Create document canceled.')),
         );
         return;
       }
+      _exitSimpleEditor();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Could not create local document: $error')),
       );
@@ -2240,9 +2258,16 @@ class _TodayPageState extends State<TodayPage> {
     if (session == null) {
       return SimpleSheetPersistenceService.runtimeSafTreeUri;
     }
-    final settings = await ServiceLocator.userRepository.getUserSettings(
-      session.uid,
-    );
+    final settings = await (() async {
+      try {
+        return await ServiceLocator.userRepository.getUserSettings(session.uid);
+      } catch (_) {
+        return null;
+      }
+    })();
+    if (settings == null) {
+      return SimpleSheetPersistenceService.runtimeSafTreeUri;
+    }
     final uri = settings.safTreeUri;
     if (uri == null || uri.isEmpty) {
       return SimpleSheetPersistenceService.runtimeSafTreeUri;
@@ -3718,8 +3743,13 @@ class _TodayPageState extends State<TodayPage> {
       _rememberLocalDocumentForReopen = false;
       _simpleDocumentTarget = null;
       _simpleDocumentSource = _SimpleDocumentSource.local;
+      _simpleOpenMode = _SimpleOpenMode.dateBasedOpenEnd;
+      _simpleSetupAction = _SimpleSetupAction.open;
       _simpleTextSelectionColumnIndex = null;
       _simpleTextSelectionValue = null;
+      _isOpeningDocument = false;
+      _isChoosingLocalDocument = false;
+      _isChoosingCloudFile = false;
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {

@@ -1,4 +1,3 @@
-
 import 'package:file_picker/file_picker.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
@@ -57,8 +56,7 @@ class SimpleSheetPersistenceService {
 
   static void setRuntimeSafTreeUri(String? treeUri) {
     final trimmed = treeUri?.trim();
-    _runtimeSafTreeUri =
-        (trimmed == null || trimmed.isEmpty) ? null : trimmed;
+    _runtimeSafTreeUri = (trimmed == null || trimmed.isEmpty) ? null : trimmed;
   }
 
   static bool isTemporaryPath(String path) {
@@ -92,12 +90,14 @@ class SimpleSheetPersistenceService {
     final encodedSegments = uri.pathSegments;
     final treeIndex = encodedSegments.indexOf('tree');
     if (treeIndex >= 0 && treeIndex + 1 < encodedSegments.length) {
-      return uri.replace(
-        pathSegments: <String>[
-          'tree',
-          Uri.decodeComponent(encodedSegments[treeIndex + 1]),
-        ],
-      ).toString();
+      return uri
+          .replace(
+            pathSegments: <String>[
+              'tree',
+              Uri.decodeComponent(encodedSegments[treeIndex + 1]),
+            ],
+          )
+          .toString();
     }
     final documentIndex = encodedSegments.indexOf('document');
     if (documentIndex < 0 || documentIndex + 1 >= encodedSegments.length) {
@@ -110,9 +110,9 @@ class SimpleSheetPersistenceService {
       if (parentDocId.isEmpty) {
         return null;
       }
-      return uri.replace(
-        pathSegments: <String>['tree', parentDocId],
-      ).toString();
+      return uri
+          .replace(pathSegments: <String>['tree', parentDocId])
+          .toString();
     }
 
     // Some providers return root-level document IDs without '/'.
@@ -123,9 +123,9 @@ class SimpleSheetPersistenceService {
       final tail = docId.substring(colonIndex + 1).trim();
       if (volume.isNotEmpty) {
         final inferredParent = tail.contains('.') ? '$volume:' : docId;
-        return uri.replace(
-          pathSegments: <String>['tree', inferredParent],
-        ).toString();
+        return uri
+            .replace(pathSegments: <String>['tree', inferredParent])
+            .toString();
       }
     }
     return null;
@@ -263,6 +263,18 @@ class SimpleSheetPersistenceService {
     if (location == null) {
       throw StateError('Save canceled.');
     }
+    if (_isAndroidSafDocumentUri(location.path)) {
+      final savedToDocumentUri = await _writeViaSafDocumentUri(
+        documentUri: location.path,
+        bytes: request.bytes,
+        fileName: request.fileName,
+        mimeType: request.mimeType,
+      );
+      if (savedToDocumentUri != null) {
+        return savedToDocumentUri;
+      }
+      throw StateError('Could not write to the selected Android document.');
+    }
     await output.saveTo(location.path);
     return SimplePersistResult(
       locationLabel: kIsWeb
@@ -348,6 +360,45 @@ class SimpleSheetPersistenceService {
     return null;
   }
 
+  Future<SimplePersistResult?> _writeViaSafDocumentUri({
+    required String documentUri,
+    required Uint8List bytes,
+    required String fileName,
+    required String mimeType,
+  }) async {
+    final treeUri = parentTreeUriFromDocumentUri(documentUri);
+    if (treeUri == null) {
+      return null;
+    }
+    final targetFileName = _fileNameFromDocumentUri(documentUri) ?? fileName;
+    try {
+      final newFile = await _safStream.writeFileBytes(
+        treeUri,
+        targetFileName,
+        mimeType,
+        bytes,
+        overwrite: true,
+      );
+      final uriString = newFile.uri.toString();
+      final resolvedFileName = (newFile.fileName ?? targetFileName).trim();
+      final savedPath = uriString.isEmpty ? documentUri : uriString;
+      return SimplePersistResult(
+        locationLabel: _displayLocationLabel(
+          path: savedPath,
+          fallbackName: targetFileName,
+        ),
+        overwroteExistingFile: false,
+        usedAppDocumentsFallback: false,
+        savedPath: savedPath,
+        resolvedFileName: resolvedFileName.isEmpty
+            ? targetFileName
+            : resolvedFileName,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<_SafOverwriteResult?> _tryOverwriteWithSaf({
     required String existingPath,
     required Uint8List bytes,
@@ -399,7 +450,9 @@ class SimpleSheetPersistenceService {
         overwroteExistingFile: true,
         usedAppDocumentsFallback: false,
         savedPath: uriString.isEmpty ? treeUri : uriString,
-        resolvedFileName: resolvedFileName.isEmpty ? fileName : resolvedFileName,
+        resolvedFileName: resolvedFileName.isEmpty
+            ? fileName
+            : resolvedFileName,
       );
     } catch (_) {
       return null;
