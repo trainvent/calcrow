@@ -205,6 +205,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
       onEnterArrangeMode: _enterArrangeMode,
       onMoveUp: () => _moveColumn(index, index - 1),
       onMoveDown: () => _moveColumn(index, index + 1),
+      showBottomSeparator: index < _columns.length - 1,
       compactChild: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

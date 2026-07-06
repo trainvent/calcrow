@@ -147,8 +147,6 @@ class _TopBar extends StatelessWidget {
             ],
           ),
         ),
-        const Spacer(),
-        TextButton(onPressed: onOpenWeb, child: const Text('Web Client')),
       ],
     );
   }

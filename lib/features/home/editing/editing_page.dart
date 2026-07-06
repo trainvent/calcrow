@@ -1025,6 +1025,92 @@ class _EditingPageState extends State<EditingPage> {
     );
   }
 
+  String _simpleOpenModeLabel(_SimpleOpenMode mode) {
+    return switch (mode) {
+      _SimpleOpenMode.dateBased => 'Diary',
+      _SimpleOpenMode.dateBasedOpenEnd => 'Logbook',
+      _SimpleOpenMode.textBased => 'Namelist',
+    };
+  }
+
+  String _simpleOpenModeDescription(_SimpleOpenMode mode) {
+    return switch (mode) {
+      _SimpleOpenMode.dateBased =>
+        'Open the existing row for today and keep one entry per day.',
+      _SimpleOpenMode.dateBasedOpenEnd =>
+        'Open today if it exists, otherwise start a new row for today.',
+      _SimpleOpenMode.textBased =>
+        'Choose an existing named entry from a text column and edit that row.',
+    };
+  }
+
+  String _simpleOpenModeTableHint(_SimpleOpenMode mode) {
+    return switch (mode) {
+      _SimpleOpenMode.dateBased =>
+        'Your table needs a date column with one prepared row per day.',
+      _SimpleOpenMode.dateBasedOpenEnd =>
+        'Your table needs a date column; Calcrow can add today as a new row.',
+      _SimpleOpenMode.textBased =>
+        'Your table needs an editable text column with the entry names.',
+    };
+  }
+
+  void _showSimpleOpenModeInfo(_SimpleOpenMode selectedMode) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        final dialogTheme = Theme.of(dialogContext);
+        final modes = _SimpleOpenMode.values;
+
+        return AlertDialog(
+          title: const Text('Opening modes'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final mode in modes) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _simpleOpenModeLabel(mode),
+                          style: dialogTheme.textTheme.titleSmall,
+                        ),
+                      ),
+                      if (mode == selectedMode)
+                        Icon(
+                          Icons.check_rounded,
+                          size: 18,
+                          color: dialogTheme.colorScheme.primary,
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(_simpleOpenModeDescription(mode)),
+                  const SizedBox(height: 4),
+                  Text(
+                    _simpleOpenModeTableHint(mode),
+                    style: dialogTheme.textTheme.bodySmall?.copyWith(
+                      color: dialogTheme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  if (mode != modes.last) const SizedBox(height: 16),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Got it'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   _SimpleDocumentSource _simpleDocumentSourceFromRecent(
     SimpleRecentDocumentSource source,
   ) {
@@ -3091,26 +3177,22 @@ class _EditingPageState extends State<EditingPage> {
           ? _SimpleOpenMode.dateBasedOpenEnd
           : _simpleOpenMode;
       final openModeItems = isCreateMode
-          ? const <DropdownMenuItem<_SimpleOpenMode>>[
+          ? <DropdownMenuItem<_SimpleOpenMode>>[
               DropdownMenuItem(
                 value: _SimpleOpenMode.dateBasedOpenEnd,
-                child: Text('Dates open end'),
+                child: Text(
+                  _simpleOpenModeLabel(_SimpleOpenMode.dateBasedOpenEnd),
+                ),
               ),
             ]
-          : const <DropdownMenuItem<_SimpleOpenMode>>[
-              DropdownMenuItem(
-                value: _SimpleOpenMode.dateBased,
-                child: Text('Dates open'),
-              ),
-              DropdownMenuItem(
-                value: _SimpleOpenMode.dateBasedOpenEnd,
-                child: Text('Dates open end'),
-              ),
-              DropdownMenuItem(
-                value: _SimpleOpenMode.textBased,
-                child: Text('Text based'),
-              ),
-            ];
+          : _SimpleOpenMode.values
+                .map(
+                  (mode) => DropdownMenuItem<_SimpleOpenMode>(
+                    value: mode,
+                    child: Text(_simpleOpenModeLabel(mode)),
+                  ),
+                )
+                .toList();
       return Column(
         children: [
           Card(
@@ -3119,7 +3201,21 @@ class _EditingPageState extends State<EditingPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Opening Mode', style: theme.textTheme.titleMedium),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Opening Mode',
+                          style: theme.textTheme.titleMedium,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Explain opening modes',
+                        onPressed: () => _showSimpleOpenModeInfo(setupOpenMode),
+                        icon: const Icon(Icons.info_outline_rounded),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<_SimpleOpenMode>(
                     initialValue: setupOpenMode,
@@ -3137,11 +3233,6 @@ class _EditingPageState extends State<EditingPage> {
                         _simpleTextSelectionValue = null;
                       });
                     },
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Open today if it exists, otherwise start a new row for today.',
-                    style: theme.textTheme.bodyMedium,
                   ),
                 ],
               ),
@@ -4030,9 +4121,9 @@ class _SimpleRecentConfigDialog extends StatelessWidget {
 
   static String _openModeLabel(String openMode) {
     return switch (openMode) {
-      'dateBased' => 'Dates one a day',
-      'dateBasedOpenEnd' => 'Dates open end',
-      'textBased' => 'Text based',
+      'dateBased' => 'Diary',
+      'dateBasedOpenEnd' => 'Logbook',
+      'textBased' => 'Namelist',
       _ => 'Opening mode',
     };
   }
