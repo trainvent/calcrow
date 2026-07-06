@@ -20,6 +20,7 @@ class TimespanWidget extends StatefulWidget {
 
 class _TimespanWidgetState extends State<TimespanWidget> {
   late final TextEditingController _minutesController;
+  bool _isWritingParentController = false;
 
   @override
   void initState() {
@@ -27,10 +28,21 @@ class _TimespanWidgetState extends State<TimespanWidget> {
     _minutesController = TextEditingController(
       text: _minutesFromStoredValue(widget.controller.text),
     );
+    widget.controller.addListener(_syncFromParentController);
+  }
+
+  @override
+  void didUpdateWidget(covariant TimespanWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller == widget.controller) return;
+    oldWidget.controller.removeListener(_syncFromParentController);
+    widget.controller.addListener(_syncFromParentController);
+    _syncFromParentController();
   }
 
   @override
   void dispose() {
+    widget.controller.removeListener(_syncFromParentController);
     _minutesController.dispose();
     super.dispose();
   }
@@ -53,15 +65,34 @@ class _TimespanWidgetState extends State<TimespanWidget> {
 
   void _handleMinutesChanged(String raw) {
     final normalized = raw.trim().replaceAll(',', '.');
+    _isWritingParentController = true;
     if (normalized.isEmpty) {
       widget.controller.text = '00:00:00';
+      _isWritingParentController = false;
       return;
     }
     final minutes = double.tryParse(normalized);
-    if (minutes == null) return;
+    if (minutes == null) {
+      _isWritingParentController = false;
+      return;
+    }
     final totalSeconds = (minutes * 60).round();
-    if (totalSeconds < 0) return;
+    if (totalSeconds < 0) {
+      _isWritingParentController = false;
+      return;
+    }
     widget.controller.text = _formatDuration(totalSeconds);
+    _isWritingParentController = false;
+  }
+
+  void _syncFromParentController() {
+    if (_isWritingParentController) return;
+    final minutes = _minutesFromStoredValue(widget.controller.text);
+    if (_minutesController.text == minutes) return;
+    _minutesController.value = TextEditingValue(
+      text: minutes,
+      selection: TextSelection.collapsed(offset: minutes.length),
+    );
   }
 
   String _minutesFromStoredValue(String raw) {
