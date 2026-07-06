@@ -40,7 +40,16 @@ enum _SimpleLocalCreateTarget { currentSafFolder, pickSafFolder }
 enum _SimpleDocumentSource { local, cloud }
 
 class EditingPage extends StatefulWidget {
-  const EditingPage({super.key});
+  const EditingPage({
+    super.key,
+    this.openDocumentOnStart = false,
+    this.initialDocumentDraft,
+    this.showBackToSelection = false,
+  });
+
+  final bool openDocumentOnStart;
+  final SimpleDocumentDraft? initialDocumentDraft;
+  final bool showBackToSelection;
 
   @override
   State<EditingPage> createState() => _EditingPageState();
@@ -155,6 +164,12 @@ class _EditingPageState extends State<EditingPage> {
   void initState() {
     super.initState();
     _isAdvancedMode = false;
+    if (widget.openDocumentOnStart || widget.initialDocumentDraft != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(_runStartupAction());
+      });
+    }
   }
 
   @override
@@ -178,6 +193,25 @@ class _EditingPageState extends State<EditingPage> {
   bool get _hasSimpleControllersReady =>
       _simpleControllers.length == _simpleHeaders.length &&
       _simpleReadOnlyColumns.length == _simpleHeaders.length;
+
+  Future<void> _runStartupAction() async {
+    final draft = widget.initialDocumentDraft;
+    if (draft != null) {
+      await _createSimpleDocumentFromDraft(draft);
+    } else if (widget.openDocumentOnStart) {
+      await _openSelectedSimpleDocument();
+    }
+    if (!mounted || _hasSimpleSchema || !widget.showBackToSelection) return;
+    Navigator.of(context).maybePop();
+  }
+
+  void _returnToSelectionOrResetSetup() {
+    if (widget.showBackToSelection && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+      return;
+    }
+    setState(() => _simpleSetupAction = _SimpleSetupAction.open);
+  }
 
   bool get _hasRememberedLocalDocument =>
       _rememberLocalDocumentForReopen &&
@@ -651,10 +685,17 @@ class _EditingPageState extends State<EditingPage> {
     );
     if (!mounted) return;
     if (draft == null) {
-      setState(() => _simpleSetupAction = _SimpleSetupAction.open);
+      _returnToSelectionOrResetSetup();
       return;
     }
+    await _createSimpleDocumentFromDraft(draft);
+  }
 
+  Future<void> _createSimpleDocumentFromDraft(SimpleDocumentDraft draft) async {
+    setState(() {
+      _simpleOpenMode = _SimpleOpenMode.dateBasedOpenEnd;
+      _simpleSetupAction = _SimpleSetupAction.create;
+    });
     final sheetData = SimpleSheetData(
       fileName: draft.fileName,
       path: null,
@@ -679,7 +720,7 @@ class _EditingPageState extends State<EditingPage> {
     );
     if (!mounted) return;
     if (destination == null) {
-      setState(() => _simpleSetupAction = _SimpleSetupAction.open);
+      _returnToSelectionOrResetSetup();
       return;
     }
     switch (destination) {
@@ -3103,7 +3144,10 @@ class _EditingPageState extends State<EditingPage> {
           children: [
             _TopHeader(
               isAdvancedMode: _isAdvancedMode,
-              showBackButton: _isAdvancedMode || _hasSimpleSchema,
+              showBackButton:
+                  _isAdvancedMode ||
+                  _hasSimpleSchema ||
+                  widget.showBackToSelection,
               showModeSwitch: false,
               headerTitle: _headerTitle,
               setupDone: _setupDone,
@@ -3902,6 +3946,13 @@ class _EditingPageState extends State<EditingPage> {
     if (!_isAdvancedMode) {
       if (_hasSimpleSchema) {
         _exitSimpleEditor();
+        if (widget.showBackToSelection) {
+          Navigator.of(context).maybePop();
+        }
+        return;
+      }
+      if (widget.showBackToSelection) {
+        Navigator.of(context).maybePop();
       }
       return;
     }
