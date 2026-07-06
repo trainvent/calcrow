@@ -26,7 +26,7 @@ import 'package:open_filex/open_filex.dart';
 
 enum _WidgetBlock { rowDefinement, workhours, smartData, wellbeing, notes }
 
-enum SimpleEditorOpenMode { dateBased, dateBasedOpenEnd, textBased }
+enum EditorOpenMode { dateBased, dateBasedOpenEnd, textBased }
 
 class EditingPage extends StatefulWidget {
   const EditingPage({
@@ -40,8 +40,8 @@ class EditingPage extends StatefulWidget {
   });
 
   final SimpleSheetData initialSheetData;
-  final SimpleEditorDocumentTarget initialDocumentTarget;
-  final SimpleEditorOpenMode initialOpenMode;
+  final EditorDocumentTarget initialDocumentTarget;
+  final EditorOpenMode initialOpenMode;
   final String? initialSuccessMessage;
   final bool showBackToSelection;
   final VoidCallback? onBackToSelection;
@@ -60,7 +60,7 @@ class _EditingPageState extends State<EditingPage> {
     'date',
     'time',
     'duration',
-    'int',
+    'Number',
     'decimal',
     'email',
     'phone',
@@ -138,8 +138,8 @@ class _EditingPageState extends State<EditingPage> {
   bool _showWellbeing = true;
   bool _showNotes = true;
   bool _isOpeningDocument = false;
-  SimpleEditorDocumentTarget? _simpleDocumentTarget;
-  SimpleEditorOpenMode _simpleOpenMode = SimpleEditorOpenMode.dateBasedOpenEnd;
+  EditorDocumentTarget? _simpleDocumentTarget;
+  EditorOpenMode _simpleOpenMode = EditorOpenMode.dateBasedOpenEnd;
   int? _simpleTextSelectionColumnIndex;
   String? _simpleTextSelectionValue;
 
@@ -204,7 +204,7 @@ class _EditingPageState extends State<EditingPage> {
     if (!_supportsLocalFileEditing) return;
 
     final path = _simpleImportedPath?.trim();
-    if (_simpleDocumentTarget is LocalSimpleEditorDocumentTarget &&
+    if (_simpleDocumentTarget is LocalEditorDocumentTarget &&
         path != null &&
         path.isNotEmpty) {
       final opened = await _openLocalFileExternally(path);
@@ -256,7 +256,7 @@ class _EditingPageState extends State<EditingPage> {
 
   Future<bool> _loadSimpleProfileData(
     SimpleSheetData sheetData, {
-    SimpleEditorDocumentTarget? target,
+    EditorDocumentTarget? target,
   }) async {
     final selection = await _resolveSimpleOpeningSelection(sheetData);
     if (!mounted || selection == null) return false;
@@ -279,13 +279,12 @@ class _EditingPageState extends State<EditingPage> {
       _simpleImportedWorkbook = sheetData.workbook;
       _simpleImportedSourceBytes = sheetData.sourceBytes;
       _simpleDocumentTarget =
-          target ??
-          LocalSimpleEditorDocumentTarget(existingPath: sheetData.path);
+          target ?? LocalEditorDocumentTarget(existingPath: sheetData.path);
       _simpleTextSelectionColumnIndex = selection.textColumnIndex;
       _simpleTextSelectionValue = selection.textValue;
     });
 
-    _selectSimpleEditorTargetRow(
+    _selectEditorTargetRow(
       preferredRowIndex: selection.targetRowIndex,
       preserveSelectedTextTarget: true,
     );
@@ -296,7 +295,7 @@ class _EditingPageState extends State<EditingPage> {
 
   Future<void> _rememberSimpleOpenConfiguration(
     SimpleSheetData sheetData, {
-    SimpleEditorDocumentTarget? target,
+    EditorDocumentTarget? target,
   }) async {
     if (!ServiceLocator.isSetup) return;
     final session = ServiceLocator.authService.currentSession;
@@ -307,7 +306,7 @@ class _EditingPageState extends State<EditingPage> {
         ? 'document'
         : sheetData.fileName.trim();
     SimpleRecentOpenConfig? config;
-    if (target is CloudSimpleEditorDocumentTarget) {
+    if (target is CloudEditorDocumentTarget) {
       config = SimpleRecentOpenConfig(
         source: switch (target.provider) {
           CloudSyncProvider.googleDrive =>
@@ -321,7 +320,7 @@ class _EditingPageState extends State<EditingPage> {
       );
     } else {
       final path =
-          (target is LocalSimpleEditorDocumentTarget
+          (target is LocalEditorDocumentTarget
                   ? target.existingPath
                   : sheetData.path)
               ?.trim();
@@ -370,8 +369,8 @@ class _EditingPageState extends State<EditingPage> {
     SimpleSheetData sheetData,
   ) async {
     switch (_simpleOpenMode) {
-      case SimpleEditorOpenMode.dateBased:
-        final selection = _selectSimpleEditorTargetRowForSheetData(sheetData);
+      case EditorOpenMode.dateBased:
+        final selection = _selectEditorTargetRowForSheetData(sheetData);
         if (!selection.usedDateColumn || !selection.foundMatchingDateRow) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -387,8 +386,8 @@ class _EditingPageState extends State<EditingPage> {
           textColumnIndex: null,
           textValue: null,
         );
-      case SimpleEditorOpenMode.dateBasedOpenEnd:
-        final selection = _selectSimpleEditorTargetRowForSheetData(sheetData);
+      case EditorOpenMode.dateBasedOpenEnd:
+        final selection = _selectEditorTargetRowForSheetData(sheetData);
         if (!selection.usedDateColumn) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -404,7 +403,7 @@ class _EditingPageState extends State<EditingPage> {
           textColumnIndex: null,
           textValue: null,
         );
-      case SimpleEditorOpenMode.textBased:
+      case EditorOpenMode.textBased:
         final textSelection = await _showSimpleTextEntryPicker(sheetData);
         if (textSelection == null) return null;
         return _SimpleOpeningSelection(
@@ -415,12 +414,12 @@ class _EditingPageState extends State<EditingPage> {
     }
   }
 
-  _SimpleEditorTargetSelection _selectSimpleEditorTargetRow({
+  _EditorTargetSelection _selectEditorTargetRow({
     int? preferredRowIndex,
     bool preserveSelectedTextTarget = false,
   }) {
     if (!_hasSimpleSchema) {
-      return const _SimpleEditorTargetSelection(
+      return const _EditorTargetSelection(
         usedDateColumn: false,
         foundMatchingDateRow: false,
         targetRowIndex: 0,
@@ -496,18 +495,18 @@ class _EditingPageState extends State<EditingPage> {
         _simpleTextSelectionValue = null;
       }
     });
-    return _SimpleEditorTargetSelection(
+    return _EditorTargetSelection(
       usedDateColumn: dateColumn != null,
       foundMatchingDateRow: foundMatchingDateRow,
       targetRowIndex: targetRowIndex,
     );
   }
 
-  _SimpleEditorTargetSelection _selectSimpleEditorTargetRowForSheetData(
+  _EditorTargetSelection _selectEditorTargetRowForSheetData(
     SimpleSheetData sheetData,
   ) {
     if (sheetData.headers.isEmpty) {
-      return const _SimpleEditorTargetSelection(
+      return const _EditorTargetSelection(
         usedDateColumn: false,
         foundMatchingDateRow: false,
         targetRowIndex: 0,
@@ -521,7 +520,7 @@ class _EditingPageState extends State<EditingPage> {
         ? typeIndex
         : sheetData.headers.indexWhere((header) => _isDateHeaderName(header));
     if (dateColumn < 0) {
-      return const _SimpleEditorTargetSelection(
+      return const _EditorTargetSelection(
         usedDateColumn: false,
         foundMatchingDateRow: false,
         targetRowIndex: 0,
@@ -542,7 +541,7 @@ class _EditingPageState extends State<EditingPage> {
           readOnlyColumns: sheetData.readOnlyColumns,
           width: sheetData.headers.length,
         )) {
-          return _SimpleEditorTargetSelection(
+          return _EditorTargetSelection(
             usedDateColumn: true,
             foundMatchingDateRow: true,
             targetRowIndex: rowIndex,
@@ -551,7 +550,7 @@ class _EditingPageState extends State<EditingPage> {
       }
     }
 
-    return _SimpleEditorTargetSelection(
+    return _EditorTargetSelection(
       usedDateColumn: true,
       foundMatchingDateRow: fallbackMatchIndex != null,
       targetRowIndex: fallbackMatchIndex ?? sheetData.rows.length,
@@ -1161,7 +1160,7 @@ class _EditingPageState extends State<EditingPage> {
   }
 
   int? _findBestExistingRowForSave(List<String> updatedRow) {
-    if (_simpleOpenMode != SimpleEditorOpenMode.dateBased) {
+    if (_simpleOpenMode != EditorOpenMode.dateBased) {
       return null;
     }
     final dateColumn = _simpleDateColumnIndex();
@@ -1224,6 +1223,10 @@ class _EditingPageState extends State<EditingPage> {
     });
   }
 
+  String _editorTypeOptionFor(String type) {
+    return type.trim().toLowerCase() == 'int' ? 'Number' : type;
+  }
+
   void _confirmPendingSimpleTypes() {
     if (_simplePendingTypeSelectionColumns.isEmpty) return;
     setState(() {
@@ -1254,7 +1257,7 @@ class _EditingPageState extends State<EditingPage> {
       _simpleTextSelectionColumnIndex = selection.columnIndex;
       _simpleTextSelectionValue = selection.value;
     });
-    _selectSimpleEditorTargetRow(
+    _selectEditorTargetRow(
       preferredRowIndex: selection.rowIndex,
       preserveSelectedTextTarget: true,
     );
@@ -1269,7 +1272,7 @@ class _EditingPageState extends State<EditingPage> {
       _simpleTextSelectionColumnIndex = selection.columnIndex;
       _simpleTextSelectionValue = selection.value;
     });
-    _selectSimpleEditorTargetRow(
+    _selectEditorTargetRow(
       preferredRowIndex: selection.rowIndex,
       preserveSelectedTextTarget: true,
     );
@@ -1329,7 +1332,7 @@ class _EditingPageState extends State<EditingPage> {
     required SimplePersistMode mode,
   }) async {
     final target = _simpleDocumentTarget;
-    if (target is CloudSimpleEditorDocumentTarget) {
+    if (target is CloudEditorDocumentTarget) {
       return _persistSimpleCloud(target: target);
     }
     final format = _simpleImportedFormat;
@@ -1341,7 +1344,7 @@ class _EditingPageState extends State<EditingPage> {
     }
     if (format == SimpleFileFormat.gsheet) {
       return _persistSimpleCloud(
-        target: _simpleDocumentTarget as CloudSimpleEditorDocumentTarget,
+        target: _simpleDocumentTarget as CloudEditorDocumentTarget,
       );
     }
     return _persistSimpleCsv(mode: mode);
@@ -1402,7 +1405,7 @@ class _EditingPageState extends State<EditingPage> {
   }
 
   Future<SimplePersistResult> _persistSimpleCloud({
-    required CloudSimpleEditorDocumentTarget target,
+    required CloudEditorDocumentTarget target,
   }) async {
     final simpleData = _buildSimpleSheetDataForPersist();
     final format = _simpleImportedFormat ?? SimpleFileFormat.csv;
@@ -1439,7 +1442,7 @@ class _EditingPageState extends State<EditingPage> {
     setState(() {
       _simpleImportedFileName = metadata.name;
       _simpleImportedPath = null;
-      _simpleDocumentTarget = CloudSimpleEditorDocumentTarget(
+      _simpleDocumentTarget = CloudEditorDocumentTarget(
         provider: metadata.provider,
         fileId: metadata.id,
         fileName: metadata.name,
@@ -1509,7 +1512,7 @@ class _EditingPageState extends State<EditingPage> {
     setState(() {
       _simpleImportedPath = result.savedPath;
       _simpleImportedFileName = result.resolvedFileName;
-      _simpleDocumentTarget = LocalSimpleEditorDocumentTarget(
+      _simpleDocumentTarget = LocalEditorDocumentTarget(
         existingPath: result.savedPath,
       );
     });
@@ -2287,9 +2290,9 @@ class _EditingPageState extends State<EditingPage> {
     final canOpenLocalDocumentFromCard =
         (_supportsLocalFileEditing && _simpleDocumentTarget == null) ||
         (_supportsLocalFileEditing &&
-            _simpleDocumentTarget is LocalSimpleEditorDocumentTarget);
+            _simpleDocumentTarget is LocalEditorDocumentTarget);
     final canCreateOpenEndDateRow =
-        _simpleOpenMode == SimpleEditorOpenMode.dateBasedOpenEnd;
+        _simpleOpenMode == EditorOpenMode.dateBasedOpenEnd;
 
     return Column(
       children: [
@@ -2338,7 +2341,7 @@ class _EditingPageState extends State<EditingPage> {
                   TextButton(
                     onPressed: _openLocalDocumentFolderOrDocument,
                     child: Text(
-                      _simpleDocumentTarget is LocalSimpleEditorDocumentTarget
+                      _simpleDocumentTarget is LocalEditorDocumentTarget
                           ? 'Open'
                           : 'Open Document',
                     ),
@@ -2367,7 +2370,9 @@ class _EditingPageState extends State<EditingPage> {
                   const SizedBox(height: 12),
                   ...validPendingTypeSelectionColumns.map((index) {
                     final header = _simpleHeaders[index];
-                    final currentType = _simpleValueTypes[index];
+                    final currentType = _editorTypeOptionFor(
+                      _simpleValueTypes[index],
+                    );
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: DropdownButtonFormField<String>(
@@ -2508,23 +2513,21 @@ class _EditingPageState extends State<EditingPage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: _simpleOpenMode == SimpleEditorOpenMode.textBased
+                    onPressed: _simpleOpenMode == EditorOpenMode.textBased
                         ? _pickSimpleTextEntryFromCurrentSheet
-                        : _simpleOpenMode ==
-                              SimpleEditorOpenMode.dateBasedOpenEnd
+                        : _simpleOpenMode == EditorOpenMode.dateBasedOpenEnd
                         ? _pickSimpleTodayEntryFromCurrentSheet
-                        : _selectSimpleEditorTargetRow,
+                        : _selectEditorTargetRow,
                     child: Text(
-                      _simpleOpenMode == SimpleEditorOpenMode.textBased
+                      _simpleOpenMode == EditorOpenMode.textBased
                           ? 'Pick Entry'
-                          : _simpleOpenMode ==
-                                SimpleEditorOpenMode.dateBasedOpenEnd
+                          : _simpleOpenMode == EditorOpenMode.dateBasedOpenEnd
                           ? 'Pick Row'
                           : 'Jump Today',
                     ),
                   ),
                 ),
-                if (_simpleOpenMode == SimpleEditorOpenMode.textBased) ...[
+                if (_simpleOpenMode == EditorOpenMode.textBased) ...[
                   const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton(
@@ -2598,8 +2601,8 @@ class _EditingPageState extends State<EditingPage> {
   }
 
   bool _isFixedSimpleDateField(int columnIndex) {
-    return (_simpleOpenMode == SimpleEditorOpenMode.dateBased ||
-            _simpleOpenMode == SimpleEditorOpenMode.dateBasedOpenEnd) &&
+    return (_simpleOpenMode == EditorOpenMode.dateBased ||
+            _simpleOpenMode == EditorOpenMode.dateBasedOpenEnd) &&
         columnIndex == _simpleDateColumnIndex();
   }
 
@@ -2799,7 +2802,7 @@ class _EditingPageState extends State<EditingPage> {
   void _handleBack() {
     if (!_isAdvancedMode) {
       if (_hasSimpleSchema) {
-        _exitSimpleEditor();
+        _exitEditor();
         if (widget.onBackToSelection != null) {
           widget.onBackToSelection!();
         } else if (widget.showBackToSelection) {
@@ -2828,7 +2831,7 @@ class _EditingPageState extends State<EditingPage> {
     });
   }
 
-  void _exitSimpleEditor() {
+  void _exitEditor() {
     final oldControllers = _simpleControllers;
     setState(() {
       _simpleImportedFileName = null;
@@ -2848,7 +2851,7 @@ class _EditingPageState extends State<EditingPage> {
       _simpleImportedWorkbook = null;
       _simpleImportedSourceBytes = null;
       _simpleDocumentTarget = null;
-      _simpleOpenMode = SimpleEditorOpenMode.dateBasedOpenEnd;
+      _simpleOpenMode = EditorOpenMode.dateBasedOpenEnd;
       _simpleTextSelectionColumnIndex = null;
       _simpleTextSelectionValue = null;
       _isOpeningDocument = false;
@@ -2864,8 +2867,8 @@ class _EditingPageState extends State<EditingPage> {
   }
 }
 
-class _SimpleEditorTargetSelection {
-  const _SimpleEditorTargetSelection({
+class _EditorTargetSelection {
+  const _EditorTargetSelection({
     required this.usedDateColumn,
     required this.foundMatchingDateRow,
     required this.targetRowIndex,
@@ -2900,18 +2903,18 @@ class _SimpleTextTargetSelection {
   final String value;
 }
 
-abstract class SimpleEditorDocumentTarget {
-  const SimpleEditorDocumentTarget();
+abstract class EditorDocumentTarget {
+  const EditorDocumentTarget();
 }
 
-class LocalSimpleEditorDocumentTarget extends SimpleEditorDocumentTarget {
-  const LocalSimpleEditorDocumentTarget({required this.existingPath});
+class LocalEditorDocumentTarget extends EditorDocumentTarget {
+  const LocalEditorDocumentTarget({required this.existingPath});
 
   final String? existingPath;
 }
 
-class CloudSimpleEditorDocumentTarget extends SimpleEditorDocumentTarget {
-  const CloudSimpleEditorDocumentTarget({
+class CloudEditorDocumentTarget extends EditorDocumentTarget {
+  const CloudEditorDocumentTarget({
     required this.provider,
     required this.fileId,
     required this.fileName,

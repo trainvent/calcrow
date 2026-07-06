@@ -58,7 +58,7 @@ class _SelectionPageState extends State<SelectionPage> {
   final SimpleSheetPersistenceService _sheetPersistenceService =
       SimpleSheetPersistenceService();
 
-  SimpleEditorOpenMode _simpleOpenMode = SimpleEditorOpenMode.dateBasedOpenEnd;
+  EditorOpenMode _simpleOpenMode = EditorOpenMode.dateBasedOpenEnd;
   _SimpleSetupAction _simpleSetupAction = _SimpleSetupAction.open;
   _SimpleDocumentSource _simpleDocumentSource = _SimpleDocumentSource.local;
   LocalSimpleDocumentSelection? _selectedLocalDocument;
@@ -119,7 +119,7 @@ class _SelectionPageState extends State<SelectionPage> {
 
   Future<void> _pushEditor({
     required SimpleSheetData sheetData,
-    required SimpleEditorDocumentTarget target,
+    required EditorDocumentTarget target,
     String? successMessage,
   }) async {
     if (!mounted) return;
@@ -208,9 +208,7 @@ class _SelectionPageState extends State<SelectionPage> {
         if (!mounted) return;
         await _pushEditor(
           sheetData: result.sheetData,
-          target: LocalSimpleEditorDocumentTarget(
-            existingPath: result.existingPath,
-          ),
+          target: LocalEditorDocumentTarget(existingPath: result.existingPath),
           successMessage: 'Opened local document ${result.sheetData.fileName}.',
         );
       } on LocalSimpleDocumentException {
@@ -265,9 +263,7 @@ class _SelectionPageState extends State<SelectionPage> {
         };
         await _pushEditor(
           sheetData: sheetData,
-          target: LocalSimpleEditorDocumentTarget(
-            existingPath: result.existingPath,
-          ),
+          target: LocalEditorDocumentTarget(existingPath: result.existingPath),
           successMessage: sourceLabel,
         );
       } on LocalSimpleDocumentException catch (error) {
@@ -299,7 +295,7 @@ class _SelectionPageState extends State<SelectionPage> {
         opened = true;
         await _pushEditor(
           sheetData: result.sheetData,
-          target: CloudSimpleEditorDocumentTarget(
+          target: CloudEditorDocumentTarget(
             provider: result.file.provider,
             fileId: result.file.id,
             fileName: result.file.name,
@@ -445,6 +441,14 @@ class _SelectionPageState extends State<SelectionPage> {
   }
 
   Future<_SimpleDocumentPromptData> _simpleDocumentPromptData() async {
+    if (!ServiceLocator.isSetup) {
+      return _SimpleDocumentPromptData(
+        localSubtitle: _defaultLocalDocumentSubtitle(),
+        cloudSubtitle: 'Connect a cloud provider in Settings first.',
+        hasSelectedCloudFile: false,
+        hasRememberedLocalFile: _hasRememberedLocalDocument,
+      );
+    }
     final session = ServiceLocator.authService.currentSession;
     UserSettingsData? settings;
     if (session != null) {
@@ -471,9 +475,19 @@ class _SelectionPageState extends State<SelectionPage> {
     );
   }
 
+  String _defaultLocalDocumentSubtitle() {
+    if (_hasRememberedLocalDocument) {
+      return 'Selected local file: $_simpleImportedFileName';
+    }
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      return 'Open a CSV, XLSX, or ODS document';
+    }
+    return 'Open CSV, XLSX, or ODS. Calcrow detects the file type automatically.';
+  }
+
   Future<void> _openSelectedSimpleDocument() async {
     setState(() {
-      _simpleOpenMode = SimpleEditorOpenMode.dateBasedOpenEnd;
+      _simpleOpenMode = EditorOpenMode.dateBasedOpenEnd;
       _simpleSetupAction = _SimpleSetupAction.open;
     });
     switch (_effectiveSimpleDocumentSource) {
@@ -486,7 +500,7 @@ class _SelectionPageState extends State<SelectionPage> {
 
   Future<void> _createSimpleDocument() async {
     setState(() {
-      _simpleOpenMode = SimpleEditorOpenMode.dateBasedOpenEnd;
+      _simpleOpenMode = EditorOpenMode.dateBasedOpenEnd;
       _simpleSetupAction = _SimpleSetupAction.create;
     });
     final draft = await Navigator.of(context).push<SimpleDocumentDraft>(
@@ -502,7 +516,7 @@ class _SelectionPageState extends State<SelectionPage> {
 
   Future<void> _createSimpleDocumentFromDraft(SimpleDocumentDraft draft) async {
     setState(() {
-      _simpleOpenMode = SimpleEditorOpenMode.dateBasedOpenEnd;
+      _simpleOpenMode = EditorOpenMode.dateBasedOpenEnd;
       _simpleSetupAction = _SimpleSetupAction.create;
     });
     final sheetData = SimpleSheetData(
@@ -575,7 +589,7 @@ class _SelectionPageState extends State<SelectionPage> {
           path: result.savedPath,
           sourceBytes: bytes,
         ),
-        target: LocalSimpleEditorDocumentTarget(existingPath: result.savedPath),
+        target: LocalEditorDocumentTarget(existingPath: result.savedPath),
         successMessage: 'Created ${result.resolvedFileName}.',
       );
     } catch (error) {
@@ -634,7 +648,7 @@ class _SelectionPageState extends State<SelectionPage> {
             path: null,
             sourceBytes: bytes,
           ),
-          target: CloudSimpleEditorDocumentTarget(
+          target: CloudEditorDocumentTarget(
             provider: metadata.provider,
             fileId: metadata.id,
             fileName: metadata.name,
@@ -769,10 +783,10 @@ class _SelectionPageState extends State<SelectionPage> {
     }
   }
 
-  SimpleEditorOpenMode _simpleOpenModeFromName(String name) {
-    return SimpleEditorOpenMode.values.firstWhere(
+  EditorOpenMode _simpleOpenModeFromName(String name) {
+    return EditorOpenMode.values.firstWhere(
       (candidate) => candidate.name == name,
-      orElse: () => SimpleEditorOpenMode.dateBased,
+      orElse: () => EditorOpenMode.dateBased,
     );
   }
 
@@ -786,42 +800,42 @@ class _SelectionPageState extends State<SelectionPage> {
     };
   }
 
-  String _simpleOpenModeLabel(SimpleEditorOpenMode mode) {
+  String _simpleOpenModeLabel(EditorOpenMode mode) {
     return switch (mode) {
-      SimpleEditorOpenMode.dateBased => 'Diary',
-      SimpleEditorOpenMode.dateBasedOpenEnd => 'Logbook',
-      SimpleEditorOpenMode.textBased => 'Namelist',
+      EditorOpenMode.dateBased => 'Diary',
+      EditorOpenMode.dateBasedOpenEnd => 'Logbook',
+      EditorOpenMode.textBased => 'Namelist',
     };
   }
 
-  String _simpleOpenModeDescription(SimpleEditorOpenMode mode) {
+  String _simpleOpenModeDescription(EditorOpenMode mode) {
     return switch (mode) {
-      SimpleEditorOpenMode.dateBased =>
+      EditorOpenMode.dateBased =>
         'Open the existing row for today and keep one entry per day.',
-      SimpleEditorOpenMode.dateBasedOpenEnd =>
+      EditorOpenMode.dateBasedOpenEnd =>
         'Open today if it exists, otherwise start a new row for today.',
-      SimpleEditorOpenMode.textBased =>
+      EditorOpenMode.textBased =>
         'Choose an existing named entry from a text column and edit that row.',
     };
   }
 
-  String _simpleOpenModeTableHint(SimpleEditorOpenMode mode) {
+  String _simpleOpenModeTableHint(EditorOpenMode mode) {
     return switch (mode) {
-      SimpleEditorOpenMode.dateBased =>
+      EditorOpenMode.dateBased =>
         'Your table needs a date column with one prepared row per day.',
-      SimpleEditorOpenMode.dateBasedOpenEnd =>
+      EditorOpenMode.dateBasedOpenEnd =>
         'Your table needs a date column; Calcrow can add today as a new row.',
-      SimpleEditorOpenMode.textBased =>
+      EditorOpenMode.textBased =>
         'Your table needs an editable text column with the entry names.',
     };
   }
 
-  void _showSimpleOpenModeInfo(SimpleEditorOpenMode selectedMode) {
+  void _showSimpleOpenModeInfo(EditorOpenMode selectedMode) {
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
         final dialogTheme = Theme.of(dialogContext);
-        final modes = SimpleEditorOpenMode.values;
+        final modes = EditorOpenMode.values;
 
         return AlertDialog(
           title: const Text('Opening modes'),
@@ -1049,20 +1063,20 @@ class _SelectionPageState extends State<SelectionPage> {
     final theme = Theme.of(context);
     final isCreateMode = _simpleSetupAction == _SimpleSetupAction.create;
     final setupOpenMode = isCreateMode
-        ? SimpleEditorOpenMode.dateBasedOpenEnd
+        ? EditorOpenMode.dateBasedOpenEnd
         : _simpleOpenMode;
     final openModeItems = isCreateMode
-        ? <DropdownMenuItem<SimpleEditorOpenMode>>[
+        ? <DropdownMenuItem<EditorOpenMode>>[
             DropdownMenuItem(
-              value: SimpleEditorOpenMode.dateBasedOpenEnd,
+              value: EditorOpenMode.dateBasedOpenEnd,
               child: Text(
-                _simpleOpenModeLabel(SimpleEditorOpenMode.dateBasedOpenEnd),
+                _simpleOpenModeLabel(EditorOpenMode.dateBasedOpenEnd),
               ),
             ),
           ]
-        : SimpleEditorOpenMode.values
+        : EditorOpenMode.values
               .map(
-                (mode) => DropdownMenuItem<SimpleEditorOpenMode>(
+                (mode) => DropdownMenuItem<EditorOpenMode>(
                   value: mode,
                   child: Text(_simpleOpenModeLabel(mode)),
                 ),
@@ -1120,7 +1134,7 @@ class _SelectionPageState extends State<SelectionPage> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    DropdownButtonFormField<SimpleEditorOpenMode>(
+                    DropdownButtonFormField<EditorOpenMode>(
                       initialValue: setupOpenMode,
                       decoration: const InputDecoration(
                         labelText: 'How to open the sheet',
@@ -1130,7 +1144,7 @@ class _SelectionPageState extends State<SelectionPage> {
                         if (value == null) return;
                         setState(() {
                           _simpleOpenMode = isCreateMode
-                              ? SimpleEditorOpenMode.dateBasedOpenEnd
+                              ? EditorOpenMode.dateBasedOpenEnd
                               : value;
                         });
                       },
@@ -1188,7 +1202,7 @@ class _SelectionPageState extends State<SelectionPage> {
                       selected: _simpleSetupAction == _SimpleSetupAction.create,
                       onSelected: () => setState(() {
                         _simpleSetupAction = _SimpleSetupAction.create;
-                        _simpleOpenMode = SimpleEditorOpenMode.dateBasedOpenEnd;
+                        _simpleOpenMode = EditorOpenMode.dateBasedOpenEnd;
                       }),
                       onCreate: _createSimpleDocument,
                     ),

@@ -30,7 +30,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
     'date',
     'time',
     'duration',
-    'int',
+    'Number',
     'decimal',
     'email',
     'phone',
