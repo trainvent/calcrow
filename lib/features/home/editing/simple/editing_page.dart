@@ -3144,10 +3144,7 @@ class _EditingPageState extends State<EditingPage> {
           children: [
             _TopHeader(
               isAdvancedMode: _isAdvancedMode,
-              showBackButton:
-                  _isAdvancedMode ||
-                  _hasSimpleSchema ||
-                  widget.showBackToSelection,
+              showBackButton: _isAdvancedMode || _hasSimpleSchema,
               showModeSwitch: false,
               headerTitle: _headerTitle,
               setupDone: _setupDone,
@@ -3946,13 +3943,6 @@ class _EditingPageState extends State<EditingPage> {
     if (!_isAdvancedMode) {
       if (_hasSimpleSchema) {
         _exitSimpleEditor();
-        if (widget.showBackToSelection) {
-          Navigator.of(context).maybePop();
-        }
-        return;
-      }
-      if (widget.showBackToSelection) {
-        Navigator.of(context).maybePop();
       }
       return;
     }
