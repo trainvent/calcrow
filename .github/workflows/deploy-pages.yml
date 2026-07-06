@@ -4,6 +4,14 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "web/**"
+      - "lib/**"
+      - "assets/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - "ci_scripts/build_web.sh"
+      - ".github/workflows/deploy-pages.yml"
   workflow_dispatch:
 
 permissions:
