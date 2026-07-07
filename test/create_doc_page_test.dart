@@ -54,4 +54,21 @@ void main() {
     expect(find.text('Exercise'), findsNothing);
     expect(find.text('Added weight'), findsNothing);
   });
+
+  testWidgets('Customer Service template preconfigures service fields', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: CreateDocPage()));
+
+    await tester.tap(find.text('Templates'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Customer Service'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Customer'), findsOneWidget);
+    expect(find.text('Workhours'), findsOneWidget);
+    expect(find.text('Expenses'), findsOneWidget);
+    expect(find.text('Work done'), findsOneWidget);
+    expect(find.text('Notes'), findsOneWidget);
+  });
 }

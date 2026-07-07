@@ -70,6 +70,19 @@ class _CreateDocPageState extends State<CreateDocPage> {
       ],
     ),
     _SimpleDocumentTemplate(
+      name: 'Customer Service',
+      fileName: 'customer_service',
+      description:
+          'Log customer visits, billable time, expenses, and outcomes.',
+      columns: <_SimpleTemplateColumn>[
+        _SimpleTemplateColumn(header: 'Customer', type: 'text'),
+        _SimpleTemplateColumn(header: 'Workhours', type: 'decimal'),
+        _SimpleTemplateColumn(header: 'Expenses', type: 'decimal'),
+        _SimpleTemplateColumn(header: 'Work done', type: 'text'),
+        _SimpleTemplateColumn(header: 'Notes', type: 'text'),
+      ],
+    ),
+    _SimpleDocumentTemplate(
       name: 'Guestlist',
       fileName: 'guestlist',
       description: 'Names, contacts, and RSVP status for an event.',
