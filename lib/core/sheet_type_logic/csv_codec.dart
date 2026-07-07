@@ -273,7 +273,7 @@ class CsvSheetCodec {
       headerCount,
       (index) => SimpleSheetTypeInference(
         type: index < secondLineValues.length
-            ? SimpleSheetLogic.normalizeTypeLabel(secondLineValues[index])
+            ? SimpleSheetLogic.displayTypeLabel(secondLineValues[index])
             : 'text',
         confirmedFromData: true,
       ),

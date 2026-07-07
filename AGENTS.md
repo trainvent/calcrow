@@ -22,6 +22,7 @@
   - data shown in preview tab
 - Prefer targeted edits over broad refactors.
 - Preserve existing UX text unless the request is explicitly UX copy/design.
+- Backwards compatibility is not required for Simple mode schema/type label changes unless explicitly requested.
 
 ## Web Constraints (Important)
 - Browser builds cannot reliably overwrite arbitrary local files in place.

@@ -8,23 +8,20 @@ const simpleDocumentTemplates = <SimpleDocumentTemplate>[
         'Track training sessions without turning the sheet into a fitness app.',
     columns: <SimpleTemplateColumn>[
       SimpleTemplateColumn(header: 'Date', type: 'date'),
-      SimpleTemplateColumn(header: 'Run km', type: 'decimal'),
-      SimpleTemplateColumn(header: 'Clean and Press weight', type: 'decimal'),
-      SimpleTemplateColumn(header: 'Barbell Curl weight', type: 'decimal'),
+      SimpleTemplateColumn(header: 'Run km', type: 'Float'),
+      SimpleTemplateColumn(header: 'Clean and Press weight', type: 'Float'),
+      SimpleTemplateColumn(header: 'Barbell Curl weight', type: 'Float'),
       SimpleTemplateColumn(
         header: 'Behind-the-neck Press weight',
-        type: 'decimal',
+        type: 'Float',
       ),
-      SimpleTemplateColumn(header: 'Upright Row weight', type: 'decimal'),
-      SimpleTemplateColumn(header: 'Barbell Squat weight', type: 'decimal'),
-      SimpleTemplateColumn(header: 'Barbell Row weight', type: 'decimal'),
-      SimpleTemplateColumn(
-        header: 'Barbell Bench Press weight',
-        type: 'decimal',
-      ),
-      SimpleTemplateColumn(header: 'Barbell Pullover weight', type: 'decimal'),
-      SimpleTemplateColumn(header: 'Reps', type: 'Number'),
-      SimpleTemplateColumn(header: 'Sets', type: 'Number'),
+      SimpleTemplateColumn(header: 'Upright Row weight', type: 'Float'),
+      SimpleTemplateColumn(header: 'Barbell Squat weight', type: 'Float'),
+      SimpleTemplateColumn(header: 'Barbell Row weight', type: 'Float'),
+      SimpleTemplateColumn(header: 'Barbell Bench Press weight', type: 'Float'),
+      SimpleTemplateColumn(header: 'Barbell Pullover weight', type: 'Float'),
+      SimpleTemplateColumn(header: 'Reps', type: 'Integer'),
+      SimpleTemplateColumn(header: 'Sets', type: 'Integer'),
       SimpleTemplateColumn(header: 'Notes', type: 'text'),
     ],
   ),
@@ -35,8 +32,8 @@ const simpleDocumentTemplates = <SimpleDocumentTemplate>[
     columns: <SimpleTemplateColumn>[
       SimpleTemplateColumn(header: 'Date', type: 'date'),
       SimpleTemplateColumn(header: 'Customer', type: 'text'),
-      SimpleTemplateColumn(header: 'Workhours', type: 'decimal'),
-      SimpleTemplateColumn(header: 'Expenses', type: 'decimal'),
+      SimpleTemplateColumn(header: 'Workhours', type: 'Float'),
+      SimpleTemplateColumn(header: 'Expenses', type: 'Float'),
       SimpleTemplateColumn(header: 'Work done', type: 'text'),
       SimpleTemplateColumn(header: 'Notes', type: 'text'),
     ],
@@ -50,7 +47,7 @@ const simpleDocumentTemplates = <SimpleDocumentTemplate>[
       SimpleTemplateColumn(header: 'Name', type: 'text'),
       SimpleTemplateColumn(header: 'Email', type: 'email'),
       SimpleTemplateColumn(header: 'Phone', type: 'phone'),
-      SimpleTemplateColumn(header: 'RSVP', type: 'text'),
+      SimpleTemplateColumn(header: 'RSVP', type: 'boolean'),
       SimpleTemplateColumn(header: 'Notes', type: 'text'),
     ],
   ),
@@ -74,7 +71,7 @@ const simpleDocumentTemplates = <SimpleDocumentTemplate>[
       SimpleTemplateColumn(header: 'Date', type: 'date'),
       SimpleTemplateColumn(header: 'Client', type: 'text'),
       SimpleTemplateColumn(header: 'Invoice', type: 'text'),
-      SimpleTemplateColumn(header: 'Amount', type: 'decimal'),
+      SimpleTemplateColumn(header: 'Amount', type: 'Float'),
       SimpleTemplateColumn(header: 'Status', type: 'text'),
     ],
   ),
@@ -260,9 +257,11 @@ class _TemplateFieldPreview extends StatelessWidget {
         return Icons.schedule_rounded;
       case 'duration':
         return Icons.timer_outlined;
-      case 'Number':
-      case 'decimal':
+      case 'Integer':
+      case 'Float':
         return Icons.pin_outlined;
+      case 'boolean':
+        return Icons.toggle_on_outlined;
       case 'email':
         return Icons.alternate_email_rounded;
       case 'phone':

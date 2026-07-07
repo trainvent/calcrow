@@ -353,6 +353,15 @@ class OdsSheetCodec {
       if (formatted != null) return formatted;
     }
 
+    final booleanValue = _attribute(
+      cell,
+      'boolean-value',
+      namespace: _nsOffice,
+    );
+    if (booleanValue != null && booleanValue.isNotEmpty) {
+      return booleanValue.trim().toLowerCase() == 'true' ? 'TRUE' : 'FALSE';
+    }
+
     return _attribute(cell, 'value', namespace: _nsOffice) ??
         _attribute(cell, 'date-value', namespace: _nsOffice) ??
         '';
@@ -582,11 +591,8 @@ class OdsSheetCodec {
       }
     }
 
-    if (normalizedType.contains('int') ||
-        normalizedType.contains('double') ||
-        normalizedType.contains('decimal') ||
-        normalizedType.contains('number') ||
-        normalizedType.contains('num')) {
+    if (SimpleSheetLogic.isIntegerType(normalizedType) ||
+        SimpleSheetLogic.isDecimalType(normalizedType)) {
       final parsed = double.tryParse(value.replaceAll(',', '.'));
       if (parsed != null) {
         _setAttribute(
@@ -613,6 +619,34 @@ class OdsSheetCodec {
         _setTextValue(cell, value);
         return;
       }
+    }
+
+    if (SimpleSheetLogic.isBooleanType(normalizedType) &&
+        SimpleSheetLogic.looksLikeBooleanValue(value)) {
+      final boolValue = value.trim().toUpperCase() == 'TRUE';
+      _setAttribute(
+        cell,
+        'value-type',
+        'boolean',
+        namespace: _nsOffice,
+        prefix: 'office',
+      );
+      _setAttribute(
+        cell,
+        'value-type',
+        'boolean',
+        namespace: _nsCalcExt,
+        prefix: 'calcext',
+      );
+      _setAttribute(
+        cell,
+        'boolean-value',
+        boolValue ? 'true' : 'false',
+        namespace: _nsOffice,
+        prefix: 'office',
+      );
+      _setTextValue(cell, boolValue ? 'TRUE' : 'FALSE');
+      return;
     }
 
     _setAttribute(
@@ -705,11 +739,7 @@ class OdsSheetCodec {
         .map((table) => _attribute(table, 'name', namespace: _nsTable) ?? '')
         .toList(growable: false);
     final fallback = _attribute(tables.first, 'name', namespace: _nsTable);
-    return SimpleSheetLogic.selectBestSheetName(
-      names,
-      now,
-      fallback: fallback,
-    );
+    return SimpleSheetLogic.selectBestSheetName(names, now, fallback: fallback);
   }
 
   static _OdsTimeParts? _parseTimeParts(String value) {

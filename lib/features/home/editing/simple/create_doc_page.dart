@@ -31,8 +31,9 @@ class _CreateDocPageState extends State<CreateDocPage> {
     'date',
     'time',
     'duration',
-    'Number',
-    'decimal',
+    'Integer',
+    'Float',
+    'boolean',
     'email',
     'phone',
   ];

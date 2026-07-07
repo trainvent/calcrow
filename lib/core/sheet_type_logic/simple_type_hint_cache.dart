@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'simple_sheet_logic.dart';
+
 class SimpleTypeHintCache {
   SimpleTypeHintCache._();
 
@@ -13,7 +15,7 @@ class SimpleTypeHintCache {
     required List<String> valueTypes,
   }) async {
     final normalizedTypes = valueTypes
-        .map((type) => type.trim().toLowerCase())
+        .map(SimpleSheetLogic.displayTypeLabel)
         .where((type) => type.isNotEmpty)
         .toList(growable: false);
     if (normalizedTypes.isEmpty) return;
@@ -39,7 +41,7 @@ class SimpleTypeHintCache {
     if (raw is! List) return null;
     final types = raw
         .whereType<String>()
-        .map((type) => type.trim().toLowerCase())
+        .map(SimpleSheetLogic.displayTypeLabel)
         .where((type) => type.isNotEmpty)
         .toList(growable: false);
     return types.isEmpty ? null : types;

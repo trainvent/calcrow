@@ -55,10 +55,8 @@ class XlsxSheetCodec {
     final bodyRows = normalizedRows
         .skip(dataStartRowIndex)
         .map(
-          (row) => row
-              .skip(tableBounds.startColumnIndex)
-              .take(headerCount)
-              .toList(),
+          (row) =>
+              row.skip(tableBounds.startColumnIndex).take(headerCount).toList(),
         )
         .toList();
     final trimmedRowCount = SimpleSheetLogic.trimTrailingFooterRows(
@@ -72,7 +70,11 @@ class XlsxSheetCodec {
       headers: headers,
     );
     final readOnlyColumns = List<bool>.filled(headerCount, false);
-    for (var rowIndex = dataStartRowIndex; rowIndex < sheet.rows.length; rowIndex++) {
+    for (
+      var rowIndex = dataStartRowIndex;
+      rowIndex < sheet.rows.length;
+      rowIndex++
+    ) {
       final row = sheet.rows[rowIndex];
       for (
         var col = 0;
@@ -191,7 +193,8 @@ class XlsxSheetCodec {
       String? templateFormula;
       int? templateRowNumber;
       for (var rowIndex = 0; rowIndex < data.rows.length; rowIndex++) {
-        final rowNumber = data.headerRowIndex + (data.hasTypeRow ? 2 : 1) + rowIndex;
+        final rowNumber =
+            data.headerRowIndex + (data.hasTypeRow ? 2 : 1) + rowIndex;
         final cell = sheet.cell(
           excel_pkg.CellIndex.indexByColumnRow(
             columnIndex: data.startColumnIndex + col,
@@ -212,7 +215,8 @@ class XlsxSheetCodec {
       }
 
       for (var rowIndex = 0; rowIndex < data.rows.length; rowIndex++) {
-        final rowNumber = data.headerRowIndex + (data.hasTypeRow ? 2 : 1) + rowIndex;
+        final rowNumber =
+            data.headerRowIndex + (data.hasTypeRow ? 2 : 1) + rowIndex;
         final sheetRowNumber = rowNumber + 1;
         if (!_rowHasAnyEditableValue(
           row: data.rows[rowIndex],
@@ -339,6 +343,9 @@ class XlsxSheetCodec {
     if (value is excel_pkg.DoubleCellValue) {
       return value.value.toString().replaceAll('.', ',');
     }
+    if (value is excel_pkg.BoolCellValue) {
+      return value.value ? 'TRUE' : 'FALSE';
+    }
     if (value is num) {
       return value.toString().replaceAll('.', ',');
     }
@@ -367,14 +374,15 @@ class XlsxSheetCodec {
         return parsedTime;
       }
     }
-    if (normalizedType.contains('int')) {
+    if (SimpleSheetLogic.isBooleanType(normalizedType) &&
+        SimpleSheetLogic.looksLikeBooleanValue(value)) {
+      return excel_pkg.BoolCellValue(value.toUpperCase() == 'TRUE');
+    }
+    if (SimpleSheetLogic.isIntegerType(normalizedType)) {
       final parsed = int.tryParse(value);
       if (parsed != null) return excel_pkg.IntCellValue(parsed);
     }
-    if (normalizedType.contains('double') ||
-        normalizedType.contains('decimal') ||
-        normalizedType.contains('number') ||
-        normalizedType.contains('num')) {
+    if (SimpleSheetLogic.isDecimalType(normalizedType)) {
       final parsed = double.tryParse(value.replaceAll(',', '.'));
       if (parsed != null) return excel_pkg.DoubleCellValue(parsed);
     }

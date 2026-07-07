@@ -18,6 +18,7 @@ import 'package:calcrow/core/data/services/simple_sheet_persistence_service.dart
 import 'package:calcrow/core/data/services/user_repository.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/simple_sheet_file_service.dart';
+import 'package:calcrow/core/sheet_type_logic/simple_sheet_logic.dart';
 import 'package:calcrow/core/sheet_type_logic/simple_type_hint_cache.dart';
 import 'package:calcrow/features/home/sheet/sheet_preview_store.dart';
 import 'package:calcrow/features/home/editing/simple/widgets/select_time_widget.dart';
@@ -61,8 +62,9 @@ class _EditingPageState extends State<EditingPage>
     'date',
     'time',
     'duration',
-    'Number',
-    'decimal',
+    'Integer',
+    'Float',
+    'boolean',
     'email',
     'phone',
   ];
@@ -1002,7 +1004,7 @@ class _EditingPageState extends State<EditingPage>
     final nextControllers = List<TextEditingController>.generate(
       _simpleHeaders.length,
       (index) => TextEditingController(
-        text: index < values.length ? values[index] : '',
+        text: _initialSimpleControllerValue(columnIndex: index, values: values),
       ),
     );
 
@@ -1023,6 +1025,48 @@ class _EditingPageState extends State<EditingPage>
   Future<void> _saveSimpleRowAsIs() =>
       _saveSimpleRowInternal(mode: SimplePersistMode.asIs);
 
+  String? _simpleRowValidationError(List<String> row) {
+    for (var index = 0; index < _simpleHeaders.length; index++) {
+      if (index >= row.length || index >= _simpleValueTypes.length) continue;
+      if (index < _simpleReadOnlyColumns.length &&
+          _simpleReadOnlyColumns[index]) {
+        continue;
+      }
+      if (_isFixedSimpleDateField(index)) continue;
+      final value = row[index].trim();
+      if (value.isEmpty) continue;
+      final type = _simpleValueTypes[index];
+      final header = _simpleHeaders[index];
+
+      if (SimpleSheetLogic.isIntegerType(type) &&
+          !SimpleSheetLogic.looksLikeIntegerValue(value)) {
+        return '$header must be an integer.';
+      }
+      if (SimpleSheetLogic.isDecimalType(type) &&
+          !SimpleSheetLogic.looksLikeIntegerValue(value) &&
+          !SimpleSheetLogic.looksLikeDecimalValue(value)) {
+        return '$header must be a float.';
+      }
+      if (_isSimpleBooleanType(type) &&
+          !SimpleSheetLogic.looksLikeBooleanValue(value)) {
+        return '$header must be TRUE or FALSE.';
+      }
+      if (type.trim().toLowerCase() == 'date' &&
+          !SimpleSheetLogic.looksLikeDateValue(value)) {
+        return '$header must be a date.';
+      }
+      if (_isSimpleTimeType(type) &&
+          !SimpleSheetLogic.looksLikeTimeValue(value)) {
+        return '$header must be a time.';
+      }
+      if (_isSimpleDurationType(type) &&
+          !_looksLikeSimpleDurationValue(value)) {
+        return '$header must be a duration.';
+      }
+    }
+    return null;
+  }
+
   Future<void> _saveSimpleRowInternal({required SimplePersistMode mode}) async {
     if (!_hasSimpleSchema ||
         _simpleControllers.length != _simpleHeaders.length) {
@@ -1032,6 +1076,13 @@ class _EditingPageState extends State<EditingPage>
     final updatedRow = _simpleControllers
         .map((controller) => controller.text.trim())
         .toList();
+    final validationError = _simpleRowValidationError(updatedRow);
+    if (validationError != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(validationError)));
+      return;
+    }
     final nextRows = List<List<String>>.from(_simpleRows);
     final forcedTargetIndex = _findBestExistingRowForSave(updatedRow);
     final effectiveTargetIndex = forcedTargetIndex ?? _simpleEditingRowIndex;
@@ -1228,6 +1279,11 @@ class _EditingPageState extends State<EditingPage>
       final isReadOnly =
           i < _simpleReadOnlyColumns.length && _simpleReadOnlyColumns[i];
       if (i == dateColumn || isReadOnly) continue;
+      if (i < _simpleValueTypes.length &&
+          _isSimpleBooleanType(_simpleValueTypes[i])) {
+        _simpleControllers[i].text = 'FALSE';
+        continue;
+      }
       _simpleControllers[i].clear();
     }
     setState(() {});
@@ -1237,6 +1293,13 @@ class _EditingPageState extends State<EditingPage>
     final nextTypes = List<String>.from(_simpleValueTypes);
     if (columnIndex < 0 || columnIndex >= nextTypes.length) return;
     nextTypes[columnIndex] = nextType;
+    if (_isSimpleBooleanType(nextType) &&
+        columnIndex < _simpleControllers.length &&
+        !SimpleSheetLogic.looksLikeBooleanValue(
+          _simpleControllers[columnIndex].text,
+        )) {
+      _simpleControllers[columnIndex].text = 'FALSE';
+    }
     setState(() {
       _simpleValueTypes = nextTypes;
     });
@@ -1255,7 +1318,9 @@ class _EditingPageState extends State<EditingPage>
   }
 
   String _editorTypeOptionFor(String type) {
-    return type.trim().toLowerCase() == 'int' ? 'Number' : type;
+    if (SimpleSheetLogic.isIntegerType(type)) return 'Integer';
+    if (SimpleSheetLogic.isDecimalType(type)) return 'Float';
+    return type;
   }
 
   void _confirmPendingSimpleTypes() {
@@ -2553,8 +2618,9 @@ class _EditingPageState extends State<EditingPage>
                     _isSimpleDurationType(type) ||
                     _isSimpleTimespanField(header);
                 final keyboardType = _keyboardForSimpleType(type);
+                final helperType = _editorTypeOptionFor(type);
                 final helperText = _showSimpleFieldTypes
-                    ? 'Type: $type${isReadOnly ? ' (fixed)' : ''}'
+                    ? 'Type: $helperType${isReadOnly ? ' (fixed)' : ''}'
                     : null;
                 return Padding(
                   key: ValueKey<String>(
@@ -2600,6 +2666,12 @@ class _EditingPageState extends State<EditingPage>
                               icon: const Icon(Icons.calendar_today_rounded),
                             ),
                           ),
+                        )
+                      : !isReadOnly && _isSimpleBooleanType(type)
+                      ? _buildSimpleBooleanField(
+                          columnIndex: index,
+                          labelText: header,
+                          helperText: helperText,
                         )
                       : TextField(
                           controller: _simpleControllers[index],
@@ -2692,10 +2764,11 @@ class _EditingPageState extends State<EditingPage>
 
   TextInputType _keyboardForSimpleType(String rawType) {
     final type = rawType.trim().toLowerCase();
-    if (type.contains('int') ||
-        type.contains('double') ||
-        type.contains('num') ||
-        type.contains('decimal')) {
+    final normalizedType = SimpleSheetLogic.normalizeTypeLabel(rawType);
+    if (normalizedType == 'int') {
+      return const TextInputType.numberWithOptions(signed: true);
+    }
+    if (normalizedType == 'float') {
       return const TextInputType.numberWithOptions(decimal: true);
     }
     if (type.contains('mail')) {
@@ -2704,10 +2777,10 @@ class _EditingPageState extends State<EditingPage>
     if (type.contains('phone')) {
       return TextInputType.phone;
     }
-    if (type.contains('duration')) {
+    if (normalizedType == 'duration') {
       return const TextInputType.numberWithOptions(decimal: true);
     }
-    if (type.contains('date') || type.contains('time')) {
+    if (normalizedType == 'date' || normalizedType == 'time') {
       return TextInputType.datetime;
     }
     return TextInputType.text;
@@ -2720,6 +2793,71 @@ class _EditingPageState extends State<EditingPage>
   bool _isSimpleDurationType(String rawType) {
     final type = rawType.trim().toLowerCase();
     return type.contains('duration') || type.contains('timespan');
+  }
+
+  bool _isSimpleBooleanType(String rawType) {
+    return SimpleSheetLogic.isBooleanType(rawType);
+  }
+
+  String _initialSimpleControllerValue({
+    required int columnIndex,
+    required List<String> values,
+  }) {
+    final value = columnIndex < values.length ? values[columnIndex].trim() : '';
+    if (columnIndex >= _simpleValueTypes.length ||
+        !_isSimpleBooleanType(_simpleValueTypes[columnIndex])) {
+      return value;
+    }
+    return value.toUpperCase() == 'TRUE' ? 'TRUE' : 'FALSE';
+  }
+
+  void _setSimpleBooleanValue(int columnIndex, bool value) {
+    if (columnIndex < 0 || columnIndex >= _simpleControllers.length) return;
+    _simpleControllers[columnIndex].text = value ? 'TRUE' : 'FALSE';
+    setState(() {});
+  }
+
+  Widget _buildSimpleBooleanField({
+    required int columnIndex,
+    required String labelText,
+    String? helperText,
+  }) {
+    final value = columnIndex < _simpleControllers.length
+        ? _simpleControllers[columnIndex].text.trim().toUpperCase() == 'TRUE'
+        : false;
+    return InputDecorator(
+      decoration: InputDecoration(labelText: labelText, helperText: helperText),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: SegmentedButton<bool>(
+          segments: const <ButtonSegment<bool>>[
+            ButtonSegment<bool>(
+              value: true,
+              icon: Icon(Icons.check_rounded),
+              label: Text('TRUE'),
+            ),
+            ButtonSegment<bool>(
+              value: false,
+              icon: Icon(Icons.close_rounded),
+              label: Text('FALSE'),
+            ),
+          ],
+          selected: <bool>{value},
+          showSelectedIcon: false,
+          onSelectionChanged: (selection) {
+            final nextValue = selection.isEmpty ? false : selection.first;
+            _setSimpleBooleanValue(columnIndex, nextValue);
+          },
+        ),
+      ),
+    );
+  }
+
+  bool _looksLikeSimpleDurationValue(String rawValue) {
+    final value = rawValue.trim();
+    if (value.isEmpty) return true;
+    return RegExp(r'^\d+([.,]\d+)?$').hasMatch(value) ||
+        RegExp(r'^\d{1,3}:\d{2}(:\d{2})?$').hasMatch(value);
   }
 
   bool _isSimpleTimespanField(String header) {
@@ -2764,22 +2902,23 @@ class _EditingPageState extends State<EditingPage>
     }
 
     final type = rawType.trim().toLowerCase();
-    if (type.contains('duration')) {
+    final normalizedType = SimpleSheetLogic.normalizeTypeLabel(rawType);
+    if (normalizedType == 'duration') {
       return 'Minutes or HH:MM:SS';
     }
-    if (type.contains('time')) {
+    if (normalizedType == 'time') {
       return 'HH:MM:SS';
     }
-    if (type.contains('date')) {
+    if (normalizedType == 'date') {
       return 'YYYY-MM-DD';
     }
-    if (type.contains('int')) {
+    if (normalizedType == 'boolean') {
+      return 'TRUE or FALSE';
+    }
+    if (normalizedType == 'int') {
       return '123';
     }
-    if (type.contains('double') ||
-        type.contains('num') ||
-        type.contains('decimal') ||
-        type.contains('number')) {
+    if (normalizedType == 'float') {
       return '123.45 or 123,45';
     }
     if (type.contains('email')) {

@@ -99,7 +99,8 @@ class SimpleSheetLogic {
       final headerGuess = typeFromHeader(headers[index]);
       if (headerGuess == 'date' ||
           headerGuess == 'time' ||
-          headerGuess == 'duration') {
+          headerGuess == 'duration' ||
+          headerGuess == 'boolean') {
         return SimpleSheetTypeInference(
           type: headerGuess!,
           confirmedFromData: true,
@@ -107,7 +108,7 @@ class SimpleSheetLogic {
       }
       if (readOnlyColumns[index]) {
         return SimpleSheetTypeInference(
-          type: headerGuess ?? 'decimal',
+          type: headerGuess ?? 'Float',
           confirmedFromData: true,
         );
       }
@@ -128,9 +129,15 @@ class SimpleSheetLogic {
             confirmedFromData: true,
           );
         }
+        if (looksLikeBooleanValue(value)) {
+          return const SimpleSheetTypeInference(
+            type: 'boolean',
+            confirmedFromData: true,
+          );
+        }
         if (looksLikeDecimalValue(value)) {
           return const SimpleSheetTypeInference(
-            type: 'decimal',
+            type: 'Float',
             confirmedFromData: true,
           );
         }
@@ -163,7 +170,8 @@ class SimpleSheetLogic {
           : null;
       if (headerGuess == 'date' ||
           headerGuess == 'time' ||
-          headerGuess == 'duration') {
+          headerGuess == 'duration' ||
+          headerGuess == 'boolean') {
         return headerGuess!;
       }
       for (final row in sampleRows) {
@@ -172,7 +180,8 @@ class SimpleSheetLogic {
         if (value.isEmpty) continue;
         if (looksLikeDateValue(value)) return 'date';
         if (looksLikeTimeValue(value)) return 'time';
-        if (looksLikeDecimalValue(value)) return 'decimal';
+        if (looksLikeBooleanValue(value)) return 'boolean';
+        if (looksLikeDecimalValue(value)) return 'Float';
         if (looksLikeIntegerValue(value)) return 'int';
         return 'text';
       }
@@ -218,15 +227,45 @@ class SimpleSheetLogic {
       return 'duration';
     }
     if (type.contains('time')) return 'time';
-    if (type.contains('int')) return 'int';
+    if (isBooleanType(type)) return 'boolean';
+    if (isIntegerType(type)) return 'int';
     if (type.contains('double') ||
         type.contains('decimal') ||
-        type.contains('number')) {
-      return 'decimal';
+        type.contains('float') ||
+        type.contains('num')) {
+      return 'float';
     }
     if (type.contains('email')) return 'email';
     if (type.contains('phone')) return 'phone';
     return 'text';
+  }
+
+  static bool isIntegerType(String rawType) {
+    final type = rawType.trim().toLowerCase();
+    return type == 'number' ||
+        type == 'integer' ||
+        type == 'int' ||
+        type.contains('integer');
+  }
+
+  static bool isDecimalType(String rawType) {
+    final type = rawType.trim().toLowerCase();
+    return type.contains('double') ||
+        type.contains('decimal') ||
+        type.contains('float') ||
+        (type.contains('num') && !isIntegerType(type));
+  }
+
+  static bool isBooleanType(String rawType) {
+    final type = rawType.trim().toLowerCase();
+    return type == 'boolean' || type == 'bool';
+  }
+
+  static String displayTypeLabel(String rawType) {
+    final normalizedType = normalizeTypeLabel(rawType);
+    if (normalizedType == 'int') return 'Integer';
+    if (normalizedType == 'float') return 'Float';
+    return normalizedType;
   }
 
   static bool looksLikeDateValue(String value) {
@@ -238,6 +277,11 @@ class SimpleSheetLogic {
   static bool looksLikeTimeValue(String value) {
     final compact = value.trim().toLowerCase();
     return RegExp(r'^\d{1,2}:\d{2}(:\d{2})?(\s?(am|pm))?$').hasMatch(compact);
+  }
+
+  static bool looksLikeBooleanValue(String value) {
+    final normalized = value.trim().toUpperCase();
+    return normalized == 'TRUE' || normalized == 'FALSE';
   }
 
   static bool looksLikeIntegerValue(String value) {
@@ -264,6 +308,7 @@ class SimpleSheetLogic {
       nonEmptyCount++;
       if (looksLikeDateValue(value) ||
           looksLikeTimeValue(value) ||
+          looksLikeBooleanValue(value) ||
           looksLikeDecimalValue(value) ||
           looksLikeIntegerValue(value)) {
         dataLikeCount++;
@@ -294,15 +339,23 @@ class SimpleSheetLogic {
         value.contains('minuten')) {
       return 'duration';
     }
+    if (value.contains('bool') ||
+        value.contains('rsvp') ||
+        value.contains('paid') ||
+        value.contains('done') ||
+        value.contains('active')) {
+      return 'boolean';
+    }
     if (value.contains('hour') ||
         value.contains('stunden') ||
         value.contains('decimal') ||
+        value.contains('float') ||
         value.contains('wage') ||
         value.contains('lohn') ||
         value.contains('verdienst') ||
         value.contains('amount') ||
         value.contains('price')) {
-      return 'decimal';
+      return 'Float';
     }
     if (value.contains('mail')) return 'email';
     if (value.contains('phone') || value.contains('telefon')) return 'phone';
@@ -381,12 +434,13 @@ class SimpleSheetLogic {
     if (type.contains('time')) return true;
     if (type.contains('duration')) return true;
     if (type.contains('timespan')) return true;
+    if (type.contains('bool')) return true;
     if (type.contains('int')) return true;
     if (type.contains('double')) return true;
     if (type.contains('decimal')) return true;
+    if (type.contains('float')) return true;
     if (type.contains('number')) return true;
     if (type.contains('num')) return true;
-    if (type.contains('bool')) return true;
     if (type.contains('text')) return true;
     if (type.contains('string')) return true;
     if (type.contains('currency')) return true;

@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:calcrow/core/sheet_type_logic/csv_codec.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/simple_sheet_file_service.dart';
+import 'package:calcrow/core/sheet_type_logic/simple_sheet_logic.dart';
 import 'package:calcrow/core/sheet_type_logic/simple_type_hint_cache.dart';
 import 'package:calcrow/core/sheet_type_logic/xlsx_codec.dart';
 
@@ -15,6 +16,21 @@ import 'support/sheet_test_helpers.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   SharedPreferences.setMockInitialValues(<String, Object>{});
+
+  group('Simple type logic', () {
+    test('Integer and Float labels map to distinct numeric types', () {
+      expect(SimpleSheetLogic.normalizeTypeLabel('Integer'), 'int');
+      expect(SimpleSheetLogic.normalizeTypeLabel('Float'), 'float');
+      expect(SimpleSheetLogic.isIntegerType('Integer'), isTrue);
+      expect(SimpleSheetLogic.isIntegerType('Float'), isFalse);
+      expect(SimpleSheetLogic.isDecimalType('Integer'), isFalse);
+      expect(SimpleSheetLogic.isDecimalType('Float'), isTrue);
+      expect(SimpleSheetLogic.normalizeTypeLabel('boolean'), 'boolean');
+      expect(SimpleSheetLogic.looksLikeBooleanValue('TRUE'), isTrue);
+      expect(SimpleSheetLogic.looksLikeBooleanValue('FALSE'), isTrue);
+      expect(SimpleSheetLogic.looksLikeBooleanValue('yes'), isFalse);
+    });
+  });
 
   group('CSV codec', () {
     test('CSV parse/build roundtrip preserves schema and rows', () async {
@@ -55,7 +71,7 @@ void main() {
         final parsed = await parseCsv('Date,Hours,Notes\n');
 
         expect(parsed.headers, ['Date', 'Hours', 'Notes']);
-        expect(parsed.valueTypes, ['date', 'decimal', 'text']);
+        expect(parsed.valueTypes, ['date', 'Float', 'text']);
         expect(parsed.rows, isEmpty);
 
         final updated = copySheetData(
@@ -79,7 +95,7 @@ void main() {
       () async {
         final parsed = await parseCsv(
           'Date;Hours;Notes\n'
-          'date;decimal;text\n'
+          'date;Float;text\n'
           '2026-05-11;8;plain\n',
         );
 
@@ -105,6 +121,25 @@ void main() {
         ]);
       },
     );
+
+    test('CSV boolean fields preserve TRUE and FALSE values', () async {
+      final parsed = await parseCsv(
+        'Date;RSVP;Notes\n'
+        'date;boolean;text\n'
+        '2026-05-11;TRUE;confirmed\n'
+        '2026-05-12;FALSE;declined\n',
+      );
+
+      expect(parsed.valueTypes, ['date', 'boolean', 'text']);
+      expect(parsed.rows, [
+        ['2026-05-11', 'TRUE', 'confirmed'],
+        ['2026-05-12', 'FALSE', 'declined'],
+      ]);
+
+      final reparsed = await parseCsvBytes(CsvSheetCodec.buildBytes(parsed));
+      expect(reparsed.valueTypes, ['date', 'boolean', 'text']);
+      expect(reparsed.rows, parsed.rows);
+    });
   });
 
   group('XLSX codec', () {
@@ -140,7 +175,7 @@ void main() {
       final parsed = parseXlsx(
         buildWorkbookBytes([
           ['name', 'date', 'hours'],
-          ['text', 'date', 'decimal'],
+          ['text', 'date', 'Float'],
           ['Alice', '2026-01-01', '8'],
         ]),
       );
@@ -162,7 +197,7 @@ void main() {
       final reparsed = parseXlsx(XlsxSheetCodec.buildBytes(updated));
 
       expect(reparsed.headers, ['name', 'date', 'hours']);
-      expect(reparsed.valueTypes, ['text', 'date', 'decimal']);
+      expect(reparsed.valueTypes, ['text', 'date', 'Float']);
       expect(reparsed.rows, [
         ['Alice', '2026-01-01', '8.5'],
         ['Bob', '2026-01-02', '7'],
@@ -209,7 +244,7 @@ void main() {
       await SimpleTypeHintCache.rememberCsvTypes(
         fileName: 'cached.xlsx',
         path: '/tmp/cached.xlsx',
-        valueTypes: const <String>['text', 'date', 'decimal'],
+        valueTypes: const <String>['text', 'date', 'Float'],
       );
 
       final parsed = await SimpleSheetFileService.parse(
@@ -220,8 +255,32 @@ void main() {
         path: '/tmp/cached.xlsx',
       );
 
-      expect(parsed.valueTypes, ['text', 'date', 'decimal']);
+      expect(parsed.valueTypes, ['text', 'date', 'Float']);
       expect(parsed.pendingTypeSelectionColumns, isEmpty);
+    });
+
+    test('XLSX boolean fields roundtrip as TRUE and FALSE', () {
+      final draft = SimpleSheetData(
+        fileName: 'guestlist.xlsx',
+        path: null,
+        format: SimpleFileFormat.xlsx,
+        headers: const <String>['Date', 'RSVP', 'Notes'],
+        valueTypes: const <String>['date', 'boolean', 'text'],
+        readOnlyColumns: List<bool>.filled(3, false),
+        rows: const <List<String>>[
+          <String>['2026-05-11', 'TRUE', 'confirmed'],
+          <String>['2026-05-12', 'FALSE', 'declined'],
+        ],
+        workbook: excel_pkg.Excel.createExcel(),
+      );
+
+      final reparsed = parseXlsx(XlsxSheetCodec.buildBytes(draft));
+
+      expect(reparsed.valueTypes, ['date', 'boolean', 'text']);
+      expect(reparsed.rows, [
+        ['2026-05-11', 'TRUE', 'confirmed'],
+        ['2026-05-12', 'FALSE', 'declined'],
+      ]);
     });
   });
 }

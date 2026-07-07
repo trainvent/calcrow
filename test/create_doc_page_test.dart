@@ -31,6 +31,7 @@ void main() {
     expect(find.text('Email'), findsOneWidget);
     expect(find.text('Phone'), findsOneWidget);
     expect(find.text('RSVP'), findsOneWidget);
+    expect(find.text('boolean'), findsOneWidget);
   });
 
   testWidgets('Bruce Lee template uses exercise-specific weight fields', (
