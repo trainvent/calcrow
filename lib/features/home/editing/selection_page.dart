@@ -1512,7 +1512,7 @@ class _CreateDocumentCard extends StatelessWidget {
               _DocumentSourceTile(
                 selected: selected,
                 title: 'Create New',
-                subtitle: 'Define columns and field types for a fresh CSV.',
+                subtitle: 'Define columns and field types for a fresh sheet.',
                 icon: Icons.add_circle_outline_rounded,
                 onTap: onCreate,
               ),
