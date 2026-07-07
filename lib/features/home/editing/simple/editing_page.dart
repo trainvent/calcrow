@@ -2916,16 +2916,16 @@ class _EditingPageState extends State<EditingPage>
       return 'TRUE or FALSE';
     }
     if (normalizedType == 'int') {
-      return '123';
+      return 'e.g. 123';
     }
     if (normalizedType == 'float') {
-      return '123.45 or 123,45';
+      return 'e.g. 123.45 or 123,45';
     }
     if (type.contains('email')) {
       return 'name@example.com';
     }
     if (type.contains('phone')) {
-      return '+49 123 456789';
+      return 'e.g. +49 123 456789';
     }
     return null;
   }
