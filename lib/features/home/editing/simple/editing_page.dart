@@ -50,7 +50,8 @@ class EditingPage extends StatefulWidget {
   State<EditingPage> createState() => _EditingPageState();
 }
 
-class _EditingPageState extends State<EditingPage> {
+class _EditingPageState extends State<EditingPage>
+    with SingleTickerProviderStateMixin {
   static const MethodChannel _platformChannel = MethodChannel(
     'de.lemarq.calcrow/file_open',
   );
@@ -106,6 +107,8 @@ class _EditingPageState extends State<EditingPage> {
     text: _defaultBreakMinutes,
   );
   final TextEditingController _notesController = TextEditingController();
+  late final AnimationController _typeTogglePulseController;
+  late final Animation<double> _typeTogglePulse;
 
   bool _setupDone = false;
   late bool _isAdvancedMode;
@@ -149,6 +152,14 @@ class _EditingPageState extends State<EditingPage> {
     super.initState();
     _isAdvancedMode = false;
     _simpleOpenMode = widget.initialOpenMode;
+    _typeTogglePulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 680),
+    );
+    _typeTogglePulse = CurvedAnimation(
+      parent: _typeTogglePulseController,
+      curve: Curves.easeInOut,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       unawaited(_loadInitialSimpleDocument());
@@ -165,6 +176,7 @@ class _EditingPageState extends State<EditingPage> {
     for (final controller in _simpleControllers) {
       controller.dispose();
     }
+    _typeTogglePulseController.dispose();
     super.dispose();
   }
 
@@ -1230,6 +1242,18 @@ class _EditingPageState extends State<EditingPage> {
     });
   }
 
+  void _toggleSimpleFieldTypes() {
+    setState(() {
+      _showSimpleFieldTypes = !_showSimpleFieldTypes;
+    });
+    if (_showSimpleFieldTypes) {
+      _typeTogglePulseController.repeat(reverse: true);
+    } else {
+      _typeTogglePulseController.stop();
+      _typeTogglePulseController.value = 0;
+    }
+  }
+
   String _editorTypeOptionFor(String type) {
     return type.trim().toLowerCase() == 'int' ? 'Number' : type;
   }
@@ -2214,14 +2238,31 @@ class _EditingPageState extends State<EditingPage> {
               visibleWidgets: _visibleWidgets,
               trailingActions: !_isAdvancedMode && _hasSimpleSchema
                   ? [
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _showSimpleFieldTypes = !_showSimpleFieldTypes;
-                          });
-                        },
-                        child: Text(
-                          _showSimpleFieldTypes ? 'Hide types' : 'Show types',
+                      IconButton(
+                        tooltip: _showSimpleFieldTypes
+                            ? 'Hide field types'
+                            : 'Show field types',
+                        onPressed: _toggleSimpleFieldTypes,
+                        icon: AnimatedBuilder(
+                          animation: _typeTogglePulse,
+                          builder: (context, child) {
+                            if (!_showSimpleFieldTypes) {
+                              return child!;
+                            }
+                            final pulse = _typeTogglePulse.value;
+                            return Transform.scale(
+                              scale: 1 + (pulse * 0.16),
+                              child: Icon(
+                                Icons.accessibility_new_rounded,
+                                color: Color.lerp(
+                                  theme.colorScheme.error,
+                                  Colors.redAccent,
+                                  pulse,
+                                ),
+                              ),
+                            );
+                          },
+                          child: const Icon(Icons.accessibility_new_rounded),
                         ),
                       ),
                     ]

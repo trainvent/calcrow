@@ -17,12 +17,16 @@ void main() {
       find.text('Names, contacts, and RSVP status for an event.'),
       findsOneWidget,
     );
+    expect(
+      find.textContaining('Every template starts with Date'),
+      findsOneWidget,
+    );
     expect(find.textContaining('more'), findsNothing);
 
     await tester.tap(find.text('Guestlist'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Invited on'), findsOneWidget);
+    expect(find.text('Date'), findsOneWidget);
     expect(find.text('Name'), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
     expect(find.text('Phone'), findsOneWidget);
@@ -65,6 +69,7 @@ void main() {
     await tester.tap(find.text('Customer Service'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Date'), findsOneWidget);
     expect(find.text('Customer'), findsOneWidget);
     expect(find.text('Workhours'), findsOneWidget);
     expect(find.text('Expenses'), findsOneWidget);
