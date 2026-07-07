@@ -37,7 +37,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
   ];
   static const _templates = <_SimpleDocumentTemplate>[
     _SimpleDocumentTemplate(
-      name: 'Bruce Lee Workout',
+      name: 'Workout like Bruce Lee',
       fileName: 'bruce_lee_workout',
       description:
           'Track training sessions without turning the sheet into a fitness app.',
@@ -66,6 +66,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
         ),
         _SimpleTemplateColumn(header: 'Reps', type: 'Number'),
         _SimpleTemplateColumn(header: 'Sets', type: 'Number'),
+        _SimpleTemplateColumn(header: 'Notes', type: 'text'),
       ],
     ),
     _SimpleDocumentTemplate(

@@ -11,7 +11,7 @@ void main() {
     await tester.tap(find.text('Templates'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Bruce Lee Workout'), findsOneWidget);
+    expect(find.text('Workout like Bruce Lee'), findsOneWidget);
     expect(find.text('Guestlist'), findsOneWidget);
     expect(
       find.text('Names, contacts, and RSVP status for an event.'),
@@ -36,7 +36,7 @@ void main() {
 
     await tester.tap(find.text('Templates'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Bruce Lee Workout'));
+    await tester.tap(find.text('Workout like Bruce Lee'));
     await tester.pumpAndSettle();
 
     expect(find.text('Run km'), findsOneWidget);
@@ -50,6 +50,7 @@ void main() {
     expect(find.text('Barbell Pullover weight'), findsOneWidget);
     expect(find.text('Reps'), findsOneWidget);
     expect(find.text('Sets'), findsOneWidget);
+    expect(find.text('Notes'), findsOneWidget);
     expect(find.text('Exercise'), findsNothing);
     expect(find.text('Added weight'), findsNothing);
   });
