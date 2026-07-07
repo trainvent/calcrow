@@ -137,6 +137,7 @@ class _EditingPageState extends State<EditingPage> {
   bool _showSmartData = true;
   bool _showWellbeing = true;
   bool _showNotes = true;
+  bool _showSimpleFieldTypes = false;
   bool _isOpeningDocument = false;
   EditorDocumentTarget? _simpleDocumentTarget;
   EditorOpenMode _simpleOpenMode = EditorOpenMode.dateBasedOpenEnd;
@@ -1022,6 +1023,9 @@ class _EditingPageState extends State<EditingPage> {
     final nextRows = List<List<String>>.from(_simpleRows);
     final forcedTargetIndex = _findBestExistingRowForSave(updatedRow);
     final effectiveTargetIndex = forcedTargetIndex ?? _simpleEditingRowIndex;
+    final shouldPrepareNextOpenEndRow =
+        _simpleOpenMode == EditorOpenMode.dateBasedOpenEnd &&
+        effectiveTargetIndex >= _simpleRows.length;
 
     if (effectiveTargetIndex < nextRows.length) {
       final normalizedUpdated = _normalizeRowToWidth(
@@ -1065,6 +1069,9 @@ class _EditingPageState extends State<EditingPage> {
       final saveResult = await _persistSimpleSheet(mode: mode);
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(content: Text(_saveMessage(saveResult))));
+      if (shouldPrepareNextOpenEndRow) {
+        _createNewSimpleDateOpenEndRow();
+      }
     } catch (error) {
       if (!mounted) return;
       if (error is StateError && error.message == 'Save canceled.') {
@@ -1232,9 +1239,61 @@ class _EditingPageState extends State<EditingPage> {
     setState(() {
       _simplePendingTypeSelectionColumns = const <int>[];
     });
+    unawaited(_rememberCurrentSimpleTypeHints());
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Field formats confirmed.')));
+  }
+
+  void _resetSimpleTypeSelection() {
+    final editableColumns =
+        List<int>.generate(_simpleHeaders.length, (index) => index).where((
+          index,
+        ) {
+          if (index >= _simpleValueTypes.length) return false;
+          if (index < _simpleReadOnlyColumns.length) {
+            return !_simpleReadOnlyColumns[index];
+          }
+          return true;
+        }).toList();
+
+    if (editableColumns.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No editable field types to reset.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _simplePendingTypeSelectionColumns = editableColumns;
+    });
+  }
+
+  Future<void> _rememberCurrentSimpleTypeHints() async {
+    final target = _simpleDocumentTarget;
+    final fileName = _simpleImportedFileName ?? 'calcrow_simple';
+    try {
+      if (target is CloudEditorDocumentTarget) {
+        await ServiceLocator.simpleCloudDocumentService.rememberTypeHints(
+          file: CloudFileMetadata(
+            provider: target.provider,
+            id: target.fileId,
+            name: target.fileName,
+            mimeType: target.mimeType,
+          ),
+          valueTypes: _simpleValueTypes,
+        );
+        return;
+      }
+
+      await SimpleTypeHintCache.rememberCsvTypes(
+        fileName: fileName,
+        path: _simpleImportedPath,
+        valueTypes: _simpleValueTypes,
+      );
+    } catch (_) {
+      // Type hints are convenience data; confirming formats should not fail.
+    }
   }
 
   void _publishSimpleRowsToPreview() {
@@ -2153,6 +2212,20 @@ class _EditingPageState extends State<EditingPage> {
               setupDone: _setupDone,
               widgetOptions: _widgetBlocks,
               visibleWidgets: _visibleWidgets,
+              trailingActions: !_isAdvancedMode && _hasSimpleSchema
+                  ? [
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _showSimpleFieldTypes = !_showSimpleFieldTypes;
+                          });
+                        },
+                        child: Text(
+                          _showSimpleFieldTypes ? 'Hide types' : 'Show types',
+                        ),
+                      ),
+                    ]
+                  : const <Widget>[],
               onBack: _handleBack,
               onToggleMode: _toggleMode,
               onToggleWidget: _setupDone ? _toggleWidget : null,
@@ -2337,6 +2410,13 @@ class _EditingPageState extends State<EditingPage> {
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: hasPendingTypeSelection
+                      ? null
+                      : _resetSimpleTypeSelection,
+                  child: const Text('Adjust'),
+                ),
                 if (canOpenLocalDocumentFromCard)
                   TextButton(
                     onPressed: _openLocalDocumentFolderOrDocument,
@@ -2432,9 +2512,13 @@ class _EditingPageState extends State<EditingPage> {
                     _isSimpleDurationType(type) ||
                     _isSimpleTimespanField(header);
                 final keyboardType = _keyboardForSimpleType(type);
-                final helperText = 'Type: $type${isReadOnly ? ' (fixed)' : ''}';
+                final helperText = _showSimpleFieldTypes
+                    ? 'Type: $type${isReadOnly ? ' (fixed)' : ''}'
+                    : null;
                 return Padding(
-                  key: ValueKey<int>(index),
+                  key: ValueKey<String>(
+                    '${_simpleEditingRowIndex}_${index}_$header',
+                  ),
                   padding: EdgeInsets.only(
                     bottom: index == _simpleHeaders.length - 1 ? 0 : 10,
                   ),
@@ -2443,7 +2527,9 @@ class _EditingPageState extends State<EditingPage> {
                           controller: _simpleControllers[index],
                           labelText: header,
                           hintText: 'Minutes (e.g. 30)',
-                          helperText: '$helperText (enter minutes)',
+                          helperText: helperText == null
+                              ? null
+                              : '$helperText (enter minutes)',
                         )
                       : !isReadOnly && _isSimpleTimeType(type)
                       ? SelectTimeWidget(
@@ -2936,6 +3022,7 @@ class _TopHeader extends StatelessWidget {
     required this.setupDone,
     required this.widgetOptions,
     required this.visibleWidgets,
+    required this.trailingActions,
     required this.onBack,
     required this.onToggleMode,
     required this.onToggleWidget,
@@ -2948,6 +3035,7 @@ class _TopHeader extends StatelessWidget {
   final bool setupDone;
   final List<_WidgetBlock> widgetOptions;
   final Set<_WidgetBlock> visibleWidgets;
+  final List<Widget> trailingActions;
   final VoidCallback onBack;
   final VoidCallback onToggleMode;
   final ValueChanged<_WidgetBlock>? onToggleWidget;
@@ -2991,6 +3079,8 @@ class _TopHeader extends StatelessWidget {
                 child: Text(isAdvancedMode ? 'Advanced' : 'Simple'),
               ),
             if (showModeSwitch) const SizedBox(width: 6),
+            ...trailingActions,
+            if (trailingActions.isNotEmpty) const SizedBox(width: 6),
             const CircleAvatar(
               radius: 16,
               child: Icon(Icons.person_outline_rounded, size: 18),

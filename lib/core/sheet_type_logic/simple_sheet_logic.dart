@@ -28,6 +28,9 @@ class SimpleSheetLogic {
           hasTypeRow = true;
         }
         final headerRow = rows[candidateHeaderRowIndex];
+        if (candidateHeaderRowIndex > 0 && _looksLikeDataRow(headerRow)) {
+          continue;
+        }
         var startColumnIndex = columnIndex;
         while (startColumnIndex > 0 &&
             headerRow[startColumnIndex - 1].trim().isNotEmpty) {
@@ -250,6 +253,24 @@ class SimpleSheetLogic {
     if (compact.isEmpty) return false;
     if (compact.startsWith('=')) return true;
     return RegExp(r'^[A-Z]{1,3}\d+\s*=').hasMatch(compact);
+  }
+
+  static bool _looksLikeDataRow(List<String> row) {
+    var nonEmptyCount = 0;
+    var dataLikeCount = 0;
+    for (final rawValue in row) {
+      final value = rawValue.trim();
+      if (value.isEmpty) continue;
+      nonEmptyCount++;
+      if (looksLikeDateValue(value) ||
+          looksLikeTimeValue(value) ||
+          looksLikeDecimalValue(value) ||
+          looksLikeIntegerValue(value)) {
+        dataLikeCount++;
+      }
+    }
+    if (nonEmptyCount == 0) return false;
+    return dataLikeCount >= (nonEmptyCount / 2).ceil();
   }
 
   static String? typeFromHeader(String header) {

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import '../../sheet_type_logic/sheet_file_models.dart';
+import '../../sheet_type_logic/simple_type_hint_cache.dart';
 import 'auth_service.dart';
 import 'google_drive_auth_service.dart';
 import 'google_drive_sync_service.dart';
@@ -197,6 +198,7 @@ class SimpleCloudDocumentService {
     required ParseSimpleSheetData parseSheetData,
   }) async {
     final session = _requireSession();
+    await _restoreTypeHintsToLocalCache(session.uid, file);
     final bytes = switch (file.provider) {
       CloudSyncProvider.googleDrive => await _downloadGoogleDriveFile(
         fileId: file.id,
@@ -215,10 +217,18 @@ class SimpleCloudDocumentService {
     final sheetData = await parseSheetData(
       bytes: bytes,
       fileName: file.name,
-      path: null,
+      path: file.id,
       mimeType: file.mimeType,
     );
     return CloudSimpleDocumentOpenResult(sheetData: sheetData, file: file);
+  }
+
+  Future<void> rememberTypeHints({
+    required CloudFileMetadata file,
+    required List<String> valueTypes,
+  }) async {
+    final session = _requireSession();
+    await _rememberTypeHints(session.uid, file, valueTypes);
   }
 
   Future<CloudFileMetadata> persistDocument({
@@ -246,6 +256,7 @@ class SimpleCloudDocumentService {
       ),
     };
     await setSelectedSyncFile(file: metadata);
+    await _rememberTypeHints(session.uid, metadata, simpleData.valueTypes);
     return metadata;
   }
 
@@ -277,6 +288,50 @@ class SimpleCloudDocumentService {
       );
     }
     return session;
+  }
+
+  Future<void> _restoreTypeHintsToLocalCache(
+    String uid,
+    CloudFileMetadata file,
+  ) async {
+    try {
+      final valueTypes = await _userRepository.readSimpleTypeHints(
+        uid: uid,
+        provider: file.provider,
+        documentId: file.id,
+      );
+      if (valueTypes == null || valueTypes.isEmpty) return;
+      await SimpleTypeHintCache.rememberCsvTypes(
+        fileName: file.name,
+        path: file.id,
+        valueTypes: valueTypes,
+      );
+    } catch (_) {
+      // Type hints improve convenience; document opening must still work offline.
+    }
+  }
+
+  Future<void> _rememberTypeHints(
+    String uid,
+    CloudFileMetadata file,
+    List<String> valueTypes,
+  ) async {
+    try {
+      await SimpleTypeHintCache.rememberCsvTypes(
+        fileName: file.name,
+        path: file.id,
+        valueTypes: valueTypes,
+      );
+      await _userRepository.rememberSimpleTypeHints(
+        uid: uid,
+        provider: file.provider,
+        documentId: file.id,
+        fileName: file.name,
+        valueTypes: valueTypes,
+      );
+    } catch (_) {
+      // Saving the document is more important than syncing type hints.
+    }
   }
 
   CloudSyncProvider _requireProvider(UserSettingsData settings) {

@@ -640,6 +640,10 @@ class _SelectionPageState extends State<SelectionPage> {
           path: metadata.id,
           valueTypes: sheetData.valueTypes,
         );
+        await ServiceLocator.simpleCloudDocumentService.rememberTypeHints(
+          file: metadata,
+          valueTypes: sheetData.valueTypes,
+        );
 
         await _pushEditor(
           sheetData: _copySimpleSheetData(

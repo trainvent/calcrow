@@ -8,6 +8,7 @@ import 'csv_codec.dart';
 import 'gsheet_codec.dart';
 import 'ods_codec.dart';
 import 'sheet_file_models.dart';
+import 'simple_type_hint_cache.dart';
 import 'xlsx_codec.dart';
 
 class SimpleSheetFileService {
@@ -33,10 +34,8 @@ class SimpleSheetFileService {
           path: path,
         );
       case SimpleFileFormat.xlsx:
-        return XlsxSheetCodec.parse(
-          bytes: bytes,
-          fileName: fileName,
-          path: path,
+        return await _applyCachedTypeHints(
+          XlsxSheetCodec.parse(bytes: bytes, fileName: fileName, path: path),
         );
       case SimpleFileFormat.ods:
         final transfer = await Isolate.run<Map<String, Object?>>(
@@ -47,15 +46,49 @@ class SimpleSheetFileService {
             'nowMillisecondsSinceEpoch': DateTime.now().millisecondsSinceEpoch,
           }),
         );
-        return simpleSheetDataFromTransfer(transfer);
+        return await _applyCachedTypeHints(
+          simpleSheetDataFromTransfer(transfer),
+        );
       case SimpleFileFormat.gsheet:
-        return GSheetCodec.parse(
-          bytes: bytes,
-          fileName: fileName,
-          path: path,
-          now: DateTime.now(),
+        return await _applyCachedTypeHints(
+          GSheetCodec.parse(
+            bytes: bytes,
+            fileName: fileName,
+            path: path,
+            now: DateTime.now(),
+          ),
         );
     }
+  }
+
+  static Future<SimpleSheetData> _applyCachedTypeHints(
+    SimpleSheetData data,
+  ) async {
+    if (data.pendingTypeSelectionColumns.isEmpty) return data;
+    final cachedTypes = await SimpleTypeHintCache.readCsvTypes(
+      fileName: data.fileName,
+      path: data.path,
+    );
+    if (cachedTypes == null || cachedTypes.length != data.headers.length) {
+      return data;
+    }
+    return SimpleSheetData(
+      fileName: data.fileName,
+      path: data.path,
+      format: data.format,
+      headers: data.headers,
+      valueTypes: cachedTypes,
+      readOnlyColumns: data.readOnlyColumns,
+      rows: data.rows,
+      pendingTypeSelectionColumns: const <int>[],
+      csvDelimiter: data.csvDelimiter,
+      hasTypeRow: data.hasTypeRow,
+      headerRowIndex: data.headerRowIndex,
+      startColumnIndex: data.startColumnIndex,
+      xlsxSheetName: data.xlsxSheetName,
+      workbook: data.workbook,
+      sourceBytes: data.sourceBytes,
+    );
   }
 
   static SimpleFileFormat detectFormat({

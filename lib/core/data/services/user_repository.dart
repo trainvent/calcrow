@@ -388,6 +388,58 @@ class UserRepository {
     }, SetOptions(merge: true));
   }
 
+  Future<List<String>?> readSimpleTypeHints({
+    required String uid,
+    required CloudSyncProvider provider,
+    required String documentId,
+  }) async {
+    final settings = await _dbService.getUserSettings(uid);
+    final entries = _parseSimpleTypeHintEntries(settings?['simpleTypeHints']);
+    final key = _simpleTypeHintKey(provider: provider, documentId: documentId);
+    final entry = _firstWhereOrNull(
+      entries,
+      (candidate) => candidate.key == key,
+    );
+    return entry?.valueTypes;
+  }
+
+  Future<void> rememberSimpleTypeHints({
+    required String uid,
+    required CloudSyncProvider provider,
+    required String documentId,
+    required String fileName,
+    required List<String> valueTypes,
+  }) async {
+    final normalizedTypes = valueTypes
+        .map((type) => type.trim().toLowerCase())
+        .where((type) => type.isNotEmpty)
+        .toList(growable: false);
+    if (normalizedTypes.isEmpty) return;
+
+    final settings = await _dbService.getUserSettings(uid);
+    final entries = _parseSimpleTypeHintEntries(settings?['simpleTypeHints']);
+    final key = _simpleTypeHintKey(provider: provider, documentId: documentId);
+    final nextEntry = _SimpleTypeHintEntry(
+      key: key,
+      provider: cloudSyncProviderToSettings(provider),
+      documentId: documentId,
+      fileName: fileName,
+      valueTypes: normalizedTypes,
+      updatedAt: DateTime.now(),
+    );
+    final next = <_SimpleTypeHintEntry>[
+      nextEntry,
+      ...entries.where((entry) => entry.key != key),
+    ].take(50).toList();
+
+    await _firestore.collection(_usersCollection).doc(uid).set({
+      'settings': {
+        'simpleTypeHints': next.map((entry) => entry.toMap()).toList(),
+      },
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   Future<void> setGoogleDriveLinked({
     required String uid,
     required String email,
@@ -576,4 +628,81 @@ class UserRepository {
   Future<void> clearWebDavSyncFile({required String uid}) {
     return _dbService.clearWebDavSyncFile(uid: uid);
   }
+}
+
+class _SimpleTypeHintEntry {
+  const _SimpleTypeHintEntry({
+    required this.key,
+    required this.provider,
+    required this.documentId,
+    required this.fileName,
+    required this.valueTypes,
+    required this.updatedAt,
+  });
+
+  final String key;
+  final String provider;
+  final String documentId;
+  final String fileName;
+  final List<String> valueTypes;
+  final DateTime updatedAt;
+
+  static _SimpleTypeHintEntry? fromMap(Object? raw) {
+    if (raw is! Map) return null;
+    final key = UserSettingsData._readTrimmed(raw['key']);
+    final provider = UserSettingsData._readTrimmed(raw['provider']);
+    final documentId = UserSettingsData._readTrimmed(raw['documentId']);
+    if (key == null || provider == null || documentId == null) return null;
+    final rawTypes = raw['valueTypes'];
+    if (rawTypes is! List) return null;
+    final valueTypes = rawTypes
+        .whereType<String>()
+        .map((type) => type.trim().toLowerCase())
+        .where((type) => type.isNotEmpty)
+        .toList(growable: false);
+    if (valueTypes.isEmpty) return null;
+    final updatedAtRaw = UserSettingsData._readTrimmed(raw['updatedAt']);
+    return _SimpleTypeHintEntry(
+      key: key,
+      provider: provider,
+      documentId: documentId,
+      fileName: UserSettingsData._readTrimmed(raw['fileName']) ?? 'document',
+      valueTypes: valueTypes,
+      updatedAt: updatedAtRaw == null
+          ? DateTime.fromMillisecondsSinceEpoch(0)
+          : DateTime.tryParse(updatedAtRaw) ??
+                DateTime.fromMillisecondsSinceEpoch(0),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'key': key,
+      'provider': provider,
+      'documentId': documentId,
+      'fileName': fileName,
+      'valueTypes': valueTypes,
+      'updatedAt': updatedAt.toIso8601String(),
+    };
+  }
+}
+
+List<_SimpleTypeHintEntry> _parseSimpleTypeHintEntries(Object? raw) {
+  if (raw is! List) return const <_SimpleTypeHintEntry>[];
+  final parsed = <_SimpleTypeHintEntry>[];
+  for (final candidate in raw) {
+    final entry = _SimpleTypeHintEntry.fromMap(candidate);
+    if (entry == null) continue;
+    if (parsed.any((existing) => existing.key == entry.key)) continue;
+    parsed.add(entry);
+  }
+  parsed.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+  return parsed;
+}
+
+String _simpleTypeHintKey({
+  required CloudSyncProvider provider,
+  required String documentId,
+}) {
+  return '${cloudSyncProviderToSettings(provider)}:${documentId.trim()}';
 }

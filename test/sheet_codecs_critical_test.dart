@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:calcrow/core/sheet_type_logic/csv_codec.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
+import 'package:calcrow/core/sheet_type_logic/simple_sheet_file_service.dart';
+import 'package:calcrow/core/sheet_type_logic/simple_type_hint_cache.dart';
 import 'package:calcrow/core/sheet_type_logic/xlsx_codec.dart';
 
 import 'support/sheet_test_helpers.dart';
@@ -167,6 +169,22 @@ void main() {
       ]);
     });
 
+    test('XLSX date rows are not mistaken for header labels', () {
+      final parsed = parseXlsx(
+        buildWorkbookBytes([
+          ['Date', 'Start', 'End', 'Pause', 'Notes'],
+          ['46210', '13:15:00', '17:25:00', '00:15:00', 'first'],
+          ['2026-07-07', '09:00:00', '12:00:00', '00:10:00', 'second'],
+        ]),
+      );
+
+      expect(parsed.headers, ['Date', 'Start', 'End', 'Pause', 'Notes']);
+      expect(parsed.rows, [
+        ['46210', '13:15:00', '17:25:00', '00:15:00', 'first'],
+        ['2026-07-07', '09:00:00', '12:00:00', '00:10:00', 'second'],
+      ]);
+    });
+
     test('XLSX can be built from a fresh simple document draft', () {
       final workbook = excel_pkg.Excel.createExcel();
       final draft = SimpleSheetData(
@@ -185,6 +203,25 @@ void main() {
       expect(parsed.headers, ['Date', 'Start', 'End', 'Notes']);
       expect(parsed.rows, isEmpty);
       expect(parsed.workbook, isNotNull);
+    });
+
+    test('XLSX parse reuses confirmed cached field types', () async {
+      await SimpleTypeHintCache.rememberCsvTypes(
+        fileName: 'cached.xlsx',
+        path: '/tmp/cached.xlsx',
+        valueTypes: const <String>['text', 'date', 'decimal'],
+      );
+
+      final parsed = await SimpleSheetFileService.parse(
+        bytes: buildWorkbookBytes([
+          ['name', 'date', 'hours'],
+        ]),
+        fileName: 'cached.xlsx',
+        path: '/tmp/cached.xlsx',
+      );
+
+      expect(parsed.valueTypes, ['text', 'date', 'decimal']);
+      expect(parsed.pendingTypeSelectionColumns, isEmpty);
     });
   });
 }
