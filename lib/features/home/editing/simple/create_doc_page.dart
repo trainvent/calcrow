@@ -43,11 +43,29 @@ class _CreateDocPageState extends State<CreateDocPage> {
           'Track training sessions without turning the sheet into a fitness app.',
       columns: <_SimpleTemplateColumn>[
         _SimpleTemplateColumn(header: 'Date', type: 'date'),
-        _SimpleTemplateColumn(header: 'Exercise', type: 'text'),
-        _SimpleTemplateColumn(header: 'Sets', type: 'Number'),
+        _SimpleTemplateColumn(header: 'Run km', type: 'decimal'),
+        _SimpleTemplateColumn(
+          header: 'Clean and Press weight',
+          type: 'decimal',
+        ),
+        _SimpleTemplateColumn(header: 'Barbell Curl weight', type: 'decimal'),
+        _SimpleTemplateColumn(
+          header: 'Behind-the-neck Press weight',
+          type: 'decimal',
+        ),
+        _SimpleTemplateColumn(header: 'Upright Row weight', type: 'decimal'),
+        _SimpleTemplateColumn(header: 'Barbell Squat weight', type: 'decimal'),
+        _SimpleTemplateColumn(header: 'Barbell Row weight', type: 'decimal'),
+        _SimpleTemplateColumn(
+          header: 'Barbell Bench Press weight',
+          type: 'decimal',
+        ),
+        _SimpleTemplateColumn(
+          header: 'Barbell Pullover weight',
+          type: 'decimal',
+        ),
         _SimpleTemplateColumn(header: 'Reps', type: 'Number'),
-        _SimpleTemplateColumn(header: 'Weight', type: 'decimal'),
-        _SimpleTemplateColumn(header: 'Notes', type: 'text'),
+        _SimpleTemplateColumn(header: 'Sets', type: 'Number'),
       ],
     ),
     _SimpleDocumentTemplate(

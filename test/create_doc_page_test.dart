@@ -28,4 +28,29 @@ void main() {
     expect(find.text('Phone'), findsOneWidget);
     expect(find.text('RSVP'), findsOneWidget);
   });
+
+  testWidgets('Bruce Lee template uses exercise-specific weight fields', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: CreateDocPage()));
+
+    await tester.tap(find.text('Templates'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bruce Lee Workout'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Run km'), findsOneWidget);
+    expect(find.text('Clean and Press weight'), findsOneWidget);
+    expect(find.text('Barbell Curl weight'), findsOneWidget);
+    expect(find.text('Behind-the-neck Press weight'), findsOneWidget);
+    expect(find.text('Upright Row weight'), findsOneWidget);
+    expect(find.text('Barbell Squat weight'), findsOneWidget);
+    expect(find.text('Barbell Row weight'), findsOneWidget);
+    expect(find.text('Barbell Bench Press weight'), findsOneWidget);
+    expect(find.text('Barbell Pullover weight'), findsOneWidget);
+    expect(find.text('Reps'), findsOneWidget);
+    expect(find.text('Sets'), findsOneWidget);
+    expect(find.text('Exercise'), findsNothing);
+    expect(find.text('Added weight'), findsNothing);
+  });
 }
