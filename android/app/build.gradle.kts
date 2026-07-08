@@ -85,6 +85,10 @@ flutter {
     source = "../.."
 }
 
+dependencies {
+    implementation("androidx.activity:activity-ktx:1.10.1")
+}
+
 tasks.withType<JavaCompile>().configureEach {
     options.compilerArgs.add("-Xlint:deprecation")
     options.compilerArgs.add("-Xlint:unchecked")
