@@ -2344,15 +2344,6 @@ class _EditingPageBaseState extends State<EditingPageBase>
     final targetLabel = isEditingExisting
         ? 'Editing row ${_simpleEditingRowIndex + 1} of ${_simpleRows.length}'
         : 'Editing new row at bottom';
-    final selectedTextFieldLabel =
-        _simpleTextSelectionColumnIndex != null &&
-            _simpleTextSelectionColumnIndex! < _simpleHeaders.length
-        ? _simpleHeaders[_simpleTextSelectionColumnIndex!]
-        : null;
-    final selectedTextTargetLabel =
-        selectedTextFieldLabel != null && _simpleTextSelectionValue != null
-        ? '$selectedTextFieldLabel: ${_simpleTextSelectionValue!}'
-        : null;
     final isSheetDocumentSource =
         _simpleImportedFormat == SimpleFileFormat.xlsx ||
         _simpleImportedFormat == SimpleFileFormat.ods ||
@@ -2400,13 +2391,6 @@ class _EditingPageBaseState extends State<EditingPageBase>
                         const SizedBox(height: 4),
                         Text(
                           'Active sheet: $activeSheetLabel',
-                          style: theme.textTheme.bodySmall,
-                        ),
-                      ],
-                      if (selectedTextTargetLabel != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          'Selected entry: $selectedTextTargetLabel',
                           style: theme.textTheme.bodySmall,
                         ),
                       ],

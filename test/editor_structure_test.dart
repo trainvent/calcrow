@@ -193,7 +193,6 @@ void main() {
 
     expect(find.textContaining('Editing row 2 of 2'), findsOneWidget);
     expect(find.text('Bob'), findsOneWidget);
-    expect(find.text('Selected entry: Name: Bob'), findsOneWidget);
   });
 
   testWidgets('logbook rejects cached schemas without first date field', (
