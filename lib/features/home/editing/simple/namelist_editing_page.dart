@@ -19,10 +19,13 @@ class _NamelistEditingModeBehavior extends _SimpleEditingModeBehavior {
   EditorOpenMode get openMode => EditorOpenMode.textBased;
 
   @override
-  String get pickButtonLabel => 'Pick Entry';
+  String get pickButtonLabel => 'Pick';
 
   @override
   bool get showsTextEntryActions => true;
+
+  @override
+  String get requiredFirstColumnType => 'text';
 
   @override
   Future<_SimpleOpeningSelection?> resolveOpening(

@@ -19,10 +19,13 @@ class _LogbookEditingModeBehavior extends _SimpleEditingModeBehavior {
   EditorOpenMode get openMode => EditorOpenMode.dateBasedOpenEnd;
 
   @override
-  String get pickButtonLabel => 'Pick Row';
+  String get pickButtonLabel => 'Pick';
 
   @override
   bool get showsDateOpenEndActions => true;
+
+  @override
+  String get requiredFirstColumnType => 'date';
 
   @override
   Future<_SimpleOpeningSelection?> resolveOpening(

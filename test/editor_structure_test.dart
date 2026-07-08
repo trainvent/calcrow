@@ -38,7 +38,7 @@ void main() {
 
     expect(find.text('Editor'), findsOneWidget);
     expect(find.text('Current File'), findsOneWidget);
-    expect(find.text('Save Row'), findsOneWidget);
+    expect(find.text('Save'), findsOneWidget);
     expect(find.byKey(_EmbeddedEditorHarness.bottomNavKey), findsOneWidget);
   });
 
@@ -79,7 +79,7 @@ void main() {
     await tester.pump();
 
     await tester.enterText(find.widgetWithText(TextField, 'Notes'), 'steady');
-    await tester.tap(find.text('Save Row'));
+    await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Editing row 1 of 1'), findsOneWidget);
@@ -108,7 +108,7 @@ void main() {
     await tester.pump();
 
     await tester.enterText(find.widgetWithText(TextField, 'Notes'), 'draft');
-    await tester.tap(find.text('New Row'));
+    await tester.tap(find.text('New'));
     await tester.pumpAndSettle();
 
     expect(find.text('Unsaved row edits'), findsOneWidget);
@@ -142,7 +142,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    await tester.tap(find.text('Pick Row'));
+    await tester.tap(find.text('Pick'));
     await tester.pump();
 
     expect(
@@ -220,7 +220,7 @@ void main() {
       find.text('Cached field types do not match Logbook.'),
       findsOneWidget,
     );
-    expect(find.text('Save Row'), findsNothing);
+    expect(find.text('Save'), findsNothing);
   });
 
   testWidgets('namelist rejects cached schemas without first text field', (
@@ -247,8 +247,70 @@ void main() {
       find.text('Cached field types do not match Namelist.'),
       findsOneWidget,
     );
-    expect(find.text('Save Row'), findsNothing);
+    expect(find.text('Save'), findsNothing);
     expect(SheetPreviewStore.rowPickRequest.value, isNull);
+  });
+
+  testWidgets('logbook adjust keeps first field locked to date', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: EditingPage(
+            initialSheetData: _worklogSheetData(),
+            initialDocumentTarget: const LocalEditorDocumentTarget(
+              existingPath: '/tmp/worklog.csv',
+            ),
+            initialOpenMode: EditorOpenMode.dateBasedOpenEnd,
+            sheetPersistenceService: _FakeSimpleSheetPersistenceService(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.text('Adjust'));
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('simple-type-options-0-date')), findsOne);
+    expect(
+      find.byKey(const ValueKey('simple-type-options-0-text')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('namelist adjust keeps first field locked to text', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: EditingPage(
+            initialSheetData: _namelistSheetData(),
+            initialDocumentTarget: const LocalEditorDocumentTarget(
+              existingPath: '/tmp/people.csv',
+            ),
+            initialOpenMode: EditorOpenMode.textBased,
+            sheetPersistenceService: _FakeSimpleSheetPersistenceService(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    SheetPreviewStore.cancelRowPick();
+    await tester.pump();
+
+    await tester.tap(find.text('Adjust'));
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('simple-type-options-0-text')), findsOne);
+    expect(
+      find.byKey(const ValueKey('simple-type-options-0-date')),
+      findsNothing,
+    );
   });
 }
 

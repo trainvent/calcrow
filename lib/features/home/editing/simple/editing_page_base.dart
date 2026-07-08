@@ -79,6 +79,7 @@ abstract class _SimpleEditingModeBehavior {
   String get pickButtonLabel;
   bool get showsTextEntryActions => false;
   bool get showsDateOpenEndActions => false;
+  String? get requiredFirstColumnType => null;
 
   Future<_SimpleOpeningSelection?> resolveOpening(
     _EditingPageBaseState state,
@@ -90,6 +91,25 @@ abstract class _SimpleEditingModeBehavior {
   void handleSheetPreviewRowPick(_EditingPageBaseState state, int rowIndex) {}
 
   Future<void> pickFromCurrentSheet(_EditingPageBaseState state);
+
+  List<String> typeOptionsForColumn(
+    _EditingPageBaseState state,
+    int columnIndex,
+  ) {
+    if (columnIndex == 0 && requiredFirstColumnType != null) {
+      return <String>[requiredFirstColumnType!];
+    }
+    return _EditingPageBaseState._simpleTypeOptions;
+  }
+
+  String? validatePendingTypes(_EditingPageBaseState state) {
+    final requiredType = requiredFirstColumnType;
+    if (requiredType == null) return null;
+    if (state._simpleValueTypes.isEmpty) return null;
+    final firstType = state._simpleValueTypes.first.trim().toLowerCase();
+    if (firstType == requiredType) return null;
+    return 'The first field must stay ${requiredType == 'date' ? 'Date' : 'Text'} for this opening mode.';
+  }
 
   static _SimpleEditingModeBehavior forOpenMode(EditorOpenMode mode) {
     return switch (mode) {
@@ -978,6 +998,9 @@ class _EditingPageBaseState extends State<EditingPageBase>
   void _updatePendingSimpleType(int columnIndex, String nextType) {
     final nextTypes = List<String>.from(_simpleValueTypes);
     if (columnIndex < 0 || columnIndex >= nextTypes.length) return;
+    if (columnIndex == 0 && _modeBehavior.requiredFirstColumnType != null) {
+      nextType = _modeBehavior.requiredFirstColumnType!;
+    }
     nextTypes[columnIndex] = nextType;
     if (_isSimpleBooleanType(nextType) &&
         columnIndex < _simpleControllers.length &&
@@ -1011,6 +1034,13 @@ class _EditingPageBaseState extends State<EditingPageBase>
 
   void _confirmPendingSimpleTypes() {
     if (_simplePendingTypeSelectionColumns.isEmpty) return;
+    final validationMessage = _modeBehavior.validatePendingTypes(this);
+    if (validationMessage != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(validationMessage)));
+      return;
+    }
     setState(() {
       _simplePendingTypeSelectionColumns = const <int>[];
     });
@@ -1026,6 +1056,9 @@ class _EditingPageBaseState extends State<EditingPageBase>
           index,
         ) {
           if (index >= _simpleValueTypes.length) return false;
+          if (index == 0 && _modeBehavior.requiredFirstColumnType != null) {
+            return true;
+          }
           if (index < _simpleReadOnlyColumns.length) {
             return !_simpleReadOnlyColumns[index];
           }
@@ -1219,20 +1252,54 @@ class _EditingPageBaseState extends State<EditingPageBase>
         title: const Text('Unsaved row edits'),
         content: const Text('Save the current row before starting a new one?'),
         actions: [
-          TextButton(
-            onPressed: () =>
-                Navigator.of(context).pop(_SimpleUnsavedEditsChoice.cancel),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () =>
-                Navigator.of(context).pop(_SimpleUnsavedEditsChoice.discard),
-            child: const Text('Discard'),
-          ),
-          FilledButton(
-            onPressed: () =>
-                Navigator.of(context).pop(_SimpleUnsavedEditsChoice.save),
-            child: const Text('Save first'),
+          SizedBox(
+            width: double.infinity,
+            child: Row(
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(
+                    context,
+                  ).pop(_SimpleUnsavedEditsChoice.cancel),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 56,
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(
+                              context,
+                            ).pop(_SimpleUnsavedEditsChoice.discard),
+                            child: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text('Discard'),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: SizedBox(
+                          height: 56,
+                          child: FilledButton(
+                            onPressed: () => Navigator.of(
+                              context,
+                            ).pop(_SimpleUnsavedEditsChoice.save),
+                            child: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text('Save first'),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -2389,14 +2456,22 @@ class _EditingPageBaseState extends State<EditingPageBase>
                     final currentType = _editorTypeOptionFor(
                       _simpleValueTypes[index],
                     );
+                    final typeOptions = _modeBehavior.typeOptionsForColumn(
+                      this,
+                      index,
+                    );
+                    final selectedType = typeOptions.contains(currentType)
+                        ? currentType
+                        : typeOptions.first;
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: DropdownButtonFormField<String>(
-                        initialValue: _simpleTypeOptions.contains(currentType)
-                            ? currentType
-                            : 'text',
+                        key: ValueKey<String>(
+                          'simple-type-options-$index-${typeOptions.join(',')}',
+                        ),
+                        initialValue: selectedType,
                         decoration: InputDecoration(labelText: header),
-                        items: _simpleTypeOptions
+                        items: typeOptions
                             .map(
                               (type) => DropdownMenuItem<String>(
                                 value: type,
@@ -2536,7 +2611,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
                 Expanded(
                   child: ElevatedButton(
                     onPressed: hasPendingTypeSelection ? null : _saveSimpleRow,
-                    child: const Text('Save Row'),
+                    child: const Text('Save'),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -2553,7 +2628,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
                       onPressed: hasPendingTypeSelection
                           ? null
                           : _createNewSimpleTextEntry,
-                      child: const Text('New Entry'),
+                      child: const Text('New'),
                     ),
                   ),
                 ] else if (canCreateOpenEndDateRow) ...[
@@ -2563,7 +2638,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
                       onPressed: hasPendingTypeSelection
                           ? null
                           : _createNewSimpleDateOpenEndRow,
-                      child: const Text('New Row'),
+                      child: const Text('New'),
                     ),
                   ),
                 ] else ...[
