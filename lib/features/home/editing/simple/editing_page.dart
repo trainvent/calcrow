@@ -29,6 +29,8 @@ enum _WidgetBlock { rowDefinement, workhours, smartData, wellbeing, notes }
 
 enum EditorOpenMode { dateBased, dateBasedOpenEnd, textBased }
 
+enum _SimpleUnsavedEditsChoice { save, discard, cancel }
+
 class EditingPage extends StatefulWidget {
   const EditingPage({
     super.key,
@@ -38,7 +40,8 @@ class EditingPage extends StatefulWidget {
     this.initialSuccessMessage,
     this.showBackToSelection = false,
     this.onBackToSelection,
-  });
+    SimpleSheetPersistenceService? sheetPersistenceService,
+  }) : _sheetPersistenceService = sheetPersistenceService;
 
   final SimpleSheetData initialSheetData;
   final EditorDocumentTarget initialDocumentTarget;
@@ -46,6 +49,7 @@ class EditingPage extends StatefulWidget {
   final String? initialSuccessMessage;
   final bool showBackToSelection;
   final VoidCallback? onBackToSelection;
+  final SimpleSheetPersistenceService? _sheetPersistenceService;
 
   @override
   State<EditingPage> createState() => _EditingPageState();
@@ -93,8 +97,7 @@ class _EditingPageState extends State<EditingPage>
   static const double _defaultMoodLevel = 0.45;
   static const double _defaultEnergyLevel = 0.62;
   static const int _previewRowLimit = 100;
-  final SimpleSheetPersistenceService _sheetPersistenceService =
-      SimpleSheetPersistenceService();
+  late final SimpleSheetPersistenceService _sheetPersistenceService;
 
   final TextEditingController _dateController = TextEditingController(
     text: _formatDate(DateTime.now()),
@@ -129,6 +132,7 @@ class _EditingPageState extends State<EditingPage>
   List<List<String>> _simpleRows = const <List<String>>[];
   List<TextEditingController> _simpleControllers =
       const <TextEditingController>[];
+  List<String> _simpleEditingBaseline = const <String>[];
   excel_pkg.Excel? _simpleImportedWorkbook;
   Uint8List? _simpleImportedSourceBytes;
   int _simpleEditingRowIndex = 0;
@@ -154,6 +158,8 @@ class _EditingPageState extends State<EditingPage>
     super.initState();
     _isAdvancedMode = false;
     _simpleOpenMode = widget.initialOpenMode;
+    _sheetPersistenceService =
+        widget._sheetPersistenceService ?? SimpleSheetPersistenceService();
     _typeTogglePulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 680),
@@ -1010,6 +1016,10 @@ class _EditingPageState extends State<EditingPage>
 
     setState(() {
       _simpleControllers = nextControllers;
+      _simpleEditingBaseline = _normalizeRowToWidth(
+        values,
+        _simpleHeaders.length,
+      );
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1019,10 +1029,10 @@ class _EditingPageState extends State<EditingPage>
     });
   }
 
-  Future<void> _saveSimpleRow() =>
+  Future<bool> _saveSimpleRow() =>
       _saveSimpleRowInternal(mode: SimplePersistMode.safPreferred);
 
-  Future<void> _saveSimpleRowAsIs() =>
+  Future<bool> _saveSimpleRowAsIs() =>
       _saveSimpleRowInternal(mode: SimplePersistMode.asIs);
 
   String? _simpleRowValidationError(List<String> row) {
@@ -1067,10 +1077,10 @@ class _EditingPageState extends State<EditingPage>
     return null;
   }
 
-  Future<void> _saveSimpleRowInternal({required SimplePersistMode mode}) async {
+  Future<bool> _saveSimpleRowInternal({required SimplePersistMode mode}) async {
     if (!_hasSimpleSchema ||
         _simpleControllers.length != _simpleHeaders.length) {
-      return;
+      return false;
     }
 
     final updatedRow = _simpleControllers
@@ -1081,20 +1091,17 @@ class _EditingPageState extends State<EditingPage>
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(validationError)));
-      return;
+      return false;
     }
     final nextRows = List<List<String>>.from(_simpleRows);
     final forcedTargetIndex = _findBestExistingRowForSave(updatedRow);
     final effectiveTargetIndex = forcedTargetIndex ?? _simpleEditingRowIndex;
-    final shouldPrepareNextOpenEndRow =
-        _simpleOpenMode == EditorOpenMode.dateBasedOpenEnd &&
-        effectiveTargetIndex >= _simpleRows.length;
+    final normalizedUpdated = _normalizeRowToWidth(
+      updatedRow,
+      _simpleHeaders.length,
+    );
 
     if (effectiveTargetIndex < nextRows.length) {
-      final normalizedUpdated = _normalizeRowToWidth(
-        updatedRow,
-        _simpleHeaders.length,
-      );
       if (forcedTargetIndex != null &&
           forcedTargetIndex != _simpleEditingRowIndex) {
         nextRows[effectiveTargetIndex] = _mergeRowForAutoFill(
@@ -1105,7 +1112,7 @@ class _EditingPageState extends State<EditingPage>
         nextRows[effectiveTargetIndex] = normalizedUpdated;
       }
     } else {
-      nextRows.add(_normalizeRowToWidth(updatedRow, _simpleHeaders.length));
+      nextRows.add(normalizedUpdated);
     }
 
     setState(() {
@@ -1130,18 +1137,19 @@ class _EditingPageState extends State<EditingPage>
     final messenger = ScaffoldMessenger.of(context);
     try {
       final saveResult = await _persistSimpleSheet(mode: mode);
-      if (!mounted) return;
+      if (!mounted) return false;
       messenger.showSnackBar(SnackBar(content: Text(_saveMessage(saveResult))));
-      if (shouldPrepareNextOpenEndRow) {
-        _createNewSimpleDateOpenEndRow();
-      }
+      setState(() {
+        _simpleEditingBaseline = normalizedUpdated;
+      });
+      return true;
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted) return false;
       if (error is StateError && error.message == 'Save canceled.') {
         messenger.showSnackBar(
           const SnackBar(content: Text('Row updated. File save canceled.')),
         );
-        return;
+        return false;
       }
       if (error is StateError && error.message == 'SAF save canceled.') {
         messenger.showSnackBar(
@@ -1149,7 +1157,7 @@ class _EditingPageState extends State<EditingPage>
             content: Text('SAF save canceled. Use "Save as is" in Preview.'),
           ),
         );
-        return;
+        return false;
       }
       if (error is StateError &&
           error.message == 'SAF save is not supported on this platform.') {
@@ -1160,7 +1168,7 @@ class _EditingPageState extends State<EditingPage>
             ),
           ),
         );
-        return;
+        return false;
       }
       if (error is StateError &&
           error.message ==
@@ -1172,7 +1180,7 @@ class _EditingPageState extends State<EditingPage>
             ),
           ),
         );
-        return;
+        return false;
       }
       if (error is StateError &&
           error.message ==
@@ -1184,7 +1192,7 @@ class _EditingPageState extends State<EditingPage>
             ),
           ),
         );
-        return;
+        return false;
       }
       if (error is StateError && error.message == 'SAF stream write failed.') {
         messenger.showSnackBar(
@@ -1194,7 +1202,7 @@ class _EditingPageState extends State<EditingPage>
             ),
           ),
         );
-        return;
+        return false;
       }
       if (error is StateError &&
           error.message ==
@@ -1206,13 +1214,14 @@ class _EditingPageState extends State<EditingPage>
             ),
           ),
         );
-        return;
+        return false;
       }
       messenger.showSnackBar(
         SnackBar(
           content: Text('Row saved in app, but file write failed: $error'),
         ),
       );
+      return false;
     }
   }
 
@@ -1426,7 +1435,61 @@ class _EditingPageState extends State<EditingPage>
     );
   }
 
-  void _createNewSimpleTextEntry() {
+  bool get _hasUnsavedSimpleRowEdits {
+    if (!_hasSimpleControllersReady) return false;
+    final current = _simpleControllers
+        .map((controller) => controller.text.trim())
+        .toList(growable: false);
+    return !listEquals(
+      _normalizeRowToWidth(current, _simpleHeaders.length),
+      _normalizeRowToWidth(_simpleEditingBaseline, _simpleHeaders.length),
+    );
+  }
+
+  Future<bool> _confirmReplacingUnsavedSimpleEdits() async {
+    if (!_hasUnsavedSimpleRowEdits) return true;
+
+    final choice = await showDialog<_SimpleUnsavedEditsChoice>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unsaved row edits'),
+        content: const Text('Save the current row before starting a new one?'),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.of(context).pop(_SimpleUnsavedEditsChoice.cancel),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.of(context).pop(_SimpleUnsavedEditsChoice.discard),
+            child: const Text('Discard'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(context).pop(_SimpleUnsavedEditsChoice.save),
+            child: const Text('Save first'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return false;
+    switch (choice) {
+      case _SimpleUnsavedEditsChoice.save:
+        return _saveSimpleRowInternal(mode: SimplePersistMode.safPreferred);
+      case _SimpleUnsavedEditsChoice.discard:
+        return true;
+      case _SimpleUnsavedEditsChoice.cancel:
+      case null:
+        return false;
+    }
+  }
+
+  Future<void> _createNewSimpleTextEntry() async {
+    if (!await _confirmReplacingUnsavedSimpleEdits()) return;
+    if (!mounted) return;
+
     final candidateColumns = _simpleTextSelectableColumnsForSheetData(
       _buildSimpleSheetDataForPersist(),
     );
@@ -1455,7 +1518,10 @@ class _EditingPageState extends State<EditingPage>
     });
   }
 
-  void _createNewSimpleDateOpenEndRow() {
+  Future<void> _createNewSimpleDateOpenEndRow() async {
+    if (!await _confirmReplacingUnsavedSimpleEdits()) return;
+    if (!mounted) return;
+
     final dateColumn = _simpleDateColumnIndex();
     if (dateColumn == null) {
       ScaffoldMessenger.of(context).showSnackBar(

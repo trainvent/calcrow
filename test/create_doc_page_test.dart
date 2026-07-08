@@ -12,9 +12,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Workout like Bruce Lee'), findsOneWidget);
-    expect(find.text('Guestlist'), findsOneWidget);
+    expect(find.text('Triathlon Training Tracker Plus'), findsOneWidget);
     expect(
-      find.text('Names, contacts, and RSVP status for an event.'),
+      find.text('Track swim, bike, run, and strength work in one row.'),
       findsOneWidget,
     );
     expect(
@@ -23,15 +23,16 @@ void main() {
     );
     expect(find.textContaining('more'), findsNothing);
 
-    await tester.tap(find.text('Guestlist'));
+    await tester.tap(find.text('Triathlon Training Tracker Plus'));
     await tester.pumpAndSettle();
 
     expect(find.text('Date'), findsOneWidget);
-    expect(find.text('Name'), findsOneWidget);
-    expect(find.text('Email'), findsOneWidget);
-    expect(find.text('Phone'), findsOneWidget);
-    expect(find.text('RSVP'), findsOneWidget);
-    expect(find.text('boolean'), findsOneWidget);
+    expect(find.text('Run km'), findsOneWidget);
+    expect(find.text('Swim km'), findsOneWidget);
+    expect(find.text('Bike km'), findsOneWidget);
+    expect(find.text('Pull-ups'), findsOneWidget);
+    expect(find.text('Push-ups'), findsOneWidget);
+    expect(find.text('Squats'), findsOneWidget);
   });
 
   testWidgets('Bruce Lee template uses exercise-specific weight fields', (
@@ -58,6 +59,27 @@ void main() {
     expect(find.text('Notes'), findsOneWidget);
     expect(find.text('Exercise'), findsNothing);
     expect(find.text('Added weight'), findsNothing);
+  });
+
+  testWidgets('Triathlon template tracks endurance and strength fields', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: CreateDocPage()));
+
+    await tester.tap(find.text('Templates'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Triathlon Training Tracker Plus'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Date'), findsOneWidget);
+    expect(find.text('Run km'), findsOneWidget);
+    expect(find.text('Swim km'), findsOneWidget);
+    expect(find.text('Bike km'), findsOneWidget);
+    expect(find.text('Pull-ups'), findsOneWidget);
+    expect(find.text('Push-ups'), findsOneWidget);
+    expect(find.text('Squats'), findsOneWidget);
+    expect(find.text('Float'), findsNWidgets(3));
+    expect(find.text('Integer'), findsNWidgets(3));
   });
 
   testWidgets('Customer Service template preconfigures service fields', (

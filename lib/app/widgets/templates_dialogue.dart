@@ -26,6 +26,20 @@ const simpleDocumentTemplates = <SimpleDocumentTemplate>[
     ],
   ),
   SimpleDocumentTemplate(
+    name: 'Triathlon Training Tracker Plus',
+    fileName: 'triathlon_training_tracker_plus',
+    description: 'Track swim, bike, run, and strength work in one row.',
+    columns: <SimpleTemplateColumn>[
+      SimpleTemplateColumn(header: 'Date', type: 'date'),
+      SimpleTemplateColumn(header: 'Run km', type: 'Float'),
+      SimpleTemplateColumn(header: 'Swim km', type: 'Float'),
+      SimpleTemplateColumn(header: 'Bike km', type: 'Float'),
+      SimpleTemplateColumn(header: 'Pull-ups', type: 'Integer'),
+      SimpleTemplateColumn(header: 'Push-ups', type: 'Integer'),
+      SimpleTemplateColumn(header: 'Squats', type: 'Integer'),
+    ],
+  ),
+  SimpleDocumentTemplate(
     name: 'Customer Service',
     fileName: 'customer_service',
     description: 'Log customer visits, billable time, expenses, and outcomes.',

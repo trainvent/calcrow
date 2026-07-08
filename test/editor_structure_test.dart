@@ -1,3 +1,4 @@
+import 'package:calcrow/core/data/services/simple_sheet_persistence_service.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/features/home/editing/selection_page.dart';
 import 'package:calcrow/features/home/editing/simple/editing_page.dart';
@@ -48,6 +49,70 @@ void main() {
     expect(find.text('Editor'), findsNothing);
     expect(find.byKey(_EmbeddedEditorHarness.bottomNavKey), findsOneWidget);
   });
+
+  testWidgets('saving a simple open-ended row stays on the saved row', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: EditingPage(
+            initialSheetData: _worklogSheetData(),
+            initialDocumentTarget: const LocalEditorDocumentTarget(
+              existingPath: '/tmp/worklog.csv',
+            ),
+            initialOpenMode: EditorOpenMode.dateBasedOpenEnd,
+            sheetPersistenceService: _FakeSimpleSheetPersistenceService(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.enterText(find.widgetWithText(TextField, 'Notes'), 'steady');
+    await tester.tap(find.text('Save Row'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Editing row 1 of 1'), findsOneWidget);
+    expect(find.text('steady'), findsOneWidget);
+    expect(find.textContaining('Editing new row at bottom'), findsNothing);
+  });
+
+  testWidgets('new simple open-ended row warns before replacing edits', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: EditingPage(
+            initialSheetData: _worklogSheetData(),
+            initialDocumentTarget: const LocalEditorDocumentTarget(
+              existingPath: '/tmp/worklog.csv',
+            ),
+            initialOpenMode: EditorOpenMode.dateBasedOpenEnd,
+            sheetPersistenceService: _FakeSimpleSheetPersistenceService(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.enterText(find.widgetWithText(TextField, 'Notes'), 'draft');
+    await tester.tap(find.text('New Row'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unsaved row edits'), findsOneWidget);
+    expect(
+      find.text('Save the current row before starting a new one?'),
+      findsOneWidget,
+    );
+    expect(find.text('Save first'), findsOneWidget);
+    expect(find.text('Discard'), findsOneWidget);
+    expect(find.text('Cancel'), findsOneWidget);
+    expect(find.text('draft'), findsOneWidget);
+  });
 }
 
 class _EmbeddedEditorHarness extends StatefulWidget {
@@ -69,7 +134,7 @@ class _EmbeddedEditorHarnessState extends State<_EmbeddedEditorHarness> {
         body: SafeArea(
           child: _showEditor
               ? EditingPage(
-                  initialSheetData: _sheetData(),
+                  initialSheetData: _worklogSheetData(),
                   initialDocumentTarget: const LocalEditorDocumentTarget(
                     existingPath: '/tmp/worklog.csv',
                   ),
@@ -89,20 +154,33 @@ class _EmbeddedEditorHarnessState extends State<_EmbeddedEditorHarness> {
       ),
     );
   }
+}
 
-  SimpleSheetData _sheetData() {
-    return const SimpleSheetData(
-      fileName: 'worklog.csv',
-      path: '/tmp/worklog.csv',
-      format: SimpleFileFormat.csv,
-      headers: <String>['Date', 'Start', 'End', 'Pause', 'Notes'],
-      valueTypes: <String>['date', 'time', 'time', 'duration', 'text'],
-      readOnlyColumns: <bool>[true, false, false, false, false],
-      rows: <List<String>>[],
-      csvDelimiter: ',',
-      hasTypeRow: false,
-      headerRowIndex: 0,
-      startColumnIndex: 0,
+SimpleSheetData _worklogSheetData() {
+  return const SimpleSheetData(
+    fileName: 'worklog.csv',
+    path: '/tmp/worklog.csv',
+    format: SimpleFileFormat.csv,
+    headers: <String>['Date', 'Start', 'End', 'Pause', 'Notes'],
+    valueTypes: <String>['date', 'time', 'time', 'duration', 'text'],
+    readOnlyColumns: <bool>[true, false, false, false, false],
+    rows: <List<String>>[],
+    csvDelimiter: ',',
+    hasTypeRow: false,
+    headerRowIndex: 0,
+    startColumnIndex: 0,
+  );
+}
+
+class _FakeSimpleSheetPersistenceService extends SimpleSheetPersistenceService {
+  @override
+  Future<SimplePersistResult> persistBytes(SimplePersistRequest request) async {
+    return SimplePersistResult(
+      locationLabel: request.existingPath ?? '/tmp/worklog.csv',
+      overwroteExistingFile: true,
+      usedAppDocumentsFallback: false,
+      savedPath: request.existingPath ?? '/tmp/worklog.csv',
+      resolvedFileName: request.fileName,
     );
   }
 }
