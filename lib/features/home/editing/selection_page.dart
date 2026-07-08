@@ -130,15 +130,42 @@ class _SelectionPageState extends State<SelectionPage> {
       return;
     }
     setState(() {
-      _activeEditor = EditingPage(
+      _activeEditor = _buildEditingPage(
+        sheetData: sheetData,
+        target: target,
+        successMessage: successMessage,
+      );
+    });
+  }
+
+  Widget _buildEditingPage({
+    required SimpleSheetData sheetData,
+    required EditorDocumentTarget target,
+    String? successMessage,
+  }) {
+    return switch (_simpleOpenMode) {
+      EditorOpenMode.dateBased => DiaryEditingPage(
         initialSheetData: sheetData,
         initialDocumentTarget: target,
-        initialOpenMode: _simpleOpenMode,
         initialSuccessMessage: successMessage,
         showBackToSelection: true,
         onBackToSelection: _returnToSelection,
-      );
-    });
+      ),
+      EditorOpenMode.dateBasedOpenEnd => LogbookEditingPage(
+        initialSheetData: sheetData,
+        initialDocumentTarget: target,
+        initialSuccessMessage: successMessage,
+        showBackToSelection: true,
+        onBackToSelection: _returnToSelection,
+      ),
+      EditorOpenMode.textBased => NamelistEditingPage(
+        initialSheetData: sheetData,
+        initialDocumentTarget: target,
+        initialSuccessMessage: successMessage,
+        showBackToSelection: true,
+        onBackToSelection: _returnToSelection,
+      ),
+    };
   }
 
   bool _handleCachedTypeMismatchBeforeOpening({

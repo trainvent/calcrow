@@ -25,14 +25,18 @@ import 'package:calcrow/features/home/editing/simple/widgets/select_time_widget.
 import 'package:calcrow/features/home/editing/simple/widgets/timespan_widget.dart';
 import 'package:open_filex/open_filex.dart';
 
+part 'diary_editing_page.dart';
+part 'logbook_editing_page.dart';
+part 'namelist_editing_page.dart';
+
 enum _WidgetBlock { rowDefinement, workhours, smartData, wellbeing, notes }
 
 enum EditorOpenMode { dateBased, dateBasedOpenEnd, textBased }
 
 enum _SimpleUnsavedEditsChoice { save, discard, cancel }
 
-class EditingPage extends StatefulWidget {
-  const EditingPage({
+class EditingPageBase extends StatefulWidget {
+  const EditingPageBase({
     super.key,
     required this.initialSheetData,
     required this.initialDocumentTarget,
@@ -52,10 +56,51 @@ class EditingPage extends StatefulWidget {
   final SimpleSheetPersistenceService? _sheetPersistenceService;
 
   @override
-  State<EditingPage> createState() => _EditingPageState();
+  State<EditingPageBase> createState() => _EditingPageBaseState();
 }
 
-class _EditingPageState extends State<EditingPage>
+class EditingPage extends EditingPageBase {
+  const EditingPage({
+    super.key,
+    required super.initialSheetData,
+    required super.initialDocumentTarget,
+    required super.initialOpenMode,
+    super.initialSuccessMessage,
+    super.showBackToSelection = false,
+    super.onBackToSelection,
+    super.sheetPersistenceService,
+  });
+}
+
+abstract class _SimpleEditingModeBehavior {
+  const _SimpleEditingModeBehavior();
+
+  EditorOpenMode get openMode;
+  String get pickButtonLabel;
+  bool get showsTextEntryActions => false;
+  bool get showsDateOpenEndActions => false;
+
+  Future<_SimpleOpeningSelection?> resolveOpening(
+    _EditingPageBaseState state,
+    SimpleSheetData sheetData,
+  );
+
+  void afterLoaded(_EditingPageBaseState state) {}
+
+  void handleSheetPreviewRowPick(_EditingPageBaseState state, int rowIndex) {}
+
+  Future<void> pickFromCurrentSheet(_EditingPageBaseState state);
+
+  static _SimpleEditingModeBehavior forOpenMode(EditorOpenMode mode) {
+    return switch (mode) {
+      EditorOpenMode.dateBased => const _DiaryEditingModeBehavior(),
+      EditorOpenMode.dateBasedOpenEnd => const _LogbookEditingModeBehavior(),
+      EditorOpenMode.textBased => const _NamelistEditingModeBehavior(),
+    };
+  }
+}
+
+class _EditingPageBaseState extends State<EditingPageBase>
     with SingleTickerProviderStateMixin {
   static const MethodChannel _platformChannel = MethodChannel(
     'de.lemarq.calcrow/file_open',
@@ -151,6 +196,7 @@ class _EditingPageState extends State<EditingPage>
   bool _isOpeningDocument = false;
   EditorDocumentTarget? _simpleDocumentTarget;
   EditorOpenMode _simpleOpenMode = EditorOpenMode.dateBasedOpenEnd;
+  late final _SimpleEditingModeBehavior _modeBehavior;
   int? _simpleTextSelectionColumnIndex;
   String? _simpleTextSelectionValue;
 
@@ -159,6 +205,7 @@ class _EditingPageState extends State<EditingPage>
     super.initState();
     _isAdvancedMode = false;
     _simpleOpenMode = widget.initialOpenMode;
+    _modeBehavior = _SimpleEditingModeBehavior.forOpenMode(_simpleOpenMode);
     _sheetPersistenceService =
         widget._sheetPersistenceService ?? SimpleSheetPersistenceService();
     _typeTogglePulseController = AnimationController(
@@ -314,9 +361,7 @@ class _EditingPageState extends State<EditingPage>
       preserveSelectedTextTarget: true,
     );
     _publishSimpleRowsToPreview();
-    if (_simpleOpenMode == EditorOpenMode.textBased && _simpleRows.isNotEmpty) {
-      _beginSimpleTextEntryRowPick();
-    }
+    _modeBehavior.afterLoaded(this);
     unawaited(_rememberSimpleOpenConfiguration(sheetData, target: target));
     return true;
   }
@@ -396,60 +441,7 @@ class _EditingPageState extends State<EditingPage>
   Future<_SimpleOpeningSelection?> _resolveSimpleOpeningSelection(
     SimpleSheetData sheetData,
   ) async {
-    switch (_simpleOpenMode) {
-      case EditorOpenMode.dateBased:
-        final selection = _selectEditorTargetRowForSheetData(sheetData);
-        if (!selection.usedDateColumn || !selection.foundMatchingDateRow) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Date-based opening is blocked because ${_formatDate(DateTime.now())} was not found in the detected date column.',
-              ),
-            ),
-          );
-          return null;
-        }
-        return _SimpleOpeningSelection(
-          targetRowIndex: selection.targetRowIndex,
-          textColumnIndex: null,
-          textValue: null,
-        );
-      case EditorOpenMode.dateBasedOpenEnd:
-        if (_cachedFirstColumnBlocksDateBasedOpening(sheetData)) {
-          _showCachedTypeMismatchSnackBar(
-            'Cached field types do not match Logbook.',
-          );
-          return null;
-        }
-        final selection = _selectEditorTargetRowForSheetData(sheetData);
-        if (!selection.usedDateColumn) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Date-based open-end needs a detected date column.',
-              ),
-            ),
-          );
-          return null;
-        }
-        return _SimpleOpeningSelection(
-          targetRowIndex: selection.targetRowIndex,
-          textColumnIndex: null,
-          textValue: null,
-        );
-      case EditorOpenMode.textBased:
-        if (_cachedFirstColumnBlocksTextBasedOpening(sheetData)) {
-          _showCachedTypeMismatchSnackBar(
-            'Cached field types do not match Namelist.',
-          );
-          return null;
-        }
-        return _SimpleOpeningSelection(
-          targetRowIndex: 0,
-          textColumnIndex: null,
-          textValue: null,
-        );
-    }
+    return _modeBehavior.resolveOpening(this, sheetData);
   }
 
   bool _cachedFirstColumnBlocksDateBasedOpening(SimpleSheetData sheetData) {
@@ -1097,26 +1089,27 @@ class _EditingPageState extends State<EditingPage>
     if (rowIndex < 0 || rowIndex >= _simpleRows.length) {
       return;
     }
-    switch (_simpleOpenMode) {
-      case EditorOpenMode.dateBasedOpenEnd:
-        setState(() {
-          _simpleTextSelectionColumnIndex = null;
-          _simpleTextSelectionValue = null;
-        });
-        _selectEditorTargetRow(preferredRowIndex: rowIndex);
-      case EditorOpenMode.textBased:
-        final textTarget = _simpleTextTargetForRowIndex(rowIndex);
-        setState(() {
-          _simpleTextSelectionColumnIndex = textTarget?.columnIndex;
-          _simpleTextSelectionValue = textTarget?.value;
-        });
-        _selectEditorTargetRow(
-          preferredRowIndex: rowIndex,
-          preserveSelectedTextTarget: textTarget != null,
-        );
-      case EditorOpenMode.dateBased:
-        return;
-    }
+    _modeBehavior.handleSheetPreviewRowPick(this, rowIndex);
+  }
+
+  void _selectLogbookPreviewRow(int rowIndex) {
+    setState(() {
+      _simpleTextSelectionColumnIndex = null;
+      _simpleTextSelectionValue = null;
+    });
+    _selectEditorTargetRow(preferredRowIndex: rowIndex);
+  }
+
+  void _selectNamelistPreviewRow(int rowIndex) {
+    final textTarget = _simpleTextTargetForRowIndex(rowIndex);
+    setState(() {
+      _simpleTextSelectionColumnIndex = textTarget?.columnIndex;
+      _simpleTextSelectionValue = textTarget?.value;
+    });
+    _selectEditorTargetRow(
+      preferredRowIndex: rowIndex,
+      preserveSelectedTextTarget: textTarget != null,
+    );
   }
 
   _SimpleTextTargetSelection? _simpleTextTargetForRowIndex(int rowIndex) {
@@ -1158,8 +1151,8 @@ class _EditingPageState extends State<EditingPage>
     );
   }
 
-  Future<void> _pickSimpleTextEntryFromCurrentSheet() async {
-    _beginSimpleTextEntryRowPick();
+  Future<void> _pickFromCurrentSheetForMode() async {
+    await _modeBehavior.pickFromCurrentSheet(this);
   }
 
   Future<void> _pickSimpleTodayEntryFromCurrentSheet() async {
@@ -2308,8 +2301,7 @@ class _EditingPageState extends State<EditingPage>
         (_supportsLocalFileEditing && _simpleDocumentTarget == null) ||
         (_supportsLocalFileEditing &&
             _simpleDocumentTarget is LocalEditorDocumentTarget);
-    final canCreateOpenEndDateRow =
-        _simpleOpenMode == EditorOpenMode.dateBasedOpenEnd;
+    final canCreateOpenEndDateRow = _modeBehavior.showsDateOpenEndActions;
 
     return Column(
       children: [
@@ -2550,21 +2542,11 @@ class _EditingPageState extends State<EditingPage>
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: _simpleOpenMode == EditorOpenMode.textBased
-                        ? _pickSimpleTextEntryFromCurrentSheet
-                        : _simpleOpenMode == EditorOpenMode.dateBasedOpenEnd
-                        ? _pickSimpleTodayEntryFromCurrentSheet
-                        : _selectEditorTargetRow,
-                    child: Text(
-                      _simpleOpenMode == EditorOpenMode.textBased
-                          ? 'Pick Entry'
-                          : _simpleOpenMode == EditorOpenMode.dateBasedOpenEnd
-                          ? 'Pick Row'
-                          : 'Jump Today',
-                    ),
+                    onPressed: _pickFromCurrentSheetForMode,
+                    child: Text(_modeBehavior.pickButtonLabel),
                   ),
                 ),
-                if (_simpleOpenMode == EditorOpenMode.textBased) ...[
+                if (_modeBehavior.showsTextEntryActions) ...[
                   const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton(
