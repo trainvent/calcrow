@@ -1,9 +1,9 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:saf_stream/saf_stream.dart';
+import 'package:saf_util/saf_util.dart';
 
 enum SimplePersistMode { safPreferred, asIs }
 
@@ -46,10 +46,12 @@ class SimplePersistResult {
 }
 
 class SimpleSheetPersistenceService {
-  SimpleSheetPersistenceService({SafStream? safStream})
-    : _safStream = safStream ?? SafStream();
+  SimpleSheetPersistenceService({SafStream? safStream, SafUtil? safUtil})
+    : _safStream = safStream ?? SafStream(),
+      _safUtil = safUtil ?? SafUtil();
 
   final SafStream _safStream;
+  final SafUtil _safUtil;
   static String? _runtimeSafTreeUri;
 
   static String? get runtimeSafTreeUri => _runtimeSafTreeUri;
@@ -216,23 +218,16 @@ class SimpleSheetPersistenceService {
       }
     }
     if (_isAndroidPlatform && request.mode == SimplePersistMode.asIs) {
-      final savedPath = await _saveWithAndroidPicker(
+      final androidSafSaved = await _saveWithAndroidSafPicker(
         bytes: request.bytes,
         fileName: request.fileName,
-        typeGroup: request.typeGroup,
+        mimeType: request.mimeType,
+        preferredTreeUri:
+            request.preferredSafTreeUri ??
+            parentTreeUriFromDocumentUri(existingPath ?? ''),
       );
-      if (savedPath != null && savedPath.isNotEmpty) {
-        return SimplePersistResult(
-          locationLabel: _displayLocationLabel(
-            path: savedPath,
-            fallbackName: request.fileName,
-          ),
-          overwroteExistingFile: false,
-          usedAppDocumentsFallback: false,
-          savedPath: savedPath,
-          resolvedFileName:
-              _fileNameFromDocumentUri(savedPath) ?? request.fileName,
-        );
+      if (androidSafSaved != null) {
+        return androidSafSaved;
       }
     }
 
@@ -459,18 +454,31 @@ class SimpleSheetPersistenceService {
     }
   }
 
-  Future<String?> _saveWithAndroidPicker({
+  Future<SimplePersistResult?> _saveWithAndroidSafPicker({
     required Uint8List bytes,
     required String fileName,
-    required XTypeGroup typeGroup,
+    required String mimeType,
+    required String? preferredTreeUri,
   }) async {
     try {
-      return await FilePicker.platform.saveFile(
-        fileName: fileName,
-        bytes: bytes,
-        type: FileType.custom,
-        allowedExtensions: typeGroup.extensions,
+      final directory = await _safUtil.pickDirectory(
+        initialUri: preferredTreeUri,
+        writePermission: true,
+        persistablePermission: true,
       );
+      if (directory == null) {
+        throw StateError('Save canceled.');
+      }
+      final saved = await _writeViaSafTreeUri(
+        treeUri: directory.uri,
+        bytes: bytes,
+        fileName: fileName,
+        mimeType: mimeType,
+      );
+      if (saved == null) {
+        throw StateError('Could not write to the selected Android folder.');
+      }
+      return saved;
     } on UnimplementedError {
       return null;
     } on UnsupportedError {
