@@ -2,6 +2,20 @@ import 'package:flutter/foundation.dart';
 
 typedef SheetPreviewSaveAction = Future<void> Function();
 
+class SheetPreviewRowPickRequest {
+  const SheetPreviewRowPickRequest({
+    required this.selectableRowIndexes,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final Set<int> selectableRowIndexes;
+  final String title;
+  final String subtitle;
+
+  bool canPick(int rowIndex) => selectableRowIndexes.contains(rowIndex);
+}
+
 class SheetPreviewData {
   const SheetPreviewData({
     required this.headers,
@@ -58,4 +72,29 @@ class SheetPreviewData {
 class SheetPreviewStore {
   static final ValueNotifier<SheetPreviewData> notifier =
       ValueNotifier<SheetPreviewData>(SheetPreviewData.initial());
+
+  static final ValueNotifier<SheetPreviewRowPickRequest?> rowPickRequest =
+      ValueNotifier<SheetPreviewRowPickRequest?>(null);
+
+  static final ValueNotifier<int?> requestedTabIndex = ValueNotifier<int?>(
+    null,
+  );
+  static final ValueNotifier<int?> pickedRowIndex = ValueNotifier<int?>(null);
+
+  static void beginRowPick(SheetPreviewRowPickRequest request) {
+    rowPickRequest.value = request;
+    pickedRowIndex.value = null;
+    requestedTabIndex.value = 1;
+  }
+
+  static void pickRow(int rowIndex) {
+    pickedRowIndex.value = rowIndex;
+    rowPickRequest.value = null;
+    requestedTabIndex.value = 0;
+  }
+
+  static void cancelRowPick() {
+    rowPickRequest.value = null;
+    requestedTabIndex.value = 0;
+  }
 }

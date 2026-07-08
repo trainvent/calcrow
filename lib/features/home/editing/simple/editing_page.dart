@@ -168,6 +168,7 @@ class _EditingPageState extends State<EditingPage>
       parent: _typeTogglePulseController,
       curve: Curves.easeInOut,
     );
+    SheetPreviewStore.pickedRowIndex.addListener(_handleSheetPreviewRowPick);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       unawaited(_loadInitialSimpleDocument());
@@ -176,6 +177,7 @@ class _EditingPageState extends State<EditingPage>
 
   @override
   void dispose() {
+    SheetPreviewStore.pickedRowIndex.removeListener(_handleSheetPreviewRowPick);
     _dateController.dispose();
     _startController.dispose();
     _endController.dispose();
@@ -584,14 +586,6 @@ class _EditingPageState extends State<EditingPage>
     return _simpleTextSelectableColumnsForSheetDataInternal(sheetData);
   }
 
-  List<int> _simpleDateGuidingColumnsForSheetData(SimpleSheetData sheetData) {
-    final dateColumn = _dateColumnIndexForSheetData(sheetData);
-    return _simpleTextSelectableColumnsForSheetDataInternal(
-      sheetData,
-      excludedColumnIndex: dateColumn,
-    );
-  }
-
   List<int> _simpleTextSelectableColumnsForSheetDataInternal(
     SimpleSheetData sheetData, {
     int? excludedColumnIndex,
@@ -611,18 +605,6 @@ class _EditingPageState extends State<EditingPage>
       }
     }
     return indexes;
-  }
-
-  int? _dateColumnIndexForSheetData(SimpleSheetData sheetData) {
-    final typeIndex = sheetData.valueTypes.indexWhere(
-      (type) => type.trim().toLowerCase() == 'date',
-    );
-    if (typeIndex >= 0) return typeIndex;
-    final headerIndex = sheetData.headers.indexWhere(
-      (header) => _isDateHeaderName(header),
-    );
-    if (headerIndex >= 0) return headerIndex;
-    return null;
   }
 
   bool _supportsTextBasedOpening(String rawType) {
@@ -779,165 +761,6 @@ class _EditingPageState extends State<EditingPage>
                             sheetData,
                             columnIndex: selectedColumnIndex,
                             value: selectedValue!,
-                          );
-                          if (rowIndex == null) {
-                            Navigator.of(dialogContext).pop();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'The selected entry could not be found anymore.',
-                                ),
-                              ),
-                            );
-                            return;
-                          }
-                          Navigator.of(dialogContext).pop(
-                            _SimpleTextTargetSelection(
-                              columnIndex: selectedColumnIndex,
-                              rowIndex: rowIndex,
-                              value: selectedValue!,
-                            ),
-                          );
-                        },
-                  child: const Text('Open Entry'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-    return result;
-  }
-
-  Future<_SimpleTextTargetSelection?> _showSimpleTodayEntryPicker(
-    SimpleSheetData sheetData,
-  ) async {
-    final dateColumn = _dateColumnIndexForSheetData(sheetData);
-    if (dateColumn == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Date-based open-end needs a detected date column.'),
-        ),
-      );
-      return null;
-    }
-
-    final targetDate = _simpleCurrentEditorDate(dateColumn);
-    bool rowFilter(List<String> row) {
-      if (dateColumn >= row.length) return false;
-      final rowDate = _parseDateFromCellValue(row[dateColumn]);
-      return rowDate != null && _isSameCalendarDate(rowDate, targetDate);
-    }
-
-    final candidateColumns = _simpleDateGuidingColumnsForSheetData(sheetData);
-    if (candidateColumns.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Pick Row needs at least one editable text column.'),
-        ),
-      );
-      return null;
-    }
-
-    final initialColumnIndex =
-        (_simpleTextSelectionColumnIndex != null &&
-            candidateColumns.contains(_simpleTextSelectionColumnIndex))
-        ? _simpleTextSelectionColumnIndex!
-        : candidateColumns.first;
-
-    final result = await showDialog<_SimpleTextTargetSelection>(
-      context: context,
-      builder: (dialogContext) {
-        var selectedColumnIndex = initialColumnIndex;
-        var availableValues = _simpleDistinctTextValuesForSheetData(
-          sheetData,
-          columnIndex: selectedColumnIndex,
-          rowFilter: rowFilter,
-        );
-        String? selectedValue =
-            (_simpleTextSelectionValue != null &&
-                availableValues.contains(_simpleTextSelectionValue))
-            ? _simpleTextSelectionValue
-            : (availableValues.isEmpty ? null : availableValues.first);
-
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Open today entry'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DropdownButtonFormField<int>(
-                    initialValue: selectedColumnIndex,
-                    decoration: const InputDecoration(
-                      labelText: 'Guiding field',
-                    ),
-                    items: candidateColumns
-                        .map(
-                          (index) => DropdownMenuItem<int>(
-                            value: index,
-                            child: Text(sheetData.headers[index]),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setDialogState(() {
-                        selectedColumnIndex = value;
-                        availableValues = _simpleDistinctTextValuesForSheetData(
-                          sheetData,
-                          columnIndex: selectedColumnIndex,
-                          rowFilter: rowFilter,
-                        );
-                        selectedValue = availableValues.isEmpty
-                            ? null
-                            : availableValues.first;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  if (availableValues.isEmpty)
-                    const Text(
-                      'No entries for this date were found in this field yet.',
-                    )
-                  else
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedValue,
-                      decoration: const InputDecoration(
-                        labelText: 'Today entry',
-                      ),
-                      items: availableValues
-                          .map(
-                            (value) => DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(value),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        setDialogState(() {
-                          selectedValue = value;
-                        });
-                      },
-                    ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  onPressed: selectedValue == null
-                      ? null
-                      : () {
-                          final rowIndex = _findSimpleRowIndexForTextValue(
-                            sheetData,
-                            columnIndex: selectedColumnIndex,
-                            value: selectedValue!,
-                            rowFilter: rowFilter,
                           );
                           if (rowIndex == null) {
                             Navigator.of(dialogContext).pop();
@@ -1398,11 +1221,27 @@ class _EditingPageState extends State<EditingPage>
     SheetPreviewStore.notifier.value = SheetPreviewStore.notifier.value
         .copyWith(
           headers: _simpleHeaders,
-          rows: _simpleRows.take(_previewRowLimit).toList(),
+          rows: _simpleRows,
           fileName: _simpleImportedFileName,
           rowCount: _simpleRows.length,
           onSaveAsIs: _saveSimpleRowAsIs,
         );
+  }
+
+  void _handleSheetPreviewRowPick() {
+    final rowIndex = SheetPreviewStore.pickedRowIndex.value;
+    if (rowIndex == null || !mounted) return;
+    SheetPreviewStore.pickedRowIndex.value = null;
+    if (_simpleOpenMode != EditorOpenMode.dateBasedOpenEnd ||
+        rowIndex < 0 ||
+        rowIndex >= _simpleRows.length) {
+      return;
+    }
+    setState(() {
+      _simpleTextSelectionColumnIndex = null;
+      _simpleTextSelectionValue = null;
+    });
+    _selectEditorTargetRow(preferredRowIndex: rowIndex);
   }
 
   Future<void> _pickSimpleTextEntryFromCurrentSheet() async {
@@ -1421,17 +1260,46 @@ class _EditingPageState extends State<EditingPage>
   }
 
   Future<void> _pickSimpleTodayEntryFromCurrentSheet() async {
-    final selection = await _showSimpleTodayEntryPicker(
-      _buildSimpleSheetDataForPersist(),
-    );
-    if (!mounted || selection == null) return;
-    setState(() {
-      _simpleTextSelectionColumnIndex = selection.columnIndex;
-      _simpleTextSelectionValue = selection.value;
-    });
-    _selectEditorTargetRow(
-      preferredRowIndex: selection.rowIndex,
-      preserveSelectedTextTarget: true,
+    final dateColumn = _simpleDateColumnIndex();
+    if (dateColumn == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Date-based open-end needs a detected date column.'),
+        ),
+      );
+      return;
+    }
+
+    final targetDate = _simpleCurrentEditorDate(dateColumn);
+    final matchingRowIndexes = <int>{
+      for (var rowIndex = 0; rowIndex < _simpleRows.length; rowIndex++)
+        if (dateColumn < _simpleRows[rowIndex].length &&
+            (() {
+              final rowDate = _parseDateFromCellValue(
+                _simpleRows[rowIndex][dateColumn],
+              );
+              return rowDate != null &&
+                  _isSameCalendarDate(rowDate, targetDate);
+            })())
+          rowIndex,
+    };
+
+    if (matchingRowIndexes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No rows found for ${_formatDate(targetDate)}.'),
+        ),
+      );
+      return;
+    }
+
+    _publishSimpleRowsToPreview();
+    SheetPreviewStore.beginRowPick(
+      SheetPreviewRowPickRequest(
+        selectableRowIndexes: matchingRowIndexes,
+        title: 'Pick Row',
+        subtitle: 'Choose a row for ${_formatDate(targetDate)}.',
+      ),
     );
   }
 

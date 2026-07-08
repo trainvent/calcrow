@@ -7,6 +7,7 @@ import '../../app/widgets/free_mode_bottom_tile.dart';
 import 'editing/selection_page.dart';
 import 'settings/settings_tab.dart';
 import 'sheet/sheet_preview_tab.dart';
+import 'sheet/sheet_preview_store.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
@@ -19,6 +20,33 @@ class _HomeShellState extends State<HomeShell> {
   int _currentIndex = 0;
 
   final _tabs = const [SelectionPage(), SheetPreviewTab(), SettingsTab()];
+
+  @override
+  void initState() {
+    super.initState();
+    SheetPreviewStore.requestedTabIndex.addListener(_handleRequestedTabIndex);
+  }
+
+  @override
+  void dispose() {
+    SheetPreviewStore.requestedTabIndex.removeListener(
+      _handleRequestedTabIndex,
+    );
+    super.dispose();
+  }
+
+  void _handleRequestedTabIndex() {
+    final requestedIndex = SheetPreviewStore.requestedTabIndex.value;
+    if (requestedIndex == null) return;
+    if (requestedIndex < 0 || requestedIndex >= _tabs.length) {
+      SheetPreviewStore.requestedTabIndex.value = null;
+      return;
+    }
+    if (requestedIndex != _currentIndex) {
+      setState(() => _currentIndex = requestedIndex);
+    }
+    SheetPreviewStore.requestedTabIndex.value = null;
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -2,10 +2,18 @@ import 'package:calcrow/core/data/services/simple_sheet_persistence_service.dart
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/features/home/editing/selection_page.dart';
 import 'package:calcrow/features/home/editing/simple/editing_page.dart';
+import 'package:calcrow/features/home/sheet/sheet_preview_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  tearDown(() {
+    SheetPreviewStore.rowPickRequest.value = null;
+    SheetPreviewStore.requestedTabIndex.value = null;
+    SheetPreviewStore.pickedRowIndex.value = null;
+    SheetPreviewStore.notifier.value = SheetPreviewData.initial();
+  });
+
   testWidgets('selection page owns the get started setup surface', (
     tester,
   ) async {
@@ -113,6 +121,46 @@ void main() {
     expect(find.text('Cancel'), findsOneWidget);
     expect(find.text('draft'), findsOneWidget);
   });
+
+  testWidgets('pick row uses sheet rows without editable text columns', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: EditingPage(
+            initialSheetData: _timeOnlySheetData(),
+            initialDocumentTarget: const LocalEditorDocumentTarget(
+              existingPath: '/tmp/time-only.csv',
+            ),
+            initialOpenMode: EditorOpenMode.dateBasedOpenEnd,
+            sheetPersistenceService: _FakeSimpleSheetPersistenceService(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.text('Pick Row'));
+    await tester.pump();
+
+    expect(
+      find.text('Pick Row needs at least one editable text column.'),
+      findsNothing,
+    );
+    expect(SheetPreviewStore.rowPickRequest.value, isNotNull);
+    expect(SheetPreviewStore.rowPickRequest.value!.selectableRowIndexes, <int>{
+      0,
+      1,
+    });
+
+    SheetPreviewStore.pickRow(1);
+    await tester.pump();
+
+    expect(find.textContaining('Editing row 2 of 2'), findsOneWidget);
+    expect(find.text('11:00'), findsOneWidget);
+  });
 }
 
 class _EmbeddedEditorHarness extends StatefulWidget {
@@ -170,6 +218,33 @@ SimpleSheetData _worklogSheetData() {
     headerRowIndex: 0,
     startColumnIndex: 0,
   );
+}
+
+SimpleSheetData _timeOnlySheetData() {
+  final today = _todayIsoDate();
+  return SimpleSheetData(
+    fileName: 'time-only.csv',
+    path: '/tmp/time-only.csv',
+    format: SimpleFileFormat.csv,
+    headers: const <String>['Date', 'Start', 'End'],
+    valueTypes: const <String>['date', 'time', 'time'],
+    readOnlyColumns: const <bool>[true, false, false],
+    rows: <List<String>>[
+      <String>[today, '09:00', '10:00'],
+      <String>[today, '11:00', '12:00'],
+    ],
+    csvDelimiter: ',',
+    hasTypeRow: false,
+    headerRowIndex: 0,
+    startColumnIndex: 0,
+  );
+}
+
+String _todayIsoDate() {
+  final now = DateTime.now();
+  return '${now.year.toString().padLeft(4, '0')}-'
+      '${now.month.toString().padLeft(2, '0')}-'
+      '${now.day.toString().padLeft(2, '0')}';
 }
 
 class _FakeSimpleSheetPersistenceService extends SimpleSheetPersistenceService {
