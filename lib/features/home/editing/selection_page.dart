@@ -643,6 +643,14 @@ class _SelectionPageState extends State<SelectionPage> {
     }
   }
 
+  Future<void> _chooseCloudDocumentForSimple() async {
+    setState(() {
+      _simpleSetupAction = _SimpleSetupAction.open;
+      _simpleDocumentSource = _SimpleDocumentSource.cloud;
+    });
+    await _openOrChooseCloudSyncFile();
+  }
+
   Future<void> _createSimpleDocument() async {
     setState(() {
       _simpleOpenMode = EditorOpenMode.dateBasedOpenEnd;
@@ -1331,12 +1339,6 @@ class _SelectionPageState extends State<SelectionPage> {
                       onSelected: () => setState(
                         () => _simpleSetupAction = _SimpleSetupAction.open,
                       ),
-                      onSourceChanged: (source) {
-                        setState(() {
-                          _simpleSetupAction = _SimpleSetupAction.open;
-                          _simpleDocumentSource = source;
-                        });
-                      },
                       onChooseLocal: data.hasRememberedLocalFile
                           ? () => setState(() {
                               _simpleSetupAction = _SimpleSetupAction.open;
@@ -1344,6 +1346,7 @@ class _SelectionPageState extends State<SelectionPage> {
                                   _SimpleDocumentSource.local;
                             })
                           : _chooseLocalDocumentForSimple,
+                      onChooseCloud: _chooseCloudDocumentForSimple,
                       onClearLocal: _forgetRememberedLocalDocument,
                       onClearCloud: _clearSelectedCloudSyncFile,
                     ),
@@ -1515,8 +1518,8 @@ class _ChooseDocumentCard extends StatelessWidget {
     required this.hasSelectedCloudFile,
     required this.showLocalDocument,
     required this.onSelected,
-    required this.onSourceChanged,
     required this.onChooseLocal,
+    required this.onChooseCloud,
     required this.onClearLocal,
     required this.onClearCloud,
   });
@@ -1531,8 +1534,8 @@ class _ChooseDocumentCard extends StatelessWidget {
   final bool hasSelectedCloudFile;
   final bool showLocalDocument;
   final VoidCallback onSelected;
-  final ValueChanged<_SimpleDocumentSource> onSourceChanged;
   final VoidCallback onChooseLocal;
+  final VoidCallback onChooseCloud;
   final VoidCallback onClearLocal;
   final VoidCallback onClearCloud;
 
@@ -1608,7 +1611,7 @@ class _ChooseDocumentCard extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : null,
-                onTap: () => onSourceChanged(_SimpleDocumentSource.cloud),
+                onTap: onChooseCloud,
                 clearAction: hasSelectedCloudFile
                     ? _InlineSetupAction(
                         icon: Icons.clear,
