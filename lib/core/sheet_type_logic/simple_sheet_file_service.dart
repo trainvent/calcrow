@@ -81,6 +81,7 @@ class SimpleSheetFileService {
       readOnlyColumns: data.readOnlyColumns,
       rows: data.rows,
       pendingTypeSelectionColumns: const <int>[],
+      hasCachedValueTypes: true,
       csvDelimiter: data.csvDelimiter,
       hasTypeRow: data.hasTypeRow,
       headerRowIndex: data.headerRowIndex,

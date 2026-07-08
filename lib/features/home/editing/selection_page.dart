@@ -17,7 +17,7 @@ import 'package:calcrow/core/sheet_type_logic/simple_sheet_file_service.dart';
 import 'package:calcrow/core/sheet_type_logic/simple_type_hint_cache.dart';
 
 import 'simple/create_doc_page.dart';
-import 'simple/editing_page.dart';
+import 'simple/editing_page_base.dart';
 
 enum _SimpleSetupAction { open, create }
 
@@ -123,6 +123,12 @@ class _SelectionPageState extends State<SelectionPage> {
     String? successMessage,
   }) async {
     if (!mounted) return;
+    if (_handleCachedTypeMismatchBeforeOpening(
+      sheetData: sheetData,
+      target: target,
+    )) {
+      return;
+    }
     setState(() {
       _activeEditor = EditingPage(
         initialSheetData: sheetData,
@@ -133,6 +139,119 @@ class _SelectionPageState extends State<SelectionPage> {
         onBackToSelection: _returnToSelection,
       );
     });
+  }
+
+  bool _handleCachedTypeMismatchBeforeOpening({
+    required SimpleSheetData sheetData,
+    required EditorDocumentTarget target,
+  }) {
+    if (!sheetData.hasCachedValueTypes || sheetData.valueTypes.isEmpty) {
+      return false;
+    }
+    final firstCachedType = sheetData.valueTypes.first.trim().toLowerCase();
+    final message = switch (_simpleOpenMode) {
+      EditorOpenMode.dateBasedOpenEnd when firstCachedType != 'date' =>
+        'Cached field types do not match Logbook.',
+      EditorOpenMode.textBased when firstCachedType != 'text' =>
+        'Cached field types do not match Namelist.',
+      _ => null,
+    };
+    if (message == null) return false;
+    _showCachedTypeMismatchSnackBar(
+      sheetData: sheetData,
+      target: target,
+      message: message,
+    );
+    return true;
+  }
+
+  void _showCachedTypeMismatchSnackBar({
+    required SimpleSheetData sheetData,
+    required EditorDocumentTarget target,
+    required String message,
+  }) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        content: Row(
+          children: [
+            Expanded(child: Text(message, maxLines: 2)),
+            IconButton(
+              tooltip: 'Clear cached field types',
+              icon: const Icon(Icons.cleaning_services_rounded),
+              onPressed: () {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                unawaited(_confirmClearCachedTypeHints(sheetData, target));
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmClearCachedTypeHints(
+    SimpleSheetData sheetData,
+    EditorDocumentTarget target,
+  ) async {
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Clear cached field types?'),
+        content: Text(
+          'Clear the remembered field types for ${sheetData.fileName}? '
+          'Calcrow will infer or ask for field types the next time you open it.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            icon: const Icon(Icons.cleaning_services_rounded),
+            label: const Text('Clear cache'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+
+    try {
+      await _clearCachedTypeHintsForSheet(sheetData, target);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cached field types cleared.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not clear cached field types: $error')),
+      );
+    }
+  }
+
+  Future<void> _clearCachedTypeHintsForSheet(
+    SimpleSheetData sheetData,
+    EditorDocumentTarget target,
+  ) async {
+    if (target is CloudEditorDocumentTarget) {
+      await ServiceLocator.simpleCloudDocumentService.clearTypeHints(
+        file: CloudFileMetadata(
+          provider: target.provider,
+          id: target.fileId,
+          name: target.fileName,
+          mimeType: target.mimeType,
+        ),
+      );
+      return;
+    }
+    await SimpleTypeHintCache.clearCsvTypes(
+      fileName: sheetData.fileName,
+      path: sheetData.path,
+    );
   }
 
   void _returnToSelection() {
@@ -487,7 +606,6 @@ class _SelectionPageState extends State<SelectionPage> {
 
   Future<void> _openSelectedSimpleDocument() async {
     setState(() {
-      _simpleOpenMode = EditorOpenMode.dateBasedOpenEnd;
       _simpleSetupAction = _SimpleSetupAction.open;
     });
     switch (_effectiveSimpleDocumentSource) {
@@ -1008,6 +1126,7 @@ class _SelectionPageState extends State<SelectionPage> {
       readOnlyColumns: data.readOnlyColumns,
       rows: data.rows,
       pendingTypeSelectionColumns: data.pendingTypeSelectionColumns,
+      hasCachedValueTypes: data.hasCachedValueTypes,
       csvDelimiter: data.csvDelimiter,
       hasTypeRow: data.hasTypeRow,
       headerRowIndex: data.headerRowIndex,

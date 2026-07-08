@@ -1,13 +1,35 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import 'sheet_preview_store.dart';
 
-class SheetPreviewTab extends StatelessWidget {
+class SheetPreviewTab extends StatefulWidget {
   const SheetPreviewTab({super.key});
 
+  @override
+  State<SheetPreviewTab> createState() => _SheetPreviewTabState();
+}
+
+class _SheetPreviewTabState extends State<SheetPreviewTab> {
   static const int _maxPreviewRows = 100;
   static const int _maxPreviewColumns = 15;
+  static const Duration _rowPickConfirmDelay = Duration(milliseconds: 260);
+
+  int? _confirmingRowIndex;
+
+  Future<void> _confirmRowPick(int rowIndex) async {
+    if (_confirmingRowIndex != null) return;
+    setState(() => _confirmingRowIndex = rowIndex);
+    await Future<void>.delayed(_rowPickConfirmDelay);
+    if (!mounted) return;
+    if (SheetPreviewStore.rowPickRequest.value?.canPick(rowIndex) != true) {
+      setState(() => _confirmingRowIndex = null);
+      return;
+    }
+    SheetPreviewStore.pickRow(rowIndex);
+    setState(() => _confirmingRowIndex = null);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -105,12 +127,17 @@ class SheetPreviewTab extends StatelessWidget {
                                     ),
                                   ),
                                   child: DataTable(
-                                    columns: previewHeaders
-                                        .map(
-                                          (label) =>
-                                              DataColumn(label: Text(label)),
-                                        )
-                                        .toList(),
+                                    showCheckboxColumn: false,
+                                    columns: <DataColumn>[
+                                      if (rowPickRequest != null)
+                                        const DataColumn(
+                                          label: SizedBox(width: 28),
+                                        ),
+                                      ...previewHeaders.map(
+                                        (label) =>
+                                            DataColumn(label: Text(label)),
+                                      ),
+                                    ],
                                     rows:
                                         (hasRows
                                                 ? previewRows
@@ -130,43 +157,36 @@ class SheetPreviewTab extends StatelessWidget {
                                                   ) ??
                                                   false;
                                               return DataRow(
-                                                selected: canPick,
-                                                color:
-                                                    WidgetStateProperty.resolveWith((
-                                                      states,
-                                                    ) {
-                                                      if (!canPick) {
-                                                        return null;
-                                                      }
-                                                      return theme
-                                                          .colorScheme
-                                                          .primaryContainer
-                                                          .withValues(
-                                                            alpha:
-                                                                states.contains(
-                                                                  WidgetState
-                                                                      .hovered,
-                                                                )
-                                                                ? 0.62
-                                                                : 0.38,
-                                                          );
-                                                    }),
                                                 onSelectChanged: canPick
-                                                    ? (_) =>
-                                                          SheetPreviewStore.pickRow(
-                                                            rowIndex,
-                                                          )
+                                                    ? (_) => _confirmRowPick(
+                                                        rowIndex,
+                                                      )
                                                     : null,
-                                                cells: List<DataCell>.generate(
-                                                  previewHeaders.length,
-                                                  (index) => DataCell(
-                                                    Text(
-                                                      index < row.length
-                                                          ? row[index]
-                                                          : '-',
+                                                cells: <DataCell>[
+                                                  if (rowPickRequest != null)
+                                                    DataCell(
+                                                      canPick
+                                                          ? _RowPickIndicator(
+                                                              confirming:
+                                                                  _confirmingRowIndex ==
+                                                                  rowIndex,
+                                                            )
+                                                          : const SizedBox(
+                                                              width: 26,
+                                                              height: 26,
+                                                            ),
+                                                    ),
+                                                  ...List<DataCell>.generate(
+                                                    previewHeaders.length,
+                                                    (index) => DataCell(
+                                                      Text(
+                                                        index < row.length
+                                                            ? row[index]
+                                                            : '-',
+                                                      ),
                                                     ),
                                                   ),
-                                                ),
+                                                ],
                                               );
                                             })
                                             .toList(),
@@ -185,6 +205,44 @@ class SheetPreviewTab extends StatelessWidget {
           },
         );
       },
+    );
+  }
+}
+
+class _RowPickIndicator extends StatelessWidget {
+  const _RowPickIndicator({required this.confirming});
+
+  final bool confirming;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Semantics(
+      label: 'Pick row',
+      button: true,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
+        width: 26,
+        height: 26,
+        padding: EdgeInsets.all(confirming ? 2 : 0),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: confirming ? theme.colorScheme.primaryContainer : null,
+          border: Border.all(color: theme.colorScheme.primary, width: 2),
+        ),
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 120),
+          opacity: confirming ? 1 : 0,
+          child: ClipOval(
+            child: SvgPicture.asset(
+              'assets/images/LeLogo.svg',
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

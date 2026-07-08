@@ -117,6 +117,10 @@ class CsvSheetCodec {
       readOnlyColumns: readOnlyColumns,
       rows: rows,
       pendingTypeSelectionColumns: pendingTypeSelectionColumns,
+      hasCachedValueTypes:
+          !tableBounds.hasTypeRow &&
+          cachedTypes != null &&
+          cachedTypes.length == tableBounds.columnCount,
       csvDelimiter: delimiter,
       hasTypeRow: tableBounds.hasTypeRow,
       headerRowIndex: tableBounds.headerRowIndex,

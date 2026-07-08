@@ -440,6 +440,24 @@ class UserRepository {
     }, SetOptions(merge: true));
   }
 
+  Future<void> clearSimpleTypeHints({
+    required String uid,
+    required CloudSyncProvider provider,
+    required String documentId,
+  }) async {
+    final settings = await _dbService.getUserSettings(uid);
+    final entries = _parseSimpleTypeHintEntries(settings?['simpleTypeHints']);
+    final key = _simpleTypeHintKey(provider: provider, documentId: documentId);
+    final next = entries.where((entry) => entry.key != key).toList();
+
+    await _firestore.collection(_usersCollection).doc(uid).set({
+      'settings': {
+        'simpleTypeHints': next.map((entry) => entry.toMap()).toList(),
+      },
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   Future<void> setGoogleDriveLinked({
     required String uid,
     required String email,

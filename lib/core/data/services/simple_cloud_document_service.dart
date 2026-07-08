@@ -231,6 +231,16 @@ class SimpleCloudDocumentService {
     await _rememberTypeHints(session.uid, file, valueTypes);
   }
 
+  Future<void> clearTypeHints({required CloudFileMetadata file}) async {
+    final session = _requireSession();
+    await SimpleTypeHintCache.clearCsvTypes(fileName: file.name, path: file.id);
+    await _userRepository.clearSimpleTypeHints(
+      uid: session.uid,
+      provider: file.provider,
+      documentId: file.id,
+    );
+  }
+
   Future<CloudFileMetadata> persistDocument({
     required CloudFileMetadata existingFile,
     required String fileName,

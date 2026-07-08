@@ -1,7 +1,7 @@
 import 'package:calcrow/core/data/services/simple_sheet_persistence_service.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/features/home/editing/selection_page.dart';
-import 'package:calcrow/features/home/editing/simple/editing_page.dart';
+import 'package:calcrow/features/home/editing/simple/editing_page_base.dart';
 import 'package:calcrow/features/home/sheet/sheet_preview_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -161,6 +161,95 @@ void main() {
     expect(find.textContaining('Editing row 2 of 2'), findsOneWidget);
     expect(find.text('11:00'), findsOneWidget);
   });
+
+  testWidgets('namelist opening picks entries from sheet rows', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: EditingPage(
+            initialSheetData: _namelistSheetData(),
+            initialDocumentTarget: const LocalEditorDocumentTarget(
+              existingPath: '/tmp/people.csv',
+            ),
+            initialOpenMode: EditorOpenMode.textBased,
+            sheetPersistenceService: _FakeSimpleSheetPersistenceService(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Open column entry'), findsNothing);
+    expect(SheetPreviewStore.rowPickRequest.value, isNotNull);
+    expect(SheetPreviewStore.rowPickRequest.value!.title, 'Pick Entry');
+    expect(SheetPreviewStore.rowPickRequest.value!.selectableRowIndexes, <int>{
+      0,
+      1,
+    });
+
+    SheetPreviewStore.pickRow(1);
+    await tester.pump();
+
+    expect(find.textContaining('Editing row 2 of 2'), findsOneWidget);
+    expect(find.text('Bob'), findsOneWidget);
+    expect(find.text('Selected entry: Name: Bob'), findsOneWidget);
+  });
+
+  testWidgets('logbook rejects cached schemas without first date field', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: EditingPage(
+            initialSheetData: _cachedNonDateFirstColumnSheetData(),
+            initialDocumentTarget: const LocalEditorDocumentTarget(
+              existingPath: '/tmp/non-date-first.csv',
+            ),
+            initialOpenMode: EditorOpenMode.dateBasedOpenEnd,
+            sheetPersistenceService: _FakeSimpleSheetPersistenceService(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.text('Cached field types do not match Logbook.'),
+      findsOneWidget,
+    );
+    expect(find.text('Save Row'), findsNothing);
+  });
+
+  testWidgets('namelist rejects cached schemas without first text field', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: EditingPage(
+            initialSheetData: _cachedNonTextFirstColumnSheetData(),
+            initialDocumentTarget: const LocalEditorDocumentTarget(
+              existingPath: '/tmp/non-text-first.csv',
+            ),
+            initialOpenMode: EditorOpenMode.textBased,
+            sheetPersistenceService: _FakeSimpleSheetPersistenceService(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.text('Cached field types do not match Namelist.'),
+      findsOneWidget,
+    );
+    expect(find.text('Save Row'), findsNothing);
+    expect(SheetPreviewStore.rowPickRequest.value, isNull);
+  });
 }
 
 class _EmbeddedEditorHarness extends StatefulWidget {
@@ -233,6 +322,65 @@ SimpleSheetData _timeOnlySheetData() {
       <String>[today, '09:00', '10:00'],
       <String>[today, '11:00', '12:00'],
     ],
+    csvDelimiter: ',',
+    hasTypeRow: false,
+    headerRowIndex: 0,
+    startColumnIndex: 0,
+  );
+}
+
+SimpleSheetData _namelistSheetData() {
+  return const SimpleSheetData(
+    fileName: 'people.csv',
+    path: '/tmp/people.csv',
+    format: SimpleFileFormat.csv,
+    headers: <String>['Name', 'Score'],
+    valueTypes: <String>['text', 'number'],
+    readOnlyColumns: <bool>[false, false],
+    rows: <List<String>>[
+      <String>['Alice', '7'],
+      <String>['Bob', '9'],
+    ],
+    csvDelimiter: ',',
+    hasTypeRow: false,
+    headerRowIndex: 0,
+    startColumnIndex: 0,
+  );
+}
+
+SimpleSheetData _cachedNonDateFirstColumnSheetData() {
+  final today = _todayIsoDate();
+  return SimpleSheetData(
+    fileName: 'non-date-first.csv',
+    path: '/tmp/non-date-first.csv',
+    format: SimpleFileFormat.csv,
+    headers: const <String>['Name', 'Entry Date'],
+    valueTypes: const <String>['text', 'date'],
+    readOnlyColumns: const <bool>[false, false],
+    rows: <List<String>>[
+      <String>['Bob', today],
+    ],
+    hasCachedValueTypes: true,
+    csvDelimiter: ',',
+    hasTypeRow: false,
+    headerRowIndex: 0,
+    startColumnIndex: 0,
+  );
+}
+
+SimpleSheetData _cachedNonTextFirstColumnSheetData() {
+  final today = _todayIsoDate();
+  return SimpleSheetData(
+    fileName: 'non-text-first.csv',
+    path: '/tmp/non-text-first.csv',
+    format: SimpleFileFormat.csv,
+    headers: const <String>['Entry Date', 'Name'],
+    valueTypes: const <String>['date', 'text'],
+    readOnlyColumns: const <bool>[false, false],
+    rows: <List<String>>[
+      <String>[today, 'Bob'],
+    ],
+    hasCachedValueTypes: true,
     csvDelimiter: ',',
     hasTypeRow: false,
     headerRowIndex: 0,

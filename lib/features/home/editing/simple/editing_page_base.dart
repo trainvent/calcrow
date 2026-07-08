@@ -123,6 +123,7 @@ class _EditingPageState extends State<EditingPage>
   SimpleFileFormat? _simpleImportedFormat;
   String _simpleCsvDelimiter = ',';
   bool _simpleHasTypeRow = false;
+  bool _simpleHasCachedValueTypes = false;
   int _simpleHeaderRowIndex = 0;
   int _simpleStartColumnIndex = 0;
   List<String> _simpleHeaders = const <String>[];
@@ -290,6 +291,7 @@ class _EditingPageState extends State<EditingPage>
       _simpleImportedFormat = sheetData.format;
       _simpleCsvDelimiter = sheetData.csvDelimiter;
       _simpleHasTypeRow = sheetData.hasTypeRow;
+      _simpleHasCachedValueTypes = sheetData.hasCachedValueTypes;
       _simpleHeaderRowIndex = sheetData.headerRowIndex;
       _simpleStartColumnIndex = sheetData.startColumnIndex;
       _simpleImportedSheetName = sheetData.xlsxSheetName;
@@ -312,6 +314,9 @@ class _EditingPageState extends State<EditingPage>
       preserveSelectedTextTarget: true,
     );
     _publishSimpleRowsToPreview();
+    if (_simpleOpenMode == EditorOpenMode.textBased && _simpleRows.isNotEmpty) {
+      _beginSimpleTextEntryRowPick();
+    }
     unawaited(_rememberSimpleOpenConfiguration(sheetData, target: target));
     return true;
   }
@@ -410,6 +415,12 @@ class _EditingPageState extends State<EditingPage>
           textValue: null,
         );
       case EditorOpenMode.dateBasedOpenEnd:
+        if (_cachedFirstColumnBlocksDateBasedOpening(sheetData)) {
+          _showCachedTypeMismatchSnackBar(
+            'Cached field types do not match Logbook.',
+          );
+          return null;
+        }
         final selection = _selectEditorTargetRowForSheetData(sheetData);
         if (!selection.usedDateColumn) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -427,14 +438,42 @@ class _EditingPageState extends State<EditingPage>
           textValue: null,
         );
       case EditorOpenMode.textBased:
-        final textSelection = await _showSimpleTextEntryPicker(sheetData);
-        if (textSelection == null) return null;
+        if (_cachedFirstColumnBlocksTextBasedOpening(sheetData)) {
+          _showCachedTypeMismatchSnackBar(
+            'Cached field types do not match Namelist.',
+          );
+          return null;
+        }
         return _SimpleOpeningSelection(
-          targetRowIndex: textSelection.rowIndex,
-          textColumnIndex: textSelection.columnIndex,
-          textValue: textSelection.value,
+          targetRowIndex: 0,
+          textColumnIndex: null,
+          textValue: null,
         );
     }
+  }
+
+  bool _cachedFirstColumnBlocksDateBasedOpening(SimpleSheetData sheetData) {
+    if (!sheetData.hasCachedValueTypes || sheetData.valueTypes.isEmpty) {
+      return false;
+    }
+    return sheetData.valueTypes.first.trim().toLowerCase() != 'date';
+  }
+
+  bool _cachedFirstColumnBlocksTextBasedOpening(SimpleSheetData sheetData) {
+    if (!sheetData.hasCachedValueTypes || sheetData.valueTypes.isEmpty) {
+      return false;
+    }
+    return sheetData.valueTypes.first.trim().toLowerCase() != 'text';
+  }
+
+  void _showCachedTypeMismatchSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        content: Row(children: [Expanded(child: Text(message, maxLines: 2))]),
+      ),
+    );
   }
 
   _EditorTargetSelection _selectEditorTargetRow({
@@ -613,183 +652,6 @@ class _EditingPageState extends State<EditingPage>
         type.contains('text') ||
         type.contains('email') ||
         type.contains('phone');
-  }
-
-  List<String> _simpleDistinctTextValuesForSheetData(
-    SimpleSheetData sheetData, {
-    required int columnIndex,
-    bool Function(List<String> row)? rowFilter,
-  }) {
-    final values = <String>{};
-    for (final row in sheetData.rows) {
-      if (rowFilter != null && !rowFilter(row)) continue;
-      if (columnIndex >= row.length) continue;
-      final value = row[columnIndex].trim();
-      if (value.isNotEmpty) {
-        values.add(value);
-      }
-    }
-    final sorted = values.toList()
-      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-    return sorted;
-  }
-
-  int? _findSimpleRowIndexForTextValue(
-    SimpleSheetData sheetData, {
-    required int columnIndex,
-    required String value,
-    bool Function(List<String> row)? rowFilter,
-  }) {
-    for (var rowIndex = 0; rowIndex < sheetData.rows.length; rowIndex++) {
-      final row = sheetData.rows[rowIndex];
-      if (rowFilter != null && !rowFilter(row)) continue;
-      if (columnIndex >= row.length) continue;
-      if (row[columnIndex].trim() == value) {
-        return rowIndex;
-      }
-    }
-    return null;
-  }
-
-  Future<_SimpleTextTargetSelection?> _showSimpleTextEntryPicker(
-    SimpleSheetData sheetData,
-  ) async {
-    final candidateColumns = _simpleTextSelectableColumnsForSheetData(
-      sheetData,
-    );
-    if (candidateColumns.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Text-based opening needs at least one editable text column with entry names.',
-          ),
-        ),
-      );
-      return null;
-    }
-
-    final initialColumnIndex =
-        (_simpleTextSelectionColumnIndex != null &&
-            candidateColumns.contains(_simpleTextSelectionColumnIndex))
-        ? _simpleTextSelectionColumnIndex!
-        : candidateColumns.first;
-
-    final result = await showDialog<_SimpleTextTargetSelection>(
-      context: context,
-      builder: (dialogContext) {
-        var selectedColumnIndex = initialColumnIndex;
-        var availableValues = _simpleDistinctTextValuesForSheetData(
-          sheetData,
-          columnIndex: selectedColumnIndex,
-        );
-        String? selectedValue =
-            (_simpleTextSelectionValue != null &&
-                availableValues.contains(_simpleTextSelectionValue))
-            ? _simpleTextSelectionValue
-            : (availableValues.isEmpty ? null : availableValues.first);
-
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Open column entry'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DropdownButtonFormField<int>(
-                    initialValue: selectedColumnIndex,
-                    decoration: const InputDecoration(labelText: 'Entry field'),
-                    items: candidateColumns
-                        .map(
-                          (index) => DropdownMenuItem<int>(
-                            value: index,
-                            child: Text(sheetData.headers[index]),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setDialogState(() {
-                        selectedColumnIndex = value;
-                        availableValues = _simpleDistinctTextValuesForSheetData(
-                          sheetData,
-                          columnIndex: selectedColumnIndex,
-                        );
-                        selectedValue = availableValues.isEmpty
-                            ? null
-                            : availableValues.first;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  if (availableValues.isEmpty)
-                    const Text(
-                      'No non-empty entries were found in this field yet.',
-                    )
-                  else
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedValue,
-                      decoration: const InputDecoration(
-                        labelText: 'Entry name',
-                      ),
-                      items: availableValues
-                          .map(
-                            (value) => DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(value),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        setDialogState(() {
-                          selectedValue = value;
-                        });
-                      },
-                    ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  onPressed: selectedValue == null
-                      ? null
-                      : () {
-                          final rowIndex = _findSimpleRowIndexForTextValue(
-                            sheetData,
-                            columnIndex: selectedColumnIndex,
-                            value: selectedValue!,
-                          );
-                          if (rowIndex == null) {
-                            Navigator.of(dialogContext).pop();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'The selected entry could not be found anymore.',
-                                ),
-                              ),
-                            );
-                            return;
-                          }
-                          Navigator.of(dialogContext).pop(
-                            _SimpleTextTargetSelection(
-                              columnIndex: selectedColumnIndex,
-                              rowIndex: rowIndex,
-                              value: selectedValue!,
-                            ),
-                          );
-                        },
-                  child: const Text('Open Entry'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-    return result;
   }
 
   DateTime _simpleCurrentEditorDate(int dateColumn) {
@@ -1232,31 +1094,72 @@ class _EditingPageState extends State<EditingPage>
     final rowIndex = SheetPreviewStore.pickedRowIndex.value;
     if (rowIndex == null || !mounted) return;
     SheetPreviewStore.pickedRowIndex.value = null;
-    if (_simpleOpenMode != EditorOpenMode.dateBasedOpenEnd ||
-        rowIndex < 0 ||
-        rowIndex >= _simpleRows.length) {
+    if (rowIndex < 0 || rowIndex >= _simpleRows.length) {
       return;
     }
-    setState(() {
-      _simpleTextSelectionColumnIndex = null;
-      _simpleTextSelectionValue = null;
-    });
-    _selectEditorTargetRow(preferredRowIndex: rowIndex);
+    switch (_simpleOpenMode) {
+      case EditorOpenMode.dateBasedOpenEnd:
+        setState(() {
+          _simpleTextSelectionColumnIndex = null;
+          _simpleTextSelectionValue = null;
+        });
+        _selectEditorTargetRow(preferredRowIndex: rowIndex);
+      case EditorOpenMode.textBased:
+        final textTarget = _simpleTextTargetForRowIndex(rowIndex);
+        setState(() {
+          _simpleTextSelectionColumnIndex = textTarget?.columnIndex;
+          _simpleTextSelectionValue = textTarget?.value;
+        });
+        _selectEditorTargetRow(
+          preferredRowIndex: rowIndex,
+          preserveSelectedTextTarget: textTarget != null,
+        );
+      case EditorOpenMode.dateBased:
+        return;
+    }
+  }
+
+  _SimpleTextTargetSelection? _simpleTextTargetForRowIndex(int rowIndex) {
+    if (rowIndex < 0 || rowIndex >= _simpleRows.length) return null;
+    final row = _simpleRows[rowIndex];
+    final candidateColumns = _simpleTextSelectableColumnsForSheetData(
+      _buildSimpleSheetDataForPersist(),
+    );
+    for (final columnIndex in candidateColumns) {
+      final value = columnIndex < row.length ? row[columnIndex].trim() : '';
+      if (value.isEmpty) continue;
+      return _SimpleTextTargetSelection(
+        columnIndex: columnIndex,
+        rowIndex: rowIndex,
+        value: value,
+      );
+    }
+    return null;
+  }
+
+  void _beginSimpleTextEntryRowPick() {
+    if (_simpleRows.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No entries found yet.')));
+      return;
+    }
+
+    _publishSimpleRowsToPreview();
+    SheetPreviewStore.beginRowPick(
+      SheetPreviewRowPickRequest(
+        selectableRowIndexes: <int>{
+          for (var rowIndex = 0; rowIndex < _simpleRows.length; rowIndex++)
+            rowIndex,
+        },
+        title: 'Pick Entry',
+        subtitle: 'Choose any row from the sheet.',
+      ),
+    );
   }
 
   Future<void> _pickSimpleTextEntryFromCurrentSheet() async {
-    final selection = await _showSimpleTextEntryPicker(
-      _buildSimpleSheetDataForPersist(),
-    );
-    if (!mounted || selection == null) return;
-    setState(() {
-      _simpleTextSelectionColumnIndex = selection.columnIndex;
-      _simpleTextSelectionValue = selection.value;
-    });
-    _selectEditorTargetRow(
-      preferredRowIndex: selection.rowIndex,
-      preserveSelectedTextTarget: true,
-    );
+    _beginSimpleTextEntryRowPick();
   }
 
   Future<void> _pickSimpleTodayEntryFromCurrentSheet() async {
@@ -1551,6 +1454,7 @@ class _EditingPageState extends State<EditingPage>
       valueTypes: _simpleValueTypes,
       readOnlyColumns: _simpleReadOnlyColumns,
       rows: _simpleRows,
+      hasCachedValueTypes: _simpleHasCachedValueTypes,
       csvDelimiter: _simpleCsvDelimiter,
       hasTypeRow: _simpleHasTypeRow,
       headerRowIndex: _simpleHeaderRowIndex,
@@ -3040,6 +2944,7 @@ class _EditingPageState extends State<EditingPage>
       _simpleImportedFormat = null;
       _simpleCsvDelimiter = ',';
       _simpleHasTypeRow = false;
+      _simpleHasCachedValueTypes = false;
       _simpleHeaderRowIndex = 0;
       _simpleStartColumnIndex = 0;
       _simpleHeaders = const <String>[];

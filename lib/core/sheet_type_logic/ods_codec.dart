@@ -37,6 +37,7 @@ Map<String, Object?> simpleSheetDataToTransfer(SimpleSheetData data) {
     'readOnlyColumns': data.readOnlyColumns,
     'rows': data.rows,
     'pendingTypeSelectionColumns': data.pendingTypeSelectionColumns,
+    'hasCachedValueTypes': data.hasCachedValueTypes,
     'csvDelimiter': data.csvDelimiter,
     'hasTypeRow': data.hasTypeRow,
     'sheetName': data.xlsxSheetName,
@@ -76,6 +77,7 @@ SimpleSheetData simpleSheetDataFromTransfer(Map<String, Object?> message) {
         ((message['pendingTypeSelectionColumns'] as List?) ?? const <Object?>[])
             .map((value) => value is int ? value : int.parse('$value'))
             .toList(),
+    hasCachedValueTypes: message['hasCachedValueTypes'] == true,
     csvDelimiter: (message['csvDelimiter'] as String?) ?? ',',
     hasTypeRow: message['hasTypeRow'] == true,
     xlsxSheetName: message['sheetName'] as String?,

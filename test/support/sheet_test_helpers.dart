@@ -21,6 +21,7 @@ SimpleSheetData copySheetData(
     readOnlyColumns: readOnlyColumns ?? source.readOnlyColumns,
     rows: rows ?? source.rows,
     pendingTypeSelectionColumns: source.pendingTypeSelectionColumns,
+    hasCachedValueTypes: source.hasCachedValueTypes,
     csvDelimiter: source.csvDelimiter,
     hasTypeRow: source.hasTypeRow,
     headerRowIndex: source.headerRowIndex,

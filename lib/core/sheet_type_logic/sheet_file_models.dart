@@ -14,6 +14,7 @@ class SimpleSheetData {
     required this.readOnlyColumns,
     required this.rows,
     this.pendingTypeSelectionColumns = const <int>[],
+    this.hasCachedValueTypes = false,
     this.csvDelimiter = ',',
     this.hasTypeRow = false,
     this.headerRowIndex = 0,
@@ -31,6 +32,7 @@ class SimpleSheetData {
   final List<bool> readOnlyColumns;
   final List<List<String>> rows;
   final List<int> pendingTypeSelectionColumns;
+  final bool hasCachedValueTypes;
   final String csvDelimiter;
   final bool hasTypeRow;
   final int headerRowIndex;

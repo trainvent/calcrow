@@ -47,6 +47,23 @@ class SimpleTypeHintCache {
     return types.isEmpty ? null : types;
   }
 
+  static Future<void> clearCsvTypes({
+    required String fileName,
+    String? path,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final cache = _readCache(prefs);
+    cache.remove(_cacheKey(fileName: fileName));
+    if (path != null && path.trim().isNotEmpty) {
+      cache.remove(_cacheKey(fileName: fileName, path: path));
+    }
+    if (cache.isEmpty) {
+      await prefs.remove(_csvTypeHintsPrefsKey);
+      return;
+    }
+    await prefs.setString(_csvTypeHintsPrefsKey, jsonEncode(cache));
+  }
+
   static Map<String, dynamic> _readCache(SharedPreferences prefs) {
     final raw = prefs.getString(_csvTypeHintsPrefsKey);
     if (raw == null || raw.isEmpty) {
