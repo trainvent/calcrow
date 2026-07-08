@@ -116,7 +116,7 @@ void main() {
       find.text('Save the current row before starting a new one?'),
       findsOneWidget,
     );
-    expect(find.text('Save'), findsOneWidget);
+    expect(find.text('Save first'), findsOneWidget);
     expect(find.text('Discard'), findsOneWidget);
     expect(find.text('Cancel'), findsOneWidget);
     expect(find.text('draft'), findsOneWidget);

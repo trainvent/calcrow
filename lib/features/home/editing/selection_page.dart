@@ -1367,30 +1367,42 @@ class _SelectionPageState extends State<SelectionPage> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton(
-                        onPressed: _setRecentSimpleOpeningConfiguration,
-                        child: const Text('Set Recent'),
+                      child: SizedBox(
+                        height: 56,
+                        child: OutlinedButton(
+                          onPressed: _setRecentSimpleOpeningConfiguration,
+                          child: const FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text('Set Recent'),
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: FilledButton(
-                        onPressed:
-                            _isOpeningDocument ||
-                                _isChoosingCloudFile ||
-                                (_simpleSetupAction ==
-                                        _SimpleSetupAction.open &&
-                                    _effectiveSimpleDocumentSource ==
-                                        _SimpleDocumentSource.local &&
-                                    !_hasRememberedLocalDocument)
-                            ? null
-                            : _simpleSetupAction == _SimpleSetupAction.open
-                            ? _openSelectedSimpleDocument
-                            : _createSimpleDocument,
-                        child: Text(
-                          _simpleSetupAction == _SimpleSetupAction.open
-                              ? 'Open'
-                              : 'Create',
+                      child: SizedBox(
+                        height: 56,
+                        child: FilledButton(
+                          onPressed:
+                              _isOpeningDocument ||
+                                  _isChoosingCloudFile ||
+                                  (_simpleSetupAction ==
+                                          _SimpleSetupAction.open &&
+                                      _effectiveSimpleDocumentSource ==
+                                          _SimpleDocumentSource.local &&
+                                      !_hasRememberedLocalDocument)
+                              ? null
+                              : _simpleSetupAction == _SimpleSetupAction.open
+                              ? _openSelectedSimpleDocument
+                              : _createSimpleDocument,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              _simpleSetupAction == _SimpleSetupAction.open
+                                  ? 'Open'
+                                  : 'Create',
+                            ),
+                          ),
                         ),
                       ),
                     ),
