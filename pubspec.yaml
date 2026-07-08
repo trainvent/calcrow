@@ -51,8 +51,8 @@ dependencies:
   shared_preferences: ^2.5.3
   flutter_secure_storage: ^9.2.4
   mobile_scanner: ^7.1.2
-  saf_stream: ^0.12.3
-  saf_util: ^0.11.0
+  saf_stream: ^3.1.0
+  saf_util: ^3.1.0
   xml: ^6.6.1
   purchases_flutter: ^9.13.1
   purchases_ui_flutter: ^9.13.1
