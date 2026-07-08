@@ -1290,7 +1290,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
                             ).pop(_SimpleUnsavedEditsChoice.save),
                             child: const FittedBox(
                               fit: BoxFit.scaleDown,
-                              child: Text('Save first'),
+                              child: Text('Save'),
                             ),
                           ),
                         ),
