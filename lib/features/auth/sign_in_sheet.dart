@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:calcrow/app/presentation/web_link_opener_stub.dart'
     if (dart.library.html) 'package:calcrow/app/presentation/web_link_opener_web.dart';
@@ -112,6 +113,7 @@ class _SignInSheetState extends State<SignInSheet> {
       // Sign-in should not trigger onboarding verification again.
       // Keep legacy users unblocked by setting our app-level verified flag.
       await ServiceLocator.dbService.markEmailVerified(uid: session.uid);
+      TextInput.finishAutofillContext(shouldSave: true);
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } on AuthServiceException catch (error, stackTrace) {
@@ -171,6 +173,7 @@ class _SignInSheetState extends State<SignInSheet> {
         uid: session.uid,
         email: session.email,
       );
+      TextInput.finishAutofillContext(shouldSave: true);
 
       await _startVerificationFlow(session: session, issueNewCode: true);
     } on AuthServiceException catch (error, stackTrace) {
@@ -394,6 +397,7 @@ class _SignInSheetState extends State<SignInSheet> {
         code: code,
         newPassword: newPassword,
       );
+      TextInput.finishAutofillContext(shouldSave: true);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Password updated. You can sign in now.')),
@@ -428,197 +432,206 @@ class _SignInSheetState extends State<SignInSheet> {
       child: Padding(
         padding: EdgeInsets.fromLTRB(20, 10, 20, 20 + bottomInset),
         child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(_titleForStep, style: theme.textTheme.headlineSmall),
-              const SizedBox(height: 8),
-              Text(_subtitleForStep, style: theme.textTheme.bodyMedium),
-              const SizedBox(height: 18),
-              if (_step != _AuthStep.verifyEmail) ...[
-                TextField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  autofillHints: const [AutofillHints.email],
-                  decoration: const InputDecoration(labelText: 'Email'),
-                ),
-                if (_step != _AuthStep.forgotPassword &&
-                    _step != _AuthStep.resetPasswordConfirm) ...[
+          child: AutofillGroup(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_titleForStep, style: theme.textTheme.headlineSmall),
+                const SizedBox(height: 8),
+                Text(_subtitleForStep, style: theme.textTheme.bodyMedium),
+                const SizedBox(height: 18),
+                if (_step != _AuthStep.verifyEmail) ...[
+                  TextField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    autofillHints: const [
+                      AutofillHints.username,
+                      AutofillHints.email,
+                    ],
+                    decoration: const InputDecoration(labelText: 'Email'),
+                  ),
+                  if (_step != _AuthStep.forgotPassword &&
+                      _step != _AuthStep.resetPasswordConfirm) ...[
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _passwordController,
+                      obscureText: true,
+                      autofillHints: _step == _AuthStep.register
+                          ? const [AutofillHints.newPassword]
+                          : const [AutofillHints.password],
+                      decoration: const InputDecoration(labelText: 'Password'),
+                    ),
+                  ],
+                ],
+                if (_step == _AuthStep.register) ...[
                   const SizedBox(height: 10),
                   TextField(
-                    controller: _passwordController,
+                    controller: _confirmPasswordController,
                     obscureText: true,
-                    autofillHints: const [AutofillHints.password],
-                    decoration: const InputDecoration(labelText: 'Password'),
+                    autofillHints: const [AutofillHints.newPassword],
+                    decoration: const InputDecoration(
+                      labelText: 'Confirm password',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _LegalAgreementControl(
+                    value: _acceptedLegalTerms,
+                    onChanged: _isLoading
+                        ? null
+                        : (value) {
+                            setState(() {
+                              _acceptedLegalTerms = value ?? false;
+                              if (_acceptedLegalTerms &&
+                                  _errorText ==
+                                      'Accept the Terms of Use, Privacy Policy, and Ads Privacy Policy to create an account.') {
+                                _errorText = null;
+                              }
+                            });
+                          },
                   ),
                 ],
-              ],
-              if (_step == _AuthStep.register) ...[
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _confirmPasswordController,
-                  obscureText: true,
-                  autofillHints: const [AutofillHints.password],
-                  decoration: const InputDecoration(
-                    labelText: 'Confirm password',
+                if (_step == _AuthStep.verifyEmail) ...[
+                  TextField(
+                    controller: _codeController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    decoration: InputDecoration(
+                      labelText: '6-digit code',
+                      hintText: _pendingEmail == null
+                          ? null
+                          : 'Sent to $_pendingEmail',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                _LegalAgreementControl(
-                  value: _acceptedLegalTerms,
-                  onChanged: _isLoading
-                      ? null
-                      : (value) {
-                          setState(() {
-                            _acceptedLegalTerms = value ?? false;
-                            if (_acceptedLegalTerms &&
-                                _errorText ==
-                                    'Accept the Terms of Use, Privacy Policy, and Ads Privacy Policy to create an account.') {
-                              _errorText = null;
-                            }
-                          });
-                        },
-                ),
-              ],
-              if (_step == _AuthStep.verifyEmail) ...[
-                TextField(
-                  controller: _codeController,
-                  keyboardType: TextInputType.number,
-                  maxLength: 6,
-                  decoration: InputDecoration(
-                    labelText: '6-digit code',
-                    hintText: _pendingEmail == null
-                        ? null
-                        : 'Sent to $_pendingEmail',
+                  if (kDebugMode && _debugCode != null)
+                    Text(
+                      'Debug code: $_debugCode',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                ],
+                if (_step == _AuthStep.resetPasswordConfirm) ...[
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _codeController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    decoration: InputDecoration(
+                      labelText: '6-digit code',
+                      hintText: 'Sent to ${_emailController.text.trim()}',
+                    ),
                   ),
-                ),
-                if (kDebugMode && _debugCode != null)
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _resetPasswordController,
+                    obscureText: true,
+                    autofillHints: const [AutofillHints.newPassword],
+                    decoration: const InputDecoration(
+                      labelText: 'New password',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _resetConfirmPasswordController,
+                    obscureText: true,
+                    autofillHints: const [AutofillHints.newPassword],
+                    decoration: const InputDecoration(
+                      labelText: 'Confirm new password',
+                    ),
+                  ),
+                ],
+                if (_errorText != null) ...[
+                  const SizedBox(height: 10),
                   Text(
-                    'Debug code: $_debugCode',
-                    style: theme.textTheme.bodySmall,
+                    _errorText!,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _isLoading
+                        ? null
+                        : switch (_step) {
+                            _AuthStep.signIn => _signIn,
+                            _AuthStep.register => _register,
+                            _AuthStep.verifyEmail => _verifyCode,
+                            _AuthStep.forgotPassword => _sendPasswordResetCode,
+                            _AuthStep.resetPasswordConfirm =>
+                              _confirmPasswordReset,
+                          },
+                    child: Text(_primaryButtonLabel),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (_step == _AuthStep.signIn)
+                  TextButton(
+                    onPressed: _isLoading
+                        ? null
+                        : () => setState(() {
+                            _step = _AuthStep.register;
+                            _errorText = null;
+                            _debugCode = null;
+                            _codeController.clear();
+                          }),
+                    child: const Text('Create account'),
+                  ),
+                if (_step == _AuthStep.signIn)
+                  TextButton(
+                    onPressed: _isLoading
+                        ? null
+                        : () => setState(() {
+                            _step = _AuthStep.forgotPassword;
+                            _errorText = null;
+                            _codeController.clear();
+                            _debugCode = null;
+                            _resetPasswordController.clear();
+                            _resetConfirmPasswordController.clear();
+                          }),
+                    child: const Text('Forgot password?'),
+                  ),
+                if (_step == _AuthStep.register)
+                  TextButton(
+                    onPressed: _isLoading
+                        ? null
+                        : () => setState(() {
+                            _step = _AuthStep.signIn;
+                            _errorText = null;
+                            _debugCode = null;
+                            _codeController.clear();
+                            _acceptedLegalTerms = false;
+                          }),
+                    child: const Text('I already have an account'),
+                  ),
+                if (_step == _AuthStep.verifyEmail)
+                  TextButton(
+                    onPressed: _isLoading ? null : _resendCode,
+                    child: const Text('Resend code'),
+                  ),
+                if (_step == _AuthStep.resetPasswordConfirm)
+                  TextButton(
+                    onPressed: _isLoading ? null : _sendPasswordResetCode,
+                    child: const Text('Resend code'),
+                  ),
+                if (_step == _AuthStep.forgotPassword ||
+                    _step == _AuthStep.resetPasswordConfirm)
+                  TextButton(
+                    onPressed: _isLoading
+                        ? null
+                        : () => setState(() {
+                            _step = _AuthStep.signIn;
+                            _errorText = null;
+                            _debugCode = null;
+                            _codeController.clear();
+                            _resetPasswordController.clear();
+                            _resetConfirmPasswordController.clear();
+                          }),
+                    child: const Text('Back to sign in'),
                   ),
               ],
-              if (_step == _AuthStep.resetPasswordConfirm) ...[
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _codeController,
-                  keyboardType: TextInputType.number,
-                  maxLength: 6,
-                  decoration: InputDecoration(
-                    labelText: '6-digit code',
-                    hintText: 'Sent to ${_emailController.text.trim()}',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _resetPasswordController,
-                  obscureText: true,
-                  autofillHints: const [AutofillHints.newPassword],
-                  decoration: const InputDecoration(labelText: 'New password'),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _resetConfirmPasswordController,
-                  obscureText: true,
-                  autofillHints: const [AutofillHints.newPassword],
-                  decoration: const InputDecoration(
-                    labelText: 'Confirm new password',
-                  ),
-                ),
-              ],
-              if (_errorText != null) ...[
-                const SizedBox(height: 10),
-                Text(
-                  _errorText!,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.error,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isLoading
-                      ? null
-                      : switch (_step) {
-                          _AuthStep.signIn => _signIn,
-                          _AuthStep.register => _register,
-                          _AuthStep.verifyEmail => _verifyCode,
-                          _AuthStep.forgotPassword => _sendPasswordResetCode,
-                          _AuthStep.resetPasswordConfirm =>
-                            _confirmPasswordReset,
-                        },
-                  child: Text(_primaryButtonLabel),
-                ),
-              ),
-              const SizedBox(height: 8),
-              if (_step == _AuthStep.signIn)
-                TextButton(
-                  onPressed: _isLoading
-                      ? null
-                      : () => setState(() {
-                          _step = _AuthStep.register;
-                          _errorText = null;
-                          _debugCode = null;
-                          _codeController.clear();
-                        }),
-                  child: const Text('Create account'),
-                ),
-              if (_step == _AuthStep.signIn)
-                TextButton(
-                  onPressed: _isLoading
-                      ? null
-                      : () => setState(() {
-                          _step = _AuthStep.forgotPassword;
-                          _errorText = null;
-                          _codeController.clear();
-                          _debugCode = null;
-                          _resetPasswordController.clear();
-                          _resetConfirmPasswordController.clear();
-                        }),
-                  child: const Text('Forgot password?'),
-                ),
-              if (_step == _AuthStep.register)
-                TextButton(
-                  onPressed: _isLoading
-                      ? null
-                      : () => setState(() {
-                          _step = _AuthStep.signIn;
-                          _errorText = null;
-                          _debugCode = null;
-                          _codeController.clear();
-                          _acceptedLegalTerms = false;
-                        }),
-                  child: const Text('I already have an account'),
-                ),
-              if (_step == _AuthStep.verifyEmail)
-                TextButton(
-                  onPressed: _isLoading ? null : _resendCode,
-                  child: const Text('Resend code'),
-                ),
-              if (_step == _AuthStep.resetPasswordConfirm)
-                TextButton(
-                  onPressed: _isLoading ? null : _sendPasswordResetCode,
-                  child: const Text('Resend code'),
-                ),
-              if (_step == _AuthStep.forgotPassword ||
-                  _step == _AuthStep.resetPasswordConfirm)
-                TextButton(
-                  onPressed: _isLoading
-                      ? null
-                      : () => setState(() {
-                          _step = _AuthStep.signIn;
-                          _errorText = null;
-                          _debugCode = null;
-                          _codeController.clear();
-                          _resetPasswordController.clear();
-                          _resetConfirmPasswordController.clear();
-                        }),
-                  child: const Text('Back to sign in'),
-                ),
-            ],
+            ),
           ),
         ),
       ),

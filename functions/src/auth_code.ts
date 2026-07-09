@@ -9,7 +9,7 @@ const db = admin.firestore();
 const verificationCollection = 'email_verification_codes';
 type AuthCodeType = 'verification' | 'login' | 'passwordReset';
 
-const smtpMail = process.env.SMTP_MAIL || "noreply@calcrow.com";
+const smtpMail = process.env.SMTP_MAIL || "no-reply@calcrow.com";
 const smtpUser = process.env.SMTP_USER || smtpMail;
 const smtpPassword = defineSecret('SMTP_PASSWORD');
 const smtpHost = process.env.SMTP_SERVER || process.env.SMPT_SERVER || "smtp.ionos.de";
@@ -118,7 +118,7 @@ async function verifyCodeLogic(
 
     console.log(`[VERIFY LOGIC] Verifying code for uid: ${uid}, email: ${email}, type: ${expectedType}`);
     const docRef = db.collection(verificationCollection).doc(uid);
-    
+
     let doc;
     try {
         doc = await docRef.get();
@@ -206,7 +206,7 @@ export const sendLoginCode = onCall({ secrets: [smtpPassword] }, async (request)
     if (isDevEnvironment() && testEmail) {
         const normalizedTest = normalizeEmail(testEmail);
         console.log(`[DEBUG] Checking backdoor: '${email}' vs '${normalizedTest}'`);
-        
+
         if (email === normalizedTest) {
             console.log(`[SEND LOGIN] Test Backdoor used for ${email}. Skipping email send.`);
             return { success: true, message: 'Login code sent (Test Backdoor).' };
@@ -242,7 +242,7 @@ export const verifyCode = onCall(async (request) => {
 
     const uid = request.auth.uid;
     const email = request.auth.token.email;
-    
+
     const testEmail = process.env.TEST_EMAIL;
     const testCode = process.env.TEST_CODE;
 
@@ -250,7 +250,7 @@ export const verifyCode = onCall(async (request) => {
     if (isDevEnvironment() && testEmail && testCode && email) {
         const normalizedInput = normalizeEmail(email);
         const normalizedTest = normalizeEmail(testEmail);
-        
+
         if (normalizedInput === normalizedTest && code === testCode) {
             await admin.auth().updateUser(uid, { emailVerified: true });
             await db.collection(verificationCollection).doc(uid).delete();
@@ -291,12 +291,12 @@ export const verifyLoginCode = onCall(async (request) => {
     const testCode = process.env.TEST_CODE;
 
     console.log(`[DEBUG] verifyLoginCode: email='${email}', code='${code}'`);
-    
+
     let isBackdoor = false;
     if (isDevEnvironment() && testEmail && testCode) {
         const normalizedTest = normalizeEmail(testEmail);
         console.log(`[DEBUG] Checking backdoor: '${email}' vs '${normalizedTest}'`);
-        
+
         if (email === normalizedTest && code === testCode) {
             isBackdoor = true;
         }

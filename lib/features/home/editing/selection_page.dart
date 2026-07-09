@@ -473,7 +473,7 @@ class _SelectionPageState extends State<SelectionPage> {
   Future<void> _openOrChooseCloudSyncFile() async {
     final session = ServiceLocator.authService.currentSession;
     if (session == null) {
-      await _chooseCloudSyncFile();
+      await _chooseCloudSyncFile(openAfterSelection: true);
       return;
     }
 
@@ -484,7 +484,7 @@ class _SelectionPageState extends State<SelectionPage> {
       final selectedFile = ServiceLocator.simpleCloudDocumentService
           .selectedSyncFileFromSettings(settings);
       if (selectedFile == null) {
-        await _chooseCloudSyncFile();
+        await _chooseCloudSyncFile(openAfterSelection: true);
         return;
       }
 
@@ -497,14 +497,14 @@ class _SelectionPageState extends State<SelectionPage> {
             ),
           ),
         );
-        await _chooseCloudSyncFile();
+        await _chooseCloudSyncFile(openAfterSelection: true);
       }
     } catch (_) {
-      await _chooseCloudSyncFile();
+      await _chooseCloudSyncFile(openAfterSelection: true);
     }
   }
 
-  Future<void> _chooseCloudSyncFile() async {
+  Future<void> _chooseCloudSyncFile({bool openAfterSelection = false}) async {
     if (_isChoosingCloudFile) return;
 
     final messenger = ScaffoldMessenger.of(context);
@@ -552,7 +552,9 @@ class _SelectionPageState extends State<SelectionPage> {
         await ServiceLocator.simpleCloudDocumentService.setSelectedSyncFile(
           file: createdFile,
         );
-        await _openCloudDocument(file: createdFile);
+        if (openAfterSelection) {
+          await _openCloudDocument(file: createdFile);
+        }
         return;
       }
 
@@ -573,7 +575,9 @@ class _SelectionPageState extends State<SelectionPage> {
       await ServiceLocator.simpleCloudDocumentService.setSelectedSyncFile(
         file: selectedFile,
       );
-      await _openCloudDocument(file: selectedFile);
+      if (openAfterSelection) {
+        await _openCloudDocument(file: selectedFile);
+      }
     } on CloudSimpleDocumentException catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(content: Text(error.message)));
@@ -648,7 +652,25 @@ class _SelectionPageState extends State<SelectionPage> {
       _simpleSetupAction = _SimpleSetupAction.open;
       _simpleDocumentSource = _SimpleDocumentSource.cloud;
     });
-    await _openOrChooseCloudSyncFile();
+
+    final session = ServiceLocator.authService.currentSession;
+    if (session == null) {
+      await _chooseCloudSyncFile();
+      return;
+    }
+
+    try {
+      final settings = await ServiceLocator.userRepository.getUserSettings(
+        session.uid,
+      );
+      final selectedFile = ServiceLocator.simpleCloudDocumentService
+          .selectedSyncFileFromSettings(settings);
+      if (selectedFile == null) {
+        await _chooseCloudSyncFile();
+      }
+    } catch (_) {
+      await _chooseCloudSyncFile();
+    }
   }
 
   Future<void> _createSimpleDocument() async {
@@ -1256,7 +1278,7 @@ class _SelectionPageState extends State<SelectionPage> {
                   children: [
                     Expanded(
                       child: Text(
-                        'Get Started',
+                        'Selector',
                         style: theme.textTheme.titleMedium,
                       ),
                     ),
