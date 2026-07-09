@@ -58,6 +58,13 @@ class _NamelistEditingModeBehavior extends _SimpleEditingModeBehavior {
   }
 
   @override
+  Future<void> handleSheetPreviewNewEntryPick(
+    _EditingPageBaseState state,
+  ) async {
+    await state._createNewSimpleTextEntry();
+  }
+
+  @override
   Future<void> pickFromCurrentSheet(_EditingPageBaseState state) async {
     state._beginSimpleTextEntryRowPick();
   }

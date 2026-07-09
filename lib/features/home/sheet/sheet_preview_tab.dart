@@ -31,6 +31,21 @@ class _SheetPreviewTabState extends State<SheetPreviewTab> {
     setState(() => _confirmingRowIndex = null);
   }
 
+  Future<void> _confirmNewEntryPick() async {
+    if (_confirmingRowIndex != null) return;
+    setState(
+      () => _confirmingRowIndex = SheetPreviewStore.createNewEntryPickIndex,
+    );
+    await Future<void>.delayed(_rowPickConfirmDelay);
+    if (!mounted) return;
+    if (SheetPreviewStore.rowPickRequest.value?.allowCreateNewEntry != true) {
+      setState(() => _confirmingRowIndex = null);
+      return;
+    }
+    SheetPreviewStore.pickNewEntry();
+    setState(() => _confirmingRowIndex = null);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -138,58 +153,12 @@ class _SheetPreviewTabState extends State<SheetPreviewTab> {
                                             DataColumn(label: Text(label)),
                                       ),
                                     ],
-                                    rows:
-                                        (hasRows
-                                                ? previewRows
-                                                : <List<String>>[
-                                                    List<String>.filled(
-                                                      previewHeaders.length,
-                                                      '-',
-                                                    ),
-                                                  ])
-                                            .indexed
-                                            .map((entry) {
-                                              final rowIndex = entry.$1;
-                                              final row = entry.$2;
-                                              final canPick =
-                                                  rowPickRequest?.canPick(
-                                                    rowIndex,
-                                                  ) ??
-                                                  false;
-                                              return DataRow(
-                                                onSelectChanged: canPick
-                                                    ? (_) => _confirmRowPick(
-                                                        rowIndex,
-                                                      )
-                                                    : null,
-                                                cells: <DataCell>[
-                                                  if (rowPickRequest != null)
-                                                    DataCell(
-                                                      canPick
-                                                          ? _RowPickIndicator(
-                                                              confirming:
-                                                                  _confirmingRowIndex ==
-                                                                  rowIndex,
-                                                            )
-                                                          : const SizedBox(
-                                                              width: 26,
-                                                              height: 26,
-                                                            ),
-                                                    ),
-                                                  ...List<DataCell>.generate(
-                                                    previewHeaders.length,
-                                                    (index) => DataCell(
-                                                      Text(
-                                                        index < row.length
-                                                            ? row[index]
-                                                            : '-',
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              );
-                                            })
-                                            .toList(),
+                                    rows: _buildPreviewRows(
+                                      previewRows: previewRows,
+                                      previewHeaders: previewHeaders,
+                                      hasRows: hasRows,
+                                      rowPickRequest: rowPickRequest,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -205,6 +174,118 @@ class _SheetPreviewTabState extends State<SheetPreviewTab> {
           },
         );
       },
+    );
+  }
+
+  List<DataRow> _buildPreviewRows({
+    required List<List<String>> previewRows,
+    required List<String> previewHeaders,
+    required bool hasRows,
+    required SheetPreviewRowPickRequest? rowPickRequest,
+  }) {
+    final rows = <DataRow>[
+      for (final entry
+          in (hasRows
+                  ? previewRows
+                  : rowPickRequest == null
+                  ? <List<String>>[
+                      List<String>.filled(previewHeaders.length, '-'),
+                    ]
+                  : const <List<String>>[])
+              .indexed)
+        _buildPreviewDataRow(
+          rowIndex: entry.$1,
+          row: entry.$2,
+          previewHeaders: previewHeaders,
+          rowPickRequest: rowPickRequest,
+        ),
+    ];
+
+    if (rowPickRequest?.allowCreateNewEntry == true) {
+      rows.add(
+        DataRow(
+          onSelectChanged: (_) => _confirmNewEntryPick(),
+          cells: <DataCell>[
+            DataCell(
+              _NewEntryIndicator(
+                confirming:
+                    _confirmingRowIndex ==
+                    SheetPreviewStore.createNewEntryPickIndex,
+              ),
+            ),
+            ...List<DataCell>.generate(
+              previewHeaders.length,
+              (index) => DataCell(
+                index == 0
+                    ? Text(rowPickRequest!.createNewEntryLabel)
+                    : const SizedBox.shrink(),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return rows;
+  }
+
+  DataRow _buildPreviewDataRow({
+    required int rowIndex,
+    required List<String> row,
+    required List<String> previewHeaders,
+    required SheetPreviewRowPickRequest? rowPickRequest,
+  }) {
+    final canPick = rowPickRequest?.canPick(rowIndex) ?? false;
+    return DataRow(
+      onSelectChanged: canPick ? (_) => _confirmRowPick(rowIndex) : null,
+      cells: <DataCell>[
+        if (rowPickRequest != null)
+          DataCell(
+            canPick
+                ? _RowPickIndicator(confirming: _confirmingRowIndex == rowIndex)
+                : const SizedBox(width: 26, height: 26),
+          ),
+        ...List<DataCell>.generate(
+          previewHeaders.length,
+          (index) => DataCell(Text(index < row.length ? row[index] : '-')),
+        ),
+      ],
+    );
+  }
+}
+
+class _NewEntryIndicator extends StatelessWidget {
+  const _NewEntryIndicator({required this.confirming});
+
+  final bool confirming;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Semantics(
+      label: 'Create new entry',
+      button: true,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
+        width: 26,
+        height: 26,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: confirming
+              ? theme.colorScheme.primaryContainer
+              : theme.colorScheme.primary,
+          border: Border.all(color: theme.colorScheme.primary, width: 2),
+        ),
+        child: Icon(
+          Icons.add_rounded,
+          size: 18,
+          color: confirming
+              ? theme.colorScheme.onPrimaryContainer
+              : theme.colorScheme.onPrimary,
+        ),
+      ),
     );
   }
 }

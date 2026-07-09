@@ -90,6 +90,10 @@ abstract class _SimpleEditingModeBehavior {
 
   void handleSheetPreviewRowPick(_EditingPageBaseState state, int rowIndex) {}
 
+  Future<void> handleSheetPreviewNewEntryPick(
+    _EditingPageBaseState state,
+  ) async {}
+
   Future<void> pickFromCurrentSheet(_EditingPageBaseState state);
 
   List<String> typeOptionsForColumn(
@@ -1119,6 +1123,10 @@ class _EditingPageBaseState extends State<EditingPageBase>
     final rowIndex = SheetPreviewStore.pickedRowIndex.value;
     if (rowIndex == null || !mounted) return;
     SheetPreviewStore.pickedRowIndex.value = null;
+    if (rowIndex == SheetPreviewStore.createNewEntryPickIndex) {
+      unawaited(_modeBehavior.handleSheetPreviewNewEntryPick(this));
+      return;
+    }
     if (rowIndex < 0 || rowIndex >= _simpleRows.length) {
       return;
     }
@@ -1164,13 +1172,6 @@ class _EditingPageBaseState extends State<EditingPageBase>
   }
 
   void _beginSimpleTextEntryRowPick() {
-    if (_simpleRows.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('No entries found yet.')));
-      return;
-    }
-
     _publishSimpleRowsToPreview();
     SheetPreviewStore.beginRowPick(
       SheetPreviewRowPickRequest(
@@ -1180,6 +1181,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
         },
         title: 'Pick Entry',
         subtitle: 'Choose any row from the sheet.',
+        allowCreateNewEntry: true,
+        createNewEntryLabel: 'Create new entry',
       ),
     );
   }

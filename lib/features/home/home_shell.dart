@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 
 import 'package:calcrow/core/data/di/service_locator.dart';
@@ -63,34 +65,73 @@ class _HomeShellState extends State<HomeShell> {
             mainAxisSize: MainAxisSize.min,
             children: [
               FreeModeBottomTile(tier: tier),
-              NavigationBar(
-                selectedIndex: _currentIndex,
-                onDestinationSelected: (index) {
-                  setState(() {
-                    _currentIndex = index;
-                  });
+              ValueListenableBuilder<SheetPreviewRowPickRequest?>(
+                valueListenable: SheetPreviewStore.rowPickRequest,
+                builder: (context, rowPickRequest, _) {
+                  final isPickingRow = rowPickRequest != null;
+                  return NavigationBar(
+                    selectedIndex: _currentIndex,
+                    onDestinationSelected: (index) {
+                      if (isPickingRow && index != 1) return;
+                      setState(() {
+                        _currentIndex = index;
+                      });
+                    },
+                    destinations: [
+                      NavigationDestination(
+                        icon: _PickLockedNavIcon(
+                          locked: isPickingRow,
+                          child: const _SingleRowNavIcon(selected: false),
+                        ),
+                        selectedIcon: _PickLockedNavIcon(
+                          locked: isPickingRow,
+                          child: const _SingleRowNavIcon(selected: true),
+                        ),
+                        label: 'Row',
+                      ),
+                      const NavigationDestination(
+                        icon: Icon(Icons.grid_on_outlined),
+                        selectedIcon: Icon(Icons.grid_on),
+                        label: 'Sheet',
+                      ),
+                      NavigationDestination(
+                        icon: _PickLockedNavIcon(
+                          locked: isPickingRow,
+                          child: const Icon(Icons.settings_outlined),
+                        ),
+                        selectedIcon: _PickLockedNavIcon(
+                          locked: isPickingRow,
+                          child: const Icon(Icons.settings),
+                        ),
+                        label: 'Settings',
+                      ),
+                    ],
+                  );
                 },
-                destinations: const [
-                  NavigationDestination(
-                    icon: _SingleRowNavIcon(selected: false),
-                    selectedIcon: _SingleRowNavIcon(selected: true),
-                    label: 'Row',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.grid_on_outlined),
-                    selectedIcon: Icon(Icons.grid_on),
-                    label: 'Sheet',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.settings_outlined),
-                    selectedIcon: Icon(Icons.settings),
-                    label: 'Settings',
-                  ),
-                ],
               ),
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _PickLockedNavIcon extends StatelessWidget {
+  const _PickLockedNavIcon({required this.locked, required this.child});
+
+  final bool locked;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!locked) return child;
+
+    return Opacity(
+      opacity: 0.38,
+      child: ImageFiltered(
+        imageFilter: ui.ImageFilter.blur(sigmaX: 1.4, sigmaY: 1.4),
+        child: child,
       ),
     );
   }

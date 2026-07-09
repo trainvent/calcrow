@@ -7,11 +7,15 @@ class SheetPreviewRowPickRequest {
     required this.selectableRowIndexes,
     required this.title,
     required this.subtitle,
+    this.allowCreateNewEntry = false,
+    this.createNewEntryLabel = 'New entry',
   });
 
   final Set<int> selectableRowIndexes;
   final String title;
   final String subtitle;
+  final bool allowCreateNewEntry;
+  final String createNewEntryLabel;
 
   bool canPick(int rowIndex) => selectableRowIndexes.contains(rowIndex);
 }
@@ -70,6 +74,8 @@ class SheetPreviewData {
 }
 
 class SheetPreviewStore {
+  static const int createNewEntryPickIndex = -1;
+
   static final ValueNotifier<SheetPreviewData> notifier =
       ValueNotifier<SheetPreviewData>(SheetPreviewData.initial());
 
@@ -89,6 +95,12 @@ class SheetPreviewStore {
 
   static void pickRow(int rowIndex) {
     pickedRowIndex.value = rowIndex;
+    rowPickRequest.value = null;
+    requestedTabIndex.value = 0;
+  }
+
+  static void pickNewEntry() {
+    pickedRowIndex.value = createNewEntryPickIndex;
     rowPickRequest.value = null;
     requestedTabIndex.value = 0;
   }
