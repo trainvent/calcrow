@@ -21,8 +21,8 @@ import 'package:calcrow/core/sheet_type_logic/simple_sheet_file_service.dart';
 import 'package:calcrow/core/sheet_type_logic/simple_sheet_logic.dart';
 import 'package:calcrow/core/sheet_type_logic/simple_type_hint_cache.dart';
 import 'package:calcrow/features/home/sheet/sheet_preview_store.dart';
-import 'package:calcrow/features/home/editing/simple/widgets/select_time_widget.dart';
-import 'package:calcrow/features/home/editing/simple/widgets/timespan_widget.dart';
+import 'package:calcrow/features/home/editing/widgets/select_time_widget.dart';
+import 'package:calcrow/features/home/editing/widgets/timespan_widget.dart';
 import 'package:open_filex/open_filex.dart';
 
 part 'diary_editing_page.dart';
@@ -33,7 +33,7 @@ enum _WidgetBlock { rowDefinement, workhours, smartData, wellbeing, notes }
 
 enum EditorOpenMode { dateBased, dateBasedOpenEnd, textBased }
 
-enum _SimpleUnsavedEditsChoice { save, discard, cancel }
+enum _UnsavedEditsChoice { save, discard, cancel }
 
 class EditingPageBase extends StatefulWidget {
   const EditingPageBase({
@@ -72,8 +72,8 @@ class EditingPage extends EditingPageBase {
   });
 }
 
-abstract class _SimpleEditingModeBehavior {
-  const _SimpleEditingModeBehavior();
+abstract class _EditingModeBehavior {
+  const _EditingModeBehavior();
 
   EditorOpenMode get openMode;
   String get pickButtonLabel;
@@ -81,7 +81,7 @@ abstract class _SimpleEditingModeBehavior {
   bool get showsDateOpenEndActions => false;
   String? get requiredFirstColumnType => null;
 
-  Future<_SimpleOpeningSelection?> resolveOpening(
+  Future<_OpeningSelection?> resolveOpening(
     _EditingPageBaseState state,
     SimpleSheetData sheetData,
   );
@@ -103,19 +103,19 @@ abstract class _SimpleEditingModeBehavior {
     if (columnIndex == 0 && requiredFirstColumnType != null) {
       return <String>[requiredFirstColumnType!];
     }
-    return _EditingPageBaseState._simpleTypeOptions;
+    return _EditingPageBaseState._documentTypeOptions;
   }
 
   String? validatePendingTypes(_EditingPageBaseState state) {
     final requiredType = requiredFirstColumnType;
     if (requiredType == null) return null;
-    if (state._simpleValueTypes.isEmpty) return null;
-    final firstType = state._simpleValueTypes.first.trim().toLowerCase();
+    if (state._documentValueTypes.isEmpty) return null;
+    final firstType = state._documentValueTypes.first.trim().toLowerCase();
     if (firstType == requiredType) return null;
     return 'The first field must stay ${requiredType == 'date' ? 'Date' : 'Text'} for this opening mode.';
   }
 
-  static _SimpleEditingModeBehavior forOpenMode(EditorOpenMode mode) {
+  static _EditingModeBehavior forOpenMode(EditorOpenMode mode) {
     return switch (mode) {
       EditorOpenMode.dateBased => const _DiaryEditingModeBehavior(),
       EditorOpenMode.dateBasedOpenEnd => const _LogbookEditingModeBehavior(),
@@ -130,7 +130,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
     'de.lemarq.calcrow/file_open',
   );
 
-  static const List<String> _simpleTypeOptions = <String>[
+  static const List<String> _documentTypeOptions = <String>[
     'text',
     'date',
     'time',
@@ -186,26 +186,26 @@ class _EditingPageBaseState extends State<EditingPageBase>
 
   bool _setupDone = false;
   late bool _isAdvancedMode;
-  String? _simpleImportedFileName;
-  String? _simpleImportedPath;
-  String? _simpleImportedSheetName;
-  SimpleFileFormat? _simpleImportedFormat;
-  String _simpleCsvDelimiter = ',';
-  bool _simpleHasTypeRow = false;
-  bool _simpleHasCachedValueTypes = false;
-  int _simpleHeaderRowIndex = 0;
-  int _simpleStartColumnIndex = 0;
-  List<String> _simpleHeaders = const <String>[];
-  List<String> _simpleValueTypes = const <String>[];
-  List<bool> _simpleReadOnlyColumns = const <bool>[];
-  List<int> _simplePendingTypeSelectionColumns = const <int>[];
-  List<List<String>> _simpleRows = const <List<String>>[];
-  List<TextEditingController> _simpleControllers =
+  String? _documentImportedFileName;
+  String? _documentImportedPath;
+  String? _documentImportedSheetName;
+  SimpleFileFormat? _documentImportedFormat;
+  String _documentCsvDelimiter = ',';
+  bool _documentHasTypeRow = false;
+  bool _documentHasCachedValueTypes = false;
+  int _documentHeaderRowIndex = 0;
+  int _documentStartColumnIndex = 0;
+  List<String> _documentHeaders = const <String>[];
+  List<String> _documentValueTypes = const <String>[];
+  List<bool> _documentReadOnlyColumns = const <bool>[];
+  List<int> _documentPendingTypeSelectionColumns = const <int>[];
+  List<List<String>> _documentRows = const <List<String>>[];
+  List<TextEditingController> _documentControllers =
       const <TextEditingController>[];
-  List<String> _simpleEditingBaseline = const <String>[];
-  excel_pkg.Excel? _simpleImportedWorkbook;
-  Uint8List? _simpleImportedSourceBytes;
-  int _simpleEditingRowIndex = 0;
+  List<String> _documentEditingBaseline = const <String>[];
+  excel_pkg.Excel? _documentImportedWorkbook;
+  Uint8List? _documentImportedSourceBytes;
+  int _documentEditingRowIndex = 0;
   String? _importedFileName;
   List<List<String>> _allRows = const <List<String>>[];
   int? _selectedExistingRowIndex;
@@ -216,20 +216,20 @@ class _EditingPageBaseState extends State<EditingPageBase>
   bool _showSmartData = true;
   bool _showWellbeing = true;
   bool _showNotes = true;
-  bool _showSimpleFieldTypes = false;
+  bool _showFieldTypes = false;
   bool _isOpeningDocument = false;
-  EditorDocumentTarget? _simpleDocumentTarget;
-  EditorOpenMode _simpleOpenMode = EditorOpenMode.dateBasedOpenEnd;
-  late final _SimpleEditingModeBehavior _modeBehavior;
-  int? _simpleTextSelectionColumnIndex;
-  String? _simpleTextSelectionValue;
+  EditorDocumentTarget? _documentDocumentTarget;
+  EditorOpenMode _documentOpenMode = EditorOpenMode.dateBasedOpenEnd;
+  late final _EditingModeBehavior _modeBehavior;
+  int? _documentTextSelectionColumnIndex;
+  String? _documentTextSelectionValue;
 
   @override
   void initState() {
     super.initState();
     _isAdvancedMode = false;
-    _simpleOpenMode = widget.initialOpenMode;
-    _modeBehavior = _SimpleEditingModeBehavior.forOpenMode(_simpleOpenMode);
+    _documentOpenMode = widget.initialOpenMode;
+    _modeBehavior = _EditingModeBehavior.forOpenMode(_documentOpenMode);
     _sheetPersistenceService =
         widget._sheetPersistenceService ?? SimpleSheetPersistenceService();
     _typeTogglePulseController = AnimationController(
@@ -243,7 +243,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
     SheetPreviewStore.pickedRowIndex.addListener(_handleSheetPreviewRowPick);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      unawaited(_loadInitialSimpleDocument());
+      unawaited(_loadInitialDocument());
     });
   }
 
@@ -255,24 +255,24 @@ class _EditingPageBaseState extends State<EditingPageBase>
     _endController.dispose();
     _breakController.dispose();
     _notesController.dispose();
-    for (final controller in _simpleControllers) {
+    for (final controller in _documentControllers) {
       controller.dispose();
     }
     _typeTogglePulseController.dispose();
     super.dispose();
   }
 
-  bool get _hasSimpleSchema =>
-      _simpleHeaders.isNotEmpty &&
-      _simpleValueTypes.length == _simpleHeaders.length &&
-      _simpleReadOnlyColumns.length == _simpleHeaders.length;
+  bool get _hasDocumentSchema =>
+      _documentHeaders.isNotEmpty &&
+      _documentValueTypes.length == _documentHeaders.length &&
+      _documentReadOnlyColumns.length == _documentHeaders.length;
 
-  bool get _hasSimpleControllersReady =>
-      _simpleControllers.length == _simpleHeaders.length &&
-      _simpleReadOnlyColumns.length == _simpleHeaders.length;
+  bool get _hasDocumentControllersReady =>
+      _documentControllers.length == _documentHeaders.length &&
+      _documentReadOnlyColumns.length == _documentHeaders.length;
 
-  Future<void> _loadInitialSimpleDocument() async {
-    final loaded = await _loadSimpleProfileData(
+  Future<void> _loadInitialDocument() async {
+    final loaded = await _loadProfileData(
       widget.initialSheetData,
       target: widget.initialDocumentTarget,
     );
@@ -298,8 +298,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
   Future<void> _openLocalDocumentFolderOrDocument() async {
     if (!_supportsLocalFileEditing) return;
 
-    final path = _simpleImportedPath?.trim();
-    if (_simpleDocumentTarget is LocalEditorDocumentTarget &&
+    final path = _documentImportedPath?.trim();
+    if (_documentDocumentTarget is LocalEditorDocumentTarget &&
         path != null &&
         path.isNotEmpty) {
       final opened = await _openLocalFileExternally(path);
@@ -345,52 +345,52 @@ class _EditingPageBaseState extends State<EditingPageBase>
   }
 
   String _mimeTypeForLocalDocumentOpen() {
-    final format = _simpleImportedFormat ?? SimpleFileFormat.csv;
+    final format = _documentImportedFormat ?? SimpleFileFormat.csv;
     return SimpleSheetFileService.mimeTypeForFormat(format);
   }
 
-  Future<bool> _loadSimpleProfileData(
+  Future<bool> _loadProfileData(
     SimpleSheetData sheetData, {
     EditorDocumentTarget? target,
   }) async {
-    final selection = await _resolveSimpleOpeningSelection(sheetData);
+    final selection = await _resolveOpeningSelection(sheetData);
     if (!mounted || selection == null) return false;
 
     setState(() {
-      _simpleImportedFileName = sheetData.fileName;
-      _simpleImportedPath = sheetData.path;
-      _simpleImportedFormat = sheetData.format;
-      _simpleCsvDelimiter = sheetData.csvDelimiter;
-      _simpleHasTypeRow = sheetData.hasTypeRow;
-      _simpleHasCachedValueTypes = sheetData.hasCachedValueTypes;
-      _simpleHeaderRowIndex = sheetData.headerRowIndex;
-      _simpleStartColumnIndex = sheetData.startColumnIndex;
-      _simpleImportedSheetName = sheetData.xlsxSheetName;
-      _simpleHeaders = sheetData.headers;
-      _simpleValueTypes = sheetData.valueTypes;
-      _simpleReadOnlyColumns = sheetData.readOnlyColumns;
-      _simplePendingTypeSelectionColumns =
+      _documentImportedFileName = sheetData.fileName;
+      _documentImportedPath = sheetData.path;
+      _documentImportedFormat = sheetData.format;
+      _documentCsvDelimiter = sheetData.csvDelimiter;
+      _documentHasTypeRow = sheetData.hasTypeRow;
+      _documentHasCachedValueTypes = sheetData.hasCachedValueTypes;
+      _documentHeaderRowIndex = sheetData.headerRowIndex;
+      _documentStartColumnIndex = sheetData.startColumnIndex;
+      _documentImportedSheetName = sheetData.xlsxSheetName;
+      _documentHeaders = sheetData.headers;
+      _documentValueTypes = sheetData.valueTypes;
+      _documentReadOnlyColumns = sheetData.readOnlyColumns;
+      _documentPendingTypeSelectionColumns =
           sheetData.pendingTypeSelectionColumns;
-      _simpleRows = sheetData.rows;
-      _simpleImportedWorkbook = sheetData.workbook;
-      _simpleImportedSourceBytes = sheetData.sourceBytes;
-      _simpleDocumentTarget =
+      _documentRows = sheetData.rows;
+      _documentImportedWorkbook = sheetData.workbook;
+      _documentImportedSourceBytes = sheetData.sourceBytes;
+      _documentDocumentTarget =
           target ?? LocalEditorDocumentTarget(existingPath: sheetData.path);
-      _simpleTextSelectionColumnIndex = selection.textColumnIndex;
-      _simpleTextSelectionValue = selection.textValue;
+      _documentTextSelectionColumnIndex = selection.textColumnIndex;
+      _documentTextSelectionValue = selection.textValue;
     });
 
     _selectEditorTargetRow(
       preferredRowIndex: selection.targetRowIndex,
       preserveSelectedTextTarget: true,
     );
-    _publishSimpleRowsToPreview();
+    _publishRowsToPreview();
     _modeBehavior.afterLoaded(this);
-    unawaited(_rememberSimpleOpenConfiguration(sheetData, target: target));
+    unawaited(_rememberOpenConfiguration(sheetData, target: target));
     return true;
   }
 
-  Future<void> _rememberSimpleOpenConfiguration(
+  Future<void> _rememberOpenConfiguration(
     SimpleSheetData sheetData, {
     EditorDocumentTarget? target,
   }) async {
@@ -398,7 +398,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
     final session = ServiceLocator.authService.currentSession;
     if (session == null) return;
 
-    final openMode = _simpleOpenMode.name;
+    final openMode = _documentOpenMode.name;
     final fileName = sheetData.fileName.trim().isEmpty
         ? 'document'
         : sheetData.fileName.trim();
@@ -449,20 +449,20 @@ class _EditingPageBaseState extends State<EditingPageBase>
     );
   }
 
-  int? _simpleDateColumnIndex() {
-    if (_simpleHeaders.isEmpty) return null;
-    final typeIndex = _simpleValueTypes.indexWhere(
+  int? _documentDateColumnIndex() {
+    if (_documentHeaders.isEmpty) return null;
+    final typeIndex = _documentValueTypes.indexWhere(
       (type) => type.trim().toLowerCase() == 'date',
     );
     if (typeIndex >= 0) return typeIndex;
-    final headerIndex = _simpleHeaders.indexWhere(
+    final headerIndex = _documentHeaders.indexWhere(
       (header) => _isDateHeaderName(header),
     );
     if (headerIndex >= 0) return headerIndex;
     return null;
   }
 
-  Future<_SimpleOpeningSelection?> _resolveSimpleOpeningSelection(
+  Future<_OpeningSelection?> _resolveOpeningSelection(
     SimpleSheetData sheetData,
   ) async {
     return _modeBehavior.resolveOpening(this, sheetData);
@@ -496,7 +496,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
     int? preferredRowIndex,
     bool preserveSelectedTextTarget = false,
   }) {
-    if (!_hasSimpleSchema) {
+    if (!_hasDocumentSchema) {
       return const _EditorTargetSelection(
         usedDateColumn: false,
         foundMatchingDateRow: false,
@@ -504,30 +504,30 @@ class _EditingPageBaseState extends State<EditingPageBase>
       );
     }
 
-    final dateColumn = _simpleDateColumnIndex();
+    final dateColumn = _documentDateColumnIndex();
     final today = DateTime.now();
-    int targetRowIndex = _simpleRows.length;
+    int targetRowIndex = _documentRows.length;
     var foundMatchingDateRow = false;
 
     if (preferredRowIndex != null &&
         preferredRowIndex >= 0 &&
-        preferredRowIndex <= _simpleRows.length) {
+        preferredRowIndex <= _documentRows.length) {
       targetRowIndex = preferredRowIndex;
-      if (preferredRowIndex < _simpleRows.length) {
+      if (preferredRowIndex < _documentRows.length) {
         foundMatchingDateRow =
             dateColumn != null &&
-            dateColumn < _simpleRows[preferredRowIndex].length &&
+            dateColumn < _documentRows[preferredRowIndex].length &&
             (() {
               final rowDate = _parseDateFromCellValue(
-                _simpleRows[preferredRowIndex][dateColumn],
+                _documentRows[preferredRowIndex][dateColumn],
               );
               return rowDate != null && _isSameCalendarDate(rowDate, today);
             })();
       }
     } else if (dateColumn != null) {
       int? fallbackMatchIndex;
-      for (var i = _simpleRows.length - 1; i >= 0; i--) {
-        final row = _simpleRows[i];
+      for (var i = _documentRows.length - 1; i >= 0; i--) {
+        final row = _documentRows[i];
         if (dateColumn >= row.length) {
           continue;
         }
@@ -542,19 +542,19 @@ class _EditingPageBaseState extends State<EditingPageBase>
           break;
         }
       }
-      targetRowIndex = targetRowIndex == _simpleRows.length
+      targetRowIndex = targetRowIndex == _documentRows.length
           ? (fallbackMatchIndex ?? targetRowIndex)
           : targetRowIndex;
     }
 
-    final draft = targetRowIndex < _simpleRows.length
-        ? _simpleRows[targetRowIndex]
-        : List<String>.filled(_simpleHeaders.length, '');
+    final draft = targetRowIndex < _documentRows.length
+        ? _documentRows[targetRowIndex]
+        : List<String>.filled(_documentHeaders.length, '');
     if (preserveSelectedTextTarget &&
-        _simpleTextSelectionColumnIndex != null &&
-        _simpleTextSelectionValue != null) {
-      final selectionColumn = _simpleTextSelectionColumnIndex!;
-      final selectionValue = _simpleTextSelectionValue!.trim();
+        _documentTextSelectionColumnIndex != null &&
+        _documentTextSelectionValue != null) {
+      final selectionColumn = _documentTextSelectionColumnIndex!;
+      final selectionValue = _documentTextSelectionValue!.trim();
       if (selectionValue.isNotEmpty &&
           selectionColumn < draft.length &&
           draft[selectionColumn].trim().isEmpty) {
@@ -565,12 +565,12 @@ class _EditingPageBaseState extends State<EditingPageBase>
       draft[dateColumn] = _formatDate(today);
     }
 
-    _replaceSimpleControllers(draft);
+    _replaceControllers(draft);
     setState(() {
-      _simpleEditingRowIndex = targetRowIndex;
+      _documentEditingRowIndex = targetRowIndex;
       if (!preserveSelectedTextTarget) {
-        _simpleTextSelectionColumnIndex = null;
-        _simpleTextSelectionValue = null;
+        _documentTextSelectionColumnIndex = null;
+        _documentTextSelectionValue = null;
       }
     });
     return _EditorTargetSelection(
@@ -635,13 +635,13 @@ class _EditingPageBaseState extends State<EditingPageBase>
     );
   }
 
-  List<int> _simpleTextSelectableColumnsForSheetData(
+  List<int> _documentTextSelectableColumnsForSheetData(
     SimpleSheetData sheetData,
   ) {
-    return _simpleTextSelectableColumnsForSheetDataInternal(sheetData);
+    return _documentTextSelectableColumnsForSheetDataInternal(sheetData);
   }
 
-  List<int> _simpleTextSelectableColumnsForSheetDataInternal(
+  List<int> _documentTextSelectableColumnsForSheetDataInternal(
     SimpleSheetData sheetData, {
     int? excludedColumnIndex,
   }) {
@@ -670,10 +670,10 @@ class _EditingPageBaseState extends State<EditingPageBase>
         type.contains('phone');
   }
 
-  DateTime _simpleCurrentEditorDate(int dateColumn) {
-    if (dateColumn >= 0 && dateColumn < _simpleControllers.length) {
+  DateTime _documentCurrentEditorDate(int dateColumn) {
+    if (dateColumn >= 0 && dateColumn < _documentControllers.length) {
       final parsed = _parseDateFromCellValue(
-        _simpleControllers[dateColumn].text,
+        _documentControllers[dateColumn].text,
       );
       if (parsed != null) return parsed;
     }
@@ -681,9 +681,9 @@ class _EditingPageBaseState extends State<EditingPageBase>
   }
 
   bool _rowHasEditableEmptyCell(List<String> row, {required int dateColumn}) {
-    for (var i = 0; i < _simpleHeaders.length; i++) {
+    for (var i = 0; i < _documentHeaders.length; i++) {
       final isReadOnly =
-          i < _simpleReadOnlyColumns.length && _simpleReadOnlyColumns[i];
+          i < _documentReadOnlyColumns.length && _documentReadOnlyColumns[i];
       if (i == dateColumn || isReadOnly) continue;
       final value = i < row.length ? row[i].trim() : '';
       if (value.isEmpty) return true;
@@ -706,20 +706,20 @@ class _EditingPageBaseState extends State<EditingPageBase>
     return false;
   }
 
-  void _replaceSimpleControllers(List<String> values) {
-    final oldControllers = _simpleControllers;
+  void _replaceControllers(List<String> values) {
+    final oldControllers = _documentControllers;
     final nextControllers = List<TextEditingController>.generate(
-      _simpleHeaders.length,
+      _documentHeaders.length,
       (index) => TextEditingController(
-        text: _initialSimpleControllerValue(columnIndex: index, values: values),
+        text: _initialControllerValue(columnIndex: index, values: values),
       ),
     );
 
     setState(() {
-      _simpleControllers = nextControllers;
-      _simpleEditingBaseline = _normalizeRowToWidth(
+      _documentControllers = nextControllers;
+      _documentEditingBaseline = _normalizeRowToWidth(
         values,
-        _simpleHeaders.length,
+        _documentHeaders.length,
       );
     });
 
@@ -730,24 +730,24 @@ class _EditingPageBaseState extends State<EditingPageBase>
     });
   }
 
-  Future<bool> _saveSimpleRow() =>
-      _saveSimpleRowInternal(mode: SimplePersistMode.safPreferred);
+  Future<bool> _saveDocumentRow() =>
+      _saveDocumentRowInternal(mode: SimplePersistMode.safPreferred);
 
-  Future<bool> _saveSimpleRowAsIs() =>
-      _saveSimpleRowInternal(mode: SimplePersistMode.asIs);
+  Future<bool> _saveDocumentRowAsIs() =>
+      _saveDocumentRowInternal(mode: SimplePersistMode.asIs);
 
-  String? _simpleRowValidationError(List<String> row) {
-    for (var index = 0; index < _simpleHeaders.length; index++) {
-      if (index >= row.length || index >= _simpleValueTypes.length) continue;
-      if (index < _simpleReadOnlyColumns.length &&
-          _simpleReadOnlyColumns[index]) {
+  String? _documentRowValidationError(List<String> row) {
+    for (var index = 0; index < _documentHeaders.length; index++) {
+      if (index >= row.length || index >= _documentValueTypes.length) continue;
+      if (index < _documentReadOnlyColumns.length &&
+          _documentReadOnlyColumns[index]) {
         continue;
       }
-      if (_isFixedSimpleDateField(index)) continue;
+      if (_isFixedDateField(index)) continue;
       final value = row[index].trim();
       if (value.isEmpty) continue;
-      final type = _simpleValueTypes[index];
-      final header = _simpleHeaders[index];
+      final type = _documentValueTypes[index];
+      final header = _documentHeaders[index];
 
       if (SimpleSheetLogic.isIntegerType(type) &&
           !SimpleSheetLogic.looksLikeIntegerValue(value)) {
@@ -758,7 +758,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
           !SimpleSheetLogic.looksLikeDecimalValue(value)) {
         return '$header must be a float.';
       }
-      if (_isSimpleBooleanType(type) &&
+      if (_isBooleanType(type) &&
           !SimpleSheetLogic.looksLikeBooleanValue(value)) {
         return '$header must be TRUE or FALSE.';
       }
@@ -766,45 +766,45 @@ class _EditingPageBaseState extends State<EditingPageBase>
           !SimpleSheetLogic.looksLikeDateValue(value)) {
         return '$header must be a date.';
       }
-      if (_isSimpleTimeType(type) &&
-          !SimpleSheetLogic.looksLikeTimeValue(value)) {
+      if (_isTimeType(type) && !SimpleSheetLogic.looksLikeTimeValue(value)) {
         return '$header must be a time.';
       }
-      if (_isSimpleDurationType(type) &&
-          !_looksLikeSimpleDurationValue(value)) {
+      if (_isDurationType(type) && !_looksLikeDurationValue(value)) {
         return '$header must be a duration.';
       }
     }
     return null;
   }
 
-  Future<bool> _saveSimpleRowInternal({required SimplePersistMode mode}) async {
-    if (!_hasSimpleSchema ||
-        _simpleControllers.length != _simpleHeaders.length) {
+  Future<bool> _saveDocumentRowInternal({
+    required SimplePersistMode mode,
+  }) async {
+    if (!_hasDocumentSchema ||
+        _documentControllers.length != _documentHeaders.length) {
       return false;
     }
 
-    final updatedRow = _simpleControllers
+    final updatedRow = _documentControllers
         .map((controller) => controller.text.trim())
         .toList();
-    final validationError = _simpleRowValidationError(updatedRow);
+    final validationError = _documentRowValidationError(updatedRow);
     if (validationError != null) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(validationError)));
       return false;
     }
-    final nextRows = List<List<String>>.from(_simpleRows);
+    final nextRows = List<List<String>>.from(_documentRows);
     final forcedTargetIndex = _findBestExistingRowForSave(updatedRow);
-    final effectiveTargetIndex = forcedTargetIndex ?? _simpleEditingRowIndex;
+    final effectiveTargetIndex = forcedTargetIndex ?? _documentEditingRowIndex;
     final normalizedUpdated = _normalizeRowToWidth(
       updatedRow,
-      _simpleHeaders.length,
+      _documentHeaders.length,
     );
 
     if (effectiveTargetIndex < nextRows.length) {
       if (forcedTargetIndex != null &&
-          forcedTargetIndex != _simpleEditingRowIndex) {
+          forcedTargetIndex != _documentEditingRowIndex) {
         nextRows[effectiveTargetIndex] = _mergeRowForAutoFill(
           existing: nextRows[effectiveTargetIndex],
           incoming: normalizedUpdated,
@@ -817,31 +817,31 @@ class _EditingPageBaseState extends State<EditingPageBase>
     }
 
     setState(() {
-      _simpleRows = nextRows;
-      _simpleEditingRowIndex = effectiveTargetIndex;
-      if (_simpleEditingRowIndex >= _simpleRows.length) {
-        _simpleEditingRowIndex = _simpleRows.length - 1;
+      _documentRows = nextRows;
+      _documentEditingRowIndex = effectiveTargetIndex;
+      if (_documentEditingRowIndex >= _documentRows.length) {
+        _documentEditingRowIndex = _documentRows.length - 1;
       }
-      if (_simpleTextSelectionColumnIndex != null &&
-          _simpleTextSelectionColumnIndex! < _simpleHeaders.length &&
-          _simpleEditingRowIndex >= 0 &&
-          _simpleEditingRowIndex < _simpleRows.length &&
-          _simpleTextSelectionColumnIndex! <
-              _simpleRows[_simpleEditingRowIndex].length) {
+      if (_documentTextSelectionColumnIndex != null &&
+          _documentTextSelectionColumnIndex! < _documentHeaders.length &&
+          _documentEditingRowIndex >= 0 &&
+          _documentEditingRowIndex < _documentRows.length &&
+          _documentTextSelectionColumnIndex! <
+              _documentRows[_documentEditingRowIndex].length) {
         final nextValue =
-            _simpleRows[_simpleEditingRowIndex][_simpleTextSelectionColumnIndex!]
+            _documentRows[_documentEditingRowIndex][_documentTextSelectionColumnIndex!]
                 .trim();
-        _simpleTextSelectionValue = nextValue.isEmpty ? null : nextValue;
+        _documentTextSelectionValue = nextValue.isEmpty ? null : nextValue;
       }
     });
-    _publishSimpleRowsToPreview();
+    _publishRowsToPreview();
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final saveResult = await _persistSimpleSheet(mode: mode);
+      final saveResult = await _persistSheet(mode: mode);
       if (!mounted) return false;
       messenger.showSnackBar(SnackBar(content: Text(_saveMessage(saveResult))));
       setState(() {
-        _simpleEditingBaseline = normalizedUpdated;
+        _documentEditingBaseline = normalizedUpdated;
       });
       return true;
     } catch (error) {
@@ -940,10 +940,10 @@ class _EditingPageBaseState extends State<EditingPageBase>
   }
 
   int? _findBestExistingRowForSave(List<String> updatedRow) {
-    if (_simpleOpenMode != EditorOpenMode.dateBased) {
+    if (_documentOpenMode != EditorOpenMode.dateBased) {
       return null;
     }
-    final dateColumn = _simpleDateColumnIndex();
+    final dateColumn = _documentDateColumnIndex();
     if (dateColumn == null || dateColumn >= updatedRow.length) {
       return null;
     }
@@ -953,8 +953,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
     }
 
     int? fallbackMatchIndex;
-    for (var i = _simpleRows.length - 1; i >= 0; i--) {
-      final row = _simpleRows[i];
+    for (var i = _documentRows.length - 1; i >= 0; i--) {
+      final row = _documentRows[i];
       if (dateColumn >= row.length) continue;
       final rowDate = _parseDateFromCellValue(row[dateColumn]);
       if (rowDate == null || !_isSameCalendarDate(rowDate, targetDate)) {
@@ -974,55 +974,43 @@ class _EditingPageBaseState extends State<EditingPageBase>
   }) {
     final normalizedExisting = _normalizeRowToWidth(
       existing,
-      _simpleHeaders.length,
+      _documentHeaders.length,
     );
-    return List<String>.generate(_simpleHeaders.length, (index) {
+    return List<String>.generate(_documentHeaders.length, (index) {
       final next = index < incoming.length ? incoming[index].trim() : '';
       if (next.isNotEmpty) return next;
       return normalizedExisting[index];
     });
   }
 
-  void _clearSimpleEditableFields() {
-    final dateColumn = _simpleDateColumnIndex();
-    for (var i = 0; i < _simpleControllers.length; i++) {
+  void _clearEditableFields() {
+    final dateColumn = _documentDateColumnIndex();
+    for (var i = 0; i < _documentControllers.length; i++) {
       final isReadOnly =
-          i < _simpleReadOnlyColumns.length && _simpleReadOnlyColumns[i];
+          i < _documentReadOnlyColumns.length && _documentReadOnlyColumns[i];
       if (i == dateColumn || isReadOnly) continue;
-      if (i < _simpleValueTypes.length &&
-          _isSimpleBooleanType(_simpleValueTypes[i])) {
-        _simpleControllers[i].text = 'FALSE';
-        continue;
-      }
-      _simpleControllers[i].clear();
+      _documentControllers[i].clear();
     }
     setState(() {});
   }
 
-  void _updatePendingSimpleType(int columnIndex, String nextType) {
-    final nextTypes = List<String>.from(_simpleValueTypes);
+  void _updatePendingType(int columnIndex, String nextType) {
+    final nextTypes = List<String>.from(_documentValueTypes);
     if (columnIndex < 0 || columnIndex >= nextTypes.length) return;
     if (columnIndex == 0 && _modeBehavior.requiredFirstColumnType != null) {
       nextType = _modeBehavior.requiredFirstColumnType!;
     }
     nextTypes[columnIndex] = nextType;
-    if (_isSimpleBooleanType(nextType) &&
-        columnIndex < _simpleControllers.length &&
-        !SimpleSheetLogic.looksLikeBooleanValue(
-          _simpleControllers[columnIndex].text,
-        )) {
-      _simpleControllers[columnIndex].text = 'FALSE';
-    }
     setState(() {
-      _simpleValueTypes = nextTypes;
+      _documentValueTypes = nextTypes;
     });
   }
 
-  void _toggleSimpleFieldTypes() {
+  void _toggleFieldTypes() {
     setState(() {
-      _showSimpleFieldTypes = !_showSimpleFieldTypes;
+      _showFieldTypes = !_showFieldTypes;
     });
-    if (_showSimpleFieldTypes) {
+    if (_showFieldTypes) {
       _typeTogglePulseController.repeat(reverse: true);
     } else {
       _typeTogglePulseController.stop();
@@ -1036,8 +1024,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
     return type;
   }
 
-  void _confirmPendingSimpleTypes() {
-    if (_simplePendingTypeSelectionColumns.isEmpty) return;
+  void _confirmPendingTypes() {
+    if (_documentPendingTypeSelectionColumns.isEmpty) return;
     final validationMessage = _modeBehavior.validatePendingTypes(this);
     if (validationMessage != null) {
       ScaffoldMessenger.of(
@@ -1046,25 +1034,25 @@ class _EditingPageBaseState extends State<EditingPageBase>
       return;
     }
     setState(() {
-      _simplePendingTypeSelectionColumns = const <int>[];
+      _documentPendingTypeSelectionColumns = const <int>[];
     });
-    unawaited(_rememberCurrentSimpleTypeHints());
+    unawaited(_rememberCurrentTypeHints());
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Field formats confirmed.')));
   }
 
-  void _resetSimpleTypeSelection() {
+  void _resetTypeSelection() {
     final editableColumns =
-        List<int>.generate(_simpleHeaders.length, (index) => index).where((
+        List<int>.generate(_documentHeaders.length, (index) => index).where((
           index,
         ) {
-          if (index >= _simpleValueTypes.length) return false;
+          if (index >= _documentValueTypes.length) return false;
           if (index == 0 && _modeBehavior.requiredFirstColumnType != null) {
             return true;
           }
-          if (index < _simpleReadOnlyColumns.length) {
-            return !_simpleReadOnlyColumns[index];
+          if (index < _documentReadOnlyColumns.length) {
+            return !_documentReadOnlyColumns[index];
           }
           return true;
         }).toList();
@@ -1077,13 +1065,13 @@ class _EditingPageBaseState extends State<EditingPageBase>
     }
 
     setState(() {
-      _simplePendingTypeSelectionColumns = editableColumns;
+      _documentPendingTypeSelectionColumns = editableColumns;
     });
   }
 
-  Future<void> _rememberCurrentSimpleTypeHints() async {
-    final target = _simpleDocumentTarget;
-    final fileName = _simpleImportedFileName ?? 'calcrow_simple';
+  Future<void> _rememberCurrentTypeHints() async {
+    final target = _documentDocumentTarget;
+    final fileName = _documentImportedFileName ?? 'calcrow_sheet';
     try {
       if (target is CloudEditorDocumentTarget) {
         await ServiceLocator.simpleCloudDocumentService.rememberTypeHints(
@@ -1093,29 +1081,29 @@ class _EditingPageBaseState extends State<EditingPageBase>
             name: target.fileName,
             mimeType: target.mimeType,
           ),
-          valueTypes: _simpleValueTypes,
+          valueTypes: _documentValueTypes,
         );
         return;
       }
 
       await SimpleTypeHintCache.rememberCsvTypes(
         fileName: fileName,
-        path: _simpleImportedPath,
-        valueTypes: _simpleValueTypes,
+        path: _documentImportedPath,
+        valueTypes: _documentValueTypes,
       );
     } catch (_) {
       // Type hints are convenience data; confirming formats should not fail.
     }
   }
 
-  void _publishSimpleRowsToPreview() {
+  void _publishRowsToPreview() {
     SheetPreviewStore.notifier.value = SheetPreviewStore.notifier.value
         .copyWith(
-          headers: _simpleHeaders,
-          rows: _simpleRows,
-          fileName: _simpleImportedFileName,
-          rowCount: _simpleRows.length,
-          onSaveAsIs: _saveSimpleRowAsIs,
+          headers: _documentHeaders,
+          rows: _documentRows,
+          fileName: _documentImportedFileName,
+          rowCount: _documentRows.length,
+          onSaveAsIs: _saveDocumentRowAsIs,
         );
   }
 
@@ -1127,7 +1115,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
       unawaited(_modeBehavior.handleSheetPreviewNewEntryPick(this));
       return;
     }
-    if (rowIndex < 0 || rowIndex >= _simpleRows.length) {
+    if (rowIndex < 0 || rowIndex >= _documentRows.length) {
       return;
     }
     _modeBehavior.handleSheetPreviewRowPick(this, rowIndex);
@@ -1135,17 +1123,17 @@ class _EditingPageBaseState extends State<EditingPageBase>
 
   void _selectLogbookPreviewRow(int rowIndex) {
     setState(() {
-      _simpleTextSelectionColumnIndex = null;
-      _simpleTextSelectionValue = null;
+      _documentTextSelectionColumnIndex = null;
+      _documentTextSelectionValue = null;
     });
     _selectEditorTargetRow(preferredRowIndex: rowIndex);
   }
 
   void _selectNamelistPreviewRow(int rowIndex) {
-    final textTarget = _simpleTextTargetForRowIndex(rowIndex);
+    final textTarget = _documentTextTargetForRowIndex(rowIndex);
     setState(() {
-      _simpleTextSelectionColumnIndex = textTarget?.columnIndex;
-      _simpleTextSelectionValue = textTarget?.value;
+      _documentTextSelectionColumnIndex = textTarget?.columnIndex;
+      _documentTextSelectionValue = textTarget?.value;
     });
     _selectEditorTargetRow(
       preferredRowIndex: rowIndex,
@@ -1153,16 +1141,16 @@ class _EditingPageBaseState extends State<EditingPageBase>
     );
   }
 
-  _SimpleTextTargetSelection? _simpleTextTargetForRowIndex(int rowIndex) {
-    if (rowIndex < 0 || rowIndex >= _simpleRows.length) return null;
-    final row = _simpleRows[rowIndex];
-    final candidateColumns = _simpleTextSelectableColumnsForSheetData(
-      _buildSimpleSheetDataForPersist(),
+  _TextTargetSelection? _documentTextTargetForRowIndex(int rowIndex) {
+    if (rowIndex < 0 || rowIndex >= _documentRows.length) return null;
+    final row = _documentRows[rowIndex];
+    final candidateColumns = _documentTextSelectableColumnsForSheetData(
+      _buildSheetDataForPersist(),
     );
     for (final columnIndex in candidateColumns) {
       final value = columnIndex < row.length ? row[columnIndex].trim() : '';
       if (value.isEmpty) continue;
-      return _SimpleTextTargetSelection(
+      return _TextTargetSelection(
         columnIndex: columnIndex,
         rowIndex: rowIndex,
         value: value,
@@ -1171,12 +1159,12 @@ class _EditingPageBaseState extends State<EditingPageBase>
     return null;
   }
 
-  void _beginSimpleTextEntryRowPick() {
-    _publishSimpleRowsToPreview();
+  void _beginTextEntryRowPick() {
+    _publishRowsToPreview();
     SheetPreviewStore.beginRowPick(
       SheetPreviewRowPickRequest(
         selectableRowIndexes: <int>{
-          for (var rowIndex = 0; rowIndex < _simpleRows.length; rowIndex++)
+          for (var rowIndex = 0; rowIndex < _documentRows.length; rowIndex++)
             rowIndex,
         },
         title: 'Pick Entry',
@@ -1191,8 +1179,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
     await _modeBehavior.pickFromCurrentSheet(this);
   }
 
-  Future<void> _pickSimpleTodayEntryFromCurrentSheet() async {
-    final dateColumn = _simpleDateColumnIndex();
+  Future<void> _pickTodayEntryFromCurrentSheet() async {
+    final dateColumn = _documentDateColumnIndex();
     if (dateColumn == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1202,13 +1190,13 @@ class _EditingPageBaseState extends State<EditingPageBase>
       return;
     }
 
-    final targetDate = _simpleCurrentEditorDate(dateColumn);
+    final targetDate = _documentCurrentEditorDate(dateColumn);
     final matchingRowIndexes = <int>{
-      for (var rowIndex = 0; rowIndex < _simpleRows.length; rowIndex++)
-        if (dateColumn < _simpleRows[rowIndex].length &&
+      for (var rowIndex = 0; rowIndex < _documentRows.length; rowIndex++)
+        if (dateColumn < _documentRows[rowIndex].length &&
             (() {
               final rowDate = _parseDateFromCellValue(
-                _simpleRows[rowIndex][dateColumn],
+                _documentRows[rowIndex][dateColumn],
               );
               return rowDate != null &&
                   _isSameCalendarDate(rowDate, targetDate);
@@ -1225,7 +1213,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
       return;
     }
 
-    _publishSimpleRowsToPreview();
+    _publishRowsToPreview();
     SheetPreviewStore.beginRowPick(
       SheetPreviewRowPickRequest(
         selectableRowIndexes: matchingRowIndexes,
@@ -1236,20 +1224,20 @@ class _EditingPageBaseState extends State<EditingPageBase>
   }
 
   bool get _hasUnsavedSimpleRowEdits {
-    if (!_hasSimpleControllersReady) return false;
-    final current = _simpleControllers
+    if (!_hasDocumentControllersReady) return false;
+    final current = _documentControllers
         .map((controller) => controller.text.trim())
         .toList(growable: false);
     return !listEquals(
-      _normalizeRowToWidth(current, _simpleHeaders.length),
-      _normalizeRowToWidth(_simpleEditingBaseline, _simpleHeaders.length),
+      _normalizeRowToWidth(current, _documentHeaders.length),
+      _normalizeRowToWidth(_documentEditingBaseline, _documentHeaders.length),
     );
   }
 
   Future<bool> _confirmReplacingUnsavedSimpleEdits() async {
     if (!_hasUnsavedSimpleRowEdits) return true;
 
-    final choice = await showDialog<_SimpleUnsavedEditsChoice>(
+    final choice = await showDialog<_UnsavedEditsChoice>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Unsaved row edits'),
@@ -1260,9 +1248,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
             child: Row(
               children: [
                 TextButton(
-                  onPressed: () => Navigator.of(
-                    context,
-                  ).pop(_SimpleUnsavedEditsChoice.cancel),
+                  onPressed: () =>
+                      Navigator.of(context).pop(_UnsavedEditsChoice.cancel),
                   child: const Text('Cancel'),
                 ),
                 const SizedBox(width: 12),
@@ -1275,7 +1262,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
                           child: OutlinedButton(
                             onPressed: () => Navigator.of(
                               context,
-                            ).pop(_SimpleUnsavedEditsChoice.discard),
+                            ).pop(_UnsavedEditsChoice.discard),
                             child: const FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text('Discard'),
@@ -1290,7 +1277,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
                           child: FilledButton(
                             onPressed: () => Navigator.of(
                               context,
-                            ).pop(_SimpleUnsavedEditsChoice.save),
+                            ).pop(_UnsavedEditsChoice.save),
                             child: const FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text('Save'),
@@ -1310,22 +1297,22 @@ class _EditingPageBaseState extends State<EditingPageBase>
 
     if (!mounted) return false;
     switch (choice) {
-      case _SimpleUnsavedEditsChoice.save:
-        return _saveSimpleRowInternal(mode: SimplePersistMode.safPreferred);
-      case _SimpleUnsavedEditsChoice.discard:
+      case _UnsavedEditsChoice.save:
+        return _saveDocumentRowInternal(mode: SimplePersistMode.safPreferred);
+      case _UnsavedEditsChoice.discard:
         return true;
-      case _SimpleUnsavedEditsChoice.cancel:
+      case _UnsavedEditsChoice.cancel:
       case null:
         return false;
     }
   }
 
-  Future<void> _createNewSimpleTextEntry() async {
+  Future<void> _createNewTextEntry() async {
     if (!await _confirmReplacingUnsavedSimpleEdits()) return;
     if (!mounted) return;
 
-    final candidateColumns = _simpleTextSelectableColumnsForSheetData(
-      _buildSimpleSheetDataForPersist(),
+    final candidateColumns = _documentTextSelectableColumnsForSheetData(
+      _buildSheetDataForPersist(),
     );
     if (candidateColumns.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1339,24 +1326,24 @@ class _EditingPageBaseState extends State<EditingPageBase>
     }
 
     final textColumnIndex =
-        (_simpleTextSelectionColumnIndex != null &&
-            candidateColumns.contains(_simpleTextSelectionColumnIndex))
-        ? _simpleTextSelectionColumnIndex!
+        (_documentTextSelectionColumnIndex != null &&
+            candidateColumns.contains(_documentTextSelectionColumnIndex))
+        ? _documentTextSelectionColumnIndex!
         : candidateColumns.first;
-    final draft = List<String>.filled(_simpleHeaders.length, '');
-    _replaceSimpleControllers(draft);
+    final draft = List<String>.filled(_documentHeaders.length, '');
+    _replaceControllers(draft);
     setState(() {
-      _simpleEditingRowIndex = _simpleRows.length;
-      _simpleTextSelectionColumnIndex = textColumnIndex;
-      _simpleTextSelectionValue = null;
+      _documentEditingRowIndex = _documentRows.length;
+      _documentTextSelectionColumnIndex = textColumnIndex;
+      _documentTextSelectionValue = null;
     });
   }
 
-  Future<void> _createNewSimpleDateOpenEndRow() async {
+  Future<void> _createNewDateOpenEndRow() async {
     if (!await _confirmReplacingUnsavedSimpleEdits()) return;
     if (!mounted) return;
 
-    final dateColumn = _simpleDateColumnIndex();
+    final dateColumn = _documentDateColumnIndex();
     if (dateColumn == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1366,46 +1353,46 @@ class _EditingPageBaseState extends State<EditingPageBase>
       return;
     }
 
-    final draft = List<String>.filled(_simpleHeaders.length, '');
+    final draft = List<String>.filled(_documentHeaders.length, '');
     draft[dateColumn] = _formatDate(DateTime.now());
-    _replaceSimpleControllers(draft);
+    _replaceControllers(draft);
     setState(() {
-      _simpleEditingRowIndex = _simpleRows.length;
-      _simpleTextSelectionColumnIndex = null;
-      _simpleTextSelectionValue = null;
+      _documentEditingRowIndex = _documentRows.length;
+      _documentTextSelectionColumnIndex = null;
+      _documentTextSelectionValue = null;
     });
   }
 
-  Future<SimplePersistResult> _persistSimpleSheet({
+  Future<SimplePersistResult> _persistSheet({
     required SimplePersistMode mode,
   }) async {
-    final target = _simpleDocumentTarget;
+    final target = _documentDocumentTarget;
     if (target is CloudEditorDocumentTarget) {
-      return _persistSimpleCloud(target: target);
+      return _persistCloud(target: target);
     }
-    final format = _simpleImportedFormat;
+    final format = _documentImportedFormat;
     if (format == SimpleFileFormat.xlsx) {
-      return _persistSimpleXlsx(mode: mode);
+      return _persistXlsx(mode: mode);
     }
     if (format == SimpleFileFormat.ods) {
-      return _persistSimpleOds(mode: mode);
+      return _persistOds(mode: mode);
     }
     if (format == SimpleFileFormat.gsheet) {
-      return _persistSimpleCloud(
-        target: _simpleDocumentTarget as CloudEditorDocumentTarget,
+      return _persistCloud(
+        target: _documentDocumentTarget as CloudEditorDocumentTarget,
       );
     }
-    return _persistSimpleCsv(mode: mode);
+    return _persistCsv(mode: mode);
   }
 
-  Future<SimplePersistResult> _persistSimpleCsv({
+  Future<SimplePersistResult> _persistCsv({
     required SimplePersistMode mode,
   }) async {
     final bytes = SimpleSheetFileService.buildBytes(
-      _buildSimpleSheetDataForPersist(),
+      _buildSheetDataForPersist(),
     );
-    final fileName = _simpleSuggestedFileName();
-    return _persistSimpleBytes(
+    final fileName = _documentSuggestedFileName();
+    return _persistBytes(
       bytes: bytes,
       fileName: fileName,
       typeGroup: _csvTypeGroup,
@@ -1415,15 +1402,15 @@ class _EditingPageBaseState extends State<EditingPageBase>
     );
   }
 
-  Future<SimplePersistResult> _persistSimpleXlsx({
+  Future<SimplePersistResult> _persistXlsx({
     required SimplePersistMode mode,
   }) async {
     final bytes = SimpleSheetFileService.buildBytes(
-      _buildSimpleSheetDataForPersist(),
+      _buildSheetDataForPersist(),
     );
 
-    final fileName = _simpleSuggestedFileName(defaultExtension: 'xlsx');
-    return _persistSimpleBytes(
+    final fileName = _documentSuggestedFileName(defaultExtension: 'xlsx');
+    return _persistBytes(
       bytes: bytes,
       fileName: fileName,
       typeGroup: _xlsxTypeGroup,
@@ -1434,15 +1421,15 @@ class _EditingPageBaseState extends State<EditingPageBase>
     );
   }
 
-  Future<SimplePersistResult> _persistSimpleOds({
+  Future<SimplePersistResult> _persistOds({
     required SimplePersistMode mode,
   }) async {
     final bytes = SimpleSheetFileService.buildBytes(
-      _buildSimpleSheetDataForPersist(),
+      _buildSheetDataForPersist(),
     );
 
-    final fileName = _simpleSuggestedFileName(defaultExtension: 'ods');
-    return _persistSimpleBytes(
+    final fileName = _documentSuggestedFileName(defaultExtension: 'ods');
+    return _persistBytes(
       bytes: bytes,
       fileName: fileName,
       typeGroup: _odsTypeGroup,
@@ -1452,16 +1439,16 @@ class _EditingPageBaseState extends State<EditingPageBase>
     );
   }
 
-  Future<SimplePersistResult> _persistSimpleCloud({
+  Future<SimplePersistResult> _persistCloud({
     required CloudEditorDocumentTarget target,
   }) async {
-    final simpleData = _buildSimpleSheetDataForPersist();
-    final format = _simpleImportedFormat ?? SimpleFileFormat.csv;
+    final simpleData = _buildSheetDataForPersist();
+    final format = _documentImportedFormat ?? SimpleFileFormat.csv;
     final bytes = target.mimeType == GoogleDriveSyncService.googleSheetsMimeType
         ? Uint8List(0)
         : SimpleSheetFileService.buildBytes(simpleData);
     final mimeType = _mimeTypeForFormat(format);
-    final fileName = _simpleSuggestedFileName(
+    final fileName = _documentSuggestedFileName(
       defaultExtension: SimpleSheetFileService.defaultExtensionForFormat(
         format,
       ),
@@ -1484,13 +1471,13 @@ class _EditingPageBaseState extends State<EditingPageBase>
       await SimpleTypeHintCache.rememberCsvTypes(
         fileName: metadata.name,
         path: metadata.id,
-        valueTypes: _simpleValueTypes,
+        valueTypes: _documentValueTypes,
       );
     }
     setState(() {
-      _simpleImportedFileName = metadata.name;
-      _simpleImportedPath = null;
-      _simpleDocumentTarget = CloudEditorDocumentTarget(
+      _documentImportedFileName = metadata.name;
+      _documentImportedPath = null;
+      _documentDocumentTarget = CloudEditorDocumentTarget(
         provider: metadata.provider,
         fileId: metadata.id,
         fileName: metadata.name,
@@ -1508,23 +1495,23 @@ class _EditingPageBaseState extends State<EditingPageBase>
     );
   }
 
-  SimpleSheetData _buildSimpleSheetDataForPersist() {
+  SimpleSheetData _buildSheetDataForPersist() {
     return SimpleSheetData(
-      fileName: _simpleImportedFileName ?? 'calcrow_simple',
-      path: _simpleImportedPath,
-      format: _simpleImportedFormat ?? SimpleFileFormat.csv,
-      headers: _simpleHeaders,
-      valueTypes: _simpleValueTypes,
-      readOnlyColumns: _simpleReadOnlyColumns,
-      rows: _simpleRows,
-      hasCachedValueTypes: _simpleHasCachedValueTypes,
-      csvDelimiter: _simpleCsvDelimiter,
-      hasTypeRow: _simpleHasTypeRow,
-      headerRowIndex: _simpleHeaderRowIndex,
-      startColumnIndex: _simpleStartColumnIndex,
-      xlsxSheetName: _simpleImportedSheetName,
-      workbook: _simpleImportedWorkbook,
-      sourceBytes: _simpleImportedSourceBytes,
+      fileName: _documentImportedFileName ?? 'calcrow_sheet',
+      path: _documentImportedPath,
+      format: _documentImportedFormat ?? SimpleFileFormat.csv,
+      headers: _documentHeaders,
+      valueTypes: _documentValueTypes,
+      readOnlyColumns: _documentReadOnlyColumns,
+      rows: _documentRows,
+      hasCachedValueTypes: _documentHasCachedValueTypes,
+      csvDelimiter: _documentCsvDelimiter,
+      hasTypeRow: _documentHasTypeRow,
+      headerRowIndex: _documentHeaderRowIndex,
+      startColumnIndex: _documentStartColumnIndex,
+      xlsxSheetName: _documentImportedSheetName,
+      workbook: _documentImportedWorkbook,
+      sourceBytes: _documentImportedSourceBytes,
     );
   }
 
@@ -1532,7 +1519,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
     return SimpleSheetFileService.mimeTypeForFormat(format);
   }
 
-  Future<SimplePersistResult> _persistSimpleBytes({
+  Future<SimplePersistResult> _persistBytes({
     required Uint8List bytes,
     required String fileName,
     required XTypeGroup typeGroup,
@@ -1548,7 +1535,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
         typeGroup: typeGroup,
         mimeType: mimeType,
         confirmButtonText: confirmButtonText,
-        existingPath: _simpleImportedPath,
+        existingPath: _documentImportedPath,
         preferredSafTreeUri: preferredSafTreeUri,
         mode: mode,
       ),
@@ -1556,12 +1543,12 @@ class _EditingPageBaseState extends State<EditingPageBase>
     await SimpleTypeHintCache.rememberCsvTypes(
       fileName: result.resolvedFileName,
       path: result.savedPath,
-      valueTypes: _simpleValueTypes,
+      valueTypes: _documentValueTypes,
     );
     setState(() {
-      _simpleImportedPath = result.savedPath;
-      _simpleImportedFileName = result.resolvedFileName;
-      _simpleDocumentTarget = LocalEditorDocumentTarget(
+      _documentImportedPath = result.savedPath;
+      _documentImportedFileName = result.resolvedFileName;
+      _documentDocumentTarget = LocalEditorDocumentTarget(
         existingPath: result.savedPath,
       );
     });
@@ -1593,9 +1580,9 @@ class _EditingPageBaseState extends State<EditingPageBase>
     return uri;
   }
 
-  String _simpleSuggestedFileName({String? defaultExtension}) {
-    final current = _simpleImportedFileName?.trim();
-    final currentFormat = _simpleImportedFormat ?? SimpleFileFormat.csv;
+  String _documentSuggestedFileName({String? defaultExtension}) {
+    final current = _documentImportedFileName?.trim();
+    final currentFormat = _documentImportedFormat ?? SimpleFileFormat.csv;
     if (currentFormat == SimpleFileFormat.gsheet) {
       if (current == null || current.isEmpty) {
         return 'calcrow_sheet';
@@ -1606,7 +1593,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
         defaultExtension ??
         SimpleSheetFileService.defaultExtensionForFormat(currentFormat);
     if (current == null || current.isEmpty) {
-      return 'calcrow_simple.$extension';
+      return 'calcrow_sheet.$extension';
     }
     if (current.toLowerCase().endsWith('.$extension')) {
       return current;
@@ -2196,23 +2183,23 @@ class _EditingPageBaseState extends State<EditingPageBase>
           children: [
             _TopHeader(
               isAdvancedMode: _isAdvancedMode,
-              showBackButton: _isAdvancedMode || _hasSimpleSchema,
+              showBackButton: _isAdvancedMode || _hasDocumentSchema,
               showModeSwitch: false,
               headerTitle: _headerTitle,
               setupDone: _setupDone,
               widgetOptions: _widgetBlocks,
               visibleWidgets: _visibleWidgets,
-              trailingActions: !_isAdvancedMode && _hasSimpleSchema
+              trailingActions: !_isAdvancedMode && _hasDocumentSchema
                   ? [
                       IconButton(
-                        tooltip: _showSimpleFieldTypes
+                        tooltip: _showFieldTypes
                             ? 'Hide field types'
                             : 'Show field types',
-                        onPressed: _toggleSimpleFieldTypes,
+                        onPressed: _toggleFieldTypes,
                         icon: AnimatedBuilder(
                           animation: _typeTogglePulse,
                           builder: (context, child) {
-                            if (!_showSimpleFieldTypes) {
+                            if (!_showFieldTypes) {
                               return child!;
                             }
                             final pulse = _typeTogglePulse.value;
@@ -2239,7 +2226,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
             ),
             const SizedBox(height: 14),
             if (!_isAdvancedMode) ...[
-              _buildSimpleView(theme),
+              _buildView(theme),
             ] else if (!_setupDone) ...[
               _buildSetupView(theme),
             ] else ...[
@@ -2294,8 +2281,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
     );
   }
 
-  Widget _buildSimpleView(ThemeData theme) {
-    if (!_hasSimpleSchema) {
+  Widget _buildView(ThemeData theme) {
+    if (!_hasDocumentSchema) {
       return Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -2314,7 +2301,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
       );
     }
 
-    if (!_hasSimpleControllersReady) {
+    if (!_hasDocumentControllersReady) {
       return const Card(
         child: Padding(
           padding: EdgeInsets.all(16),
@@ -2333,25 +2320,26 @@ class _EditingPageBaseState extends State<EditingPageBase>
       );
     }
 
-    final dateColumn = _simpleDateColumnIndex();
-    final isEditingExisting = _simpleEditingRowIndex < _simpleRows.length;
-    final validPendingTypeSelectionColumns = _simplePendingTypeSelectionColumns
-        .where(
-          (index) =>
-              index >= 0 &&
-              index < _simpleHeaders.length &&
-              index < _simpleValueTypes.length,
-        )
-        .toList();
+    final dateColumn = _documentDateColumnIndex();
+    final isEditingExisting = _documentEditingRowIndex < _documentRows.length;
+    final validPendingTypeSelectionColumns =
+        _documentPendingTypeSelectionColumns
+            .where(
+              (index) =>
+                  index >= 0 &&
+                  index < _documentHeaders.length &&
+                  index < _documentValueTypes.length,
+            )
+            .toList();
     final hasPendingTypeSelection = validPendingTypeSelectionColumns.isNotEmpty;
     final targetLabel = isEditingExisting
-        ? 'Editing row ${_simpleEditingRowIndex + 1} of ${_simpleRows.length}'
+        ? 'Editing row ${_documentEditingRowIndex + 1} of ${_documentRows.length}'
         : 'Editing new row at bottom';
     final isSheetDocumentSource =
-        _simpleImportedFormat == SimpleFileFormat.xlsx ||
-        _simpleImportedFormat == SimpleFileFormat.ods ||
-        _simpleImportedFormat == SimpleFileFormat.gsheet;
-    final sheetName = _simpleImportedSheetName?.trim();
+        _documentImportedFormat == SimpleFileFormat.xlsx ||
+        _documentImportedFormat == SimpleFileFormat.ods ||
+        _documentImportedFormat == SimpleFileFormat.gsheet;
+    final sheetName = _documentImportedSheetName?.trim();
     final activeSheetLabel = isSheetDocumentSource
         ? ((sheetName == null || sheetName.isEmpty) ? 'default' : sheetName)
         : null;
@@ -2359,9 +2347,9 @@ class _EditingPageBaseState extends State<EditingPageBase>
         ? 'Set Datatypes and bear in mind that calculated fields are read-only.'
         : 'This file has no usable type row yet. Pick the editable field formats once before saving.';
     final canOpenLocalDocumentFromCard =
-        (_supportsLocalFileEditing && _simpleDocumentTarget == null) ||
+        (_supportsLocalFileEditing && _documentDocumentTarget == null) ||
         (_supportsLocalFileEditing &&
-            _simpleDocumentTarget is LocalEditorDocumentTarget);
+            _documentDocumentTarget is LocalEditorDocumentTarget);
     final canCreateOpenEndDateRow = _modeBehavior.showsDateOpenEndActions;
 
     return Column(
@@ -2382,9 +2370,9 @@ class _EditingPageBaseState extends State<EditingPageBase>
                         children: [
                           Expanded(
                             child: Text(
-                              _simpleImportedFileName == null
+                              _documentImportedFileName == null
                                   ? targetLabel
-                                  : '${_simpleImportedFileName!} - $targetLabel',
+                                  : '${_documentImportedFileName!} - $targetLabel',
                               style: theme.textTheme.bodyMedium,
                             ),
                           ),
@@ -2404,14 +2392,14 @@ class _EditingPageBaseState extends State<EditingPageBase>
                 TextButton(
                   onPressed: hasPendingTypeSelection
                       ? null
-                      : _resetSimpleTypeSelection,
+                      : _resetTypeSelection,
                   child: const Text('Adjust'),
                 ),
                 if (canOpenLocalDocumentFromCard)
                   TextButton(
                     onPressed: _openLocalDocumentFolderOrDocument,
                     child: Text(
-                      _simpleDocumentTarget is LocalEditorDocumentTarget
+                      _documentDocumentTarget is LocalEditorDocumentTarget
                           ? 'Open'
                           : 'Open Document',
                     ),
@@ -2439,9 +2427,9 @@ class _EditingPageBaseState extends State<EditingPageBase>
                   ),
                   const SizedBox(height: 12),
                   ...validPendingTypeSelectionColumns.map((index) {
-                    final header = _simpleHeaders[index];
+                    final header = _documentHeaders[index];
                     final currentType = _editorTypeOptionFor(
-                      _simpleValueTypes[index],
+                      _documentValueTypes[index],
                     );
                     final typeOptions = _modeBehavior.typeOptionsForColumn(
                       this,
@@ -2454,7 +2442,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
                       padding: const EdgeInsets.only(bottom: 10),
                       child: DropdownButtonFormField<String>(
                         key: ValueKey<String>(
-                          'simple-type-options-$index-${typeOptions.join(',')}',
+                          'field-type-options-$index-${typeOptions.join(',')}',
                         ),
                         initialValue: selectedType,
                         decoration: InputDecoration(labelText: header),
@@ -2468,7 +2456,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
                             .toList(),
                         onChanged: (value) {
                           if (value == null) return;
-                          _updatePendingSimpleType(index, value);
+                          _updatePendingType(index, value);
                         },
                       ),
                     );
@@ -2476,7 +2464,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
                   Align(
                     alignment: Alignment.centerRight,
                     child: FilledButton(
-                      onPressed: _confirmPendingSimpleTypes,
+                      onPressed: _confirmPendingTypes,
                       child: const Text('Use these formats'),
                     ),
                   ),
@@ -2486,165 +2474,163 @@ class _EditingPageBaseState extends State<EditingPageBase>
           ),
           const SizedBox(height: 10),
         ],
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: List<Widget>.generate(_simpleHeaders.length, (index) {
-                final header = _simpleHeaders[index];
-                final type = index < _simpleValueTypes.length
-                    ? _simpleValueTypes[index]
-                    : 'text';
-                if (index >= _simpleControllers.length) {
-                  return const SizedBox.shrink();
-                }
-                final isDateField = index == dateColumn;
-                final isFormulaField =
-                    index < _simpleReadOnlyColumns.length &&
-                    _simpleReadOnlyColumns[index];
-                if (isFormulaField) {
-                  return const SizedBox.shrink();
-                }
-                final isReadOnly = _isFixedSimpleDateField(index);
-                final isDurationField =
-                    _isSimpleDurationType(type) ||
-                    _isSimpleTimespanField(header);
-                final keyboardType = _keyboardForSimpleType(type);
-                final helperType = _editorTypeOptionFor(type);
-                final helperText = _showSimpleFieldTypes
-                    ? 'Type: $helperType${isReadOnly ? ' (fixed)' : ''}'
-                    : null;
-                return Padding(
-                  key: ValueKey<String>(
-                    '${_simpleEditingRowIndex}_${index}_$header',
-                  ),
-                  padding: EdgeInsets.only(
-                    bottom: index == _simpleHeaders.length - 1 ? 0 : 10,
-                  ),
-                  child: !isReadOnly && isDurationField
-                      ? TimespanWidget(
-                          controller: _simpleControllers[index],
-                          labelText: header,
-                          hintText: 'Minutes (e.g. 30)',
-                          helperText: helperText == null
-                              ? null
-                              : '$helperText (enter minutes)',
-                        )
-                      : !isReadOnly && _isSimpleTimeType(type)
-                      ? SelectTimeWidget(
-                          controller: _simpleControllers[index],
-                          labelText: header,
-                          hintText: _hintForSimpleType(
-                            type,
-                            isDateField: isDateField,
-                          ),
-                          helperText: helperText,
-                        )
-                      : !isReadOnly && type.trim().toLowerCase() == 'date'
-                      ? TextField(
-                          controller: _simpleControllers[index],
-                          readOnly: true,
-                          onTap: () => _pickSimpleDateValue(index),
-                          decoration: InputDecoration(
+        if (!hasPendingTypeSelection) ...[
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: List<Widget>.generate(_documentHeaders.length, (
+                  index,
+                ) {
+                  final header = _documentHeaders[index];
+                  final type = index < _documentValueTypes.length
+                      ? _documentValueTypes[index]
+                      : 'text';
+                  if (index >= _documentControllers.length) {
+                    return const SizedBox.shrink();
+                  }
+                  final isDateField = index == dateColumn;
+                  final isFormulaField =
+                      index < _documentReadOnlyColumns.length &&
+                      _documentReadOnlyColumns[index];
+                  if (isFormulaField) {
+                    return const SizedBox.shrink();
+                  }
+                  final isReadOnly = _isFixedDateField(index);
+                  final isDurationField =
+                      _isDurationType(type) || _isTimespanField(header);
+                  final keyboardType = _keyboardForType(type);
+                  final helperType = _editorTypeOptionFor(type);
+                  final helperText = _showFieldTypes
+                      ? 'Type: $helperType${isReadOnly ? ' (fixed)' : ''}'
+                      : null;
+                  return Padding(
+                    key: ValueKey<String>(
+                      '${_documentEditingRowIndex}_${index}_$header',
+                    ),
+                    padding: EdgeInsets.only(
+                      bottom: index == _documentHeaders.length - 1 ? 0 : 10,
+                    ),
+                    child: !isReadOnly && isDurationField
+                        ? TimespanWidget(
+                            controller: _documentControllers[index],
                             labelText: header,
-                            hintText: _hintForSimpleType(
+                            helperText: helperText == null
+                                ? null
+                                : '$helperText (enter hours and minutes)',
+                          )
+                        : !isReadOnly && _isTimeType(type)
+                        ? SelectTimeWidget(
+                            controller: _documentControllers[index],
+                            labelText: header,
+                            hintText: _hintForType(
                               type,
                               isDateField: isDateField,
                             ),
                             helperText: helperText,
-                            suffixIcon: IconButton(
-                              tooltip: 'Select date',
-                              onPressed: () => _pickSimpleDateValue(index),
-                              icon: const Icon(Icons.calendar_today_rounded),
+                          )
+                        : !isReadOnly && type.trim().toLowerCase() == 'date'
+                        ? TextField(
+                            controller: _documentControllers[index],
+                            readOnly: true,
+                            onTap: () => _pickDateValue(index),
+                            decoration: InputDecoration(
+                              labelText: header,
+                              hintText: _hintForType(
+                                type,
+                                isDateField: isDateField,
+                              ),
+                              helperText: helperText,
+                              suffixIcon: IconButton(
+                                tooltip: 'Select date',
+                                onPressed: () => _pickDateValue(index),
+                                icon: const Icon(Icons.calendar_today_rounded),
+                              ),
                             ),
-                          ),
-                        )
-                      : !isReadOnly && _isSimpleBooleanType(type)
-                      ? _buildSimpleBooleanField(
-                          columnIndex: index,
-                          labelText: header,
-                          helperText: helperText,
-                        )
-                      : TextField(
-                          controller: _simpleControllers[index],
-                          readOnly: isReadOnly,
-                          keyboardType: keyboardType,
-                          decoration: InputDecoration(
+                          )
+                        : !isReadOnly && _isBooleanType(type)
+                        ? _buildBooleanField(
+                            columnIndex: index,
                             labelText: header,
-                            hintText: _hintForSimpleType(
-                              type,
-                              isDateField: isDateField,
-                            ),
                             helperText: helperText,
+                          )
+                        : TextField(
+                            controller: _documentControllers[index],
+                            readOnly: isReadOnly,
+                            keyboardType: keyboardType,
+                            decoration: InputDecoration(
+                              labelText: header,
+                              hintText: _hintForType(
+                                type,
+                                isDateField: isDateField,
+                              ),
+                              helperText: helperText,
+                            ),
+                            minLines: header.toLowerCase().contains('note')
+                                ? 2
+                                : 1,
+                            maxLines: header.toLowerCase().contains('note')
+                                ? 4
+                                : 1,
                           ),
-                          minLines: header.toLowerCase().contains('note')
-                              ? 2
-                              : 1,
-                          maxLines: header.toLowerCase().contains('note')
-                              ? 4
-                              : 1,
-                        ),
-                );
-              }).where((widget) => widget is! SizedBox).toList(),
+                  );
+                }).where((widget) => widget is! SizedBox).toList(),
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 10),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: hasPendingTypeSelection ? null : _saveSimpleRow,
-                    child: const Text('Save'),
+          const SizedBox(height: 10),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _saveDocumentRow,
+                      child: const Text('Save'),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _pickFromCurrentSheetForMode,
-                    child: Text(_modeBehavior.pickButtonLabel),
-                  ),
-                ),
-                if (_modeBehavior.showsTextEntryActions) ...[
                   const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: hasPendingTypeSelection
-                          ? null
-                          : _createNewSimpleTextEntry,
-                      child: const Text('New'),
+                      onPressed: _pickFromCurrentSheetForMode,
+                      child: Text(_modeBehavior.pickButtonLabel),
                     ),
                   ),
-                ] else if (canCreateOpenEndDateRow) ...[
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: hasPendingTypeSelection
-                          ? null
-                          : _createNewSimpleDateOpenEndRow,
-                      child: const Text('New'),
+                  if (_modeBehavior.showsTextEntryActions) ...[
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _createNewTextEntry,
+                        child: const Text('New'),
+                      ),
                     ),
-                  ),
-                ] else ...[
-                  const SizedBox(width: 8),
-                  IconButton(
-                    onPressed: _clearSimpleEditableFields,
-                    tooltip: 'Clear editable fields',
-                    icon: const Icon(Icons.delete_outline_rounded),
-                  ),
+                  ] else if (canCreateOpenEndDateRow) ...[
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _createNewDateOpenEndRow,
+                        child: const Text('New'),
+                      ),
+                    ),
+                  ] else ...[
+                    const SizedBox(width: 8),
+                    IconButton(
+                      onPressed: _clearEditableFields,
+                      tooltip: 'Clear editable fields',
+                      icon: const Icon(Icons.delete_outline_rounded),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
-        ),
+        ],
       ],
     );
   }
 
-  TextInputType _keyboardForSimpleType(String rawType) {
+  TextInputType _keyboardForType(String rawType) {
     final type = rawType.trim().toLowerCase();
     final normalizedType = SimpleSheetLogic.normalizeTypeLabel(rawType);
     if (normalizedType == 'int') {
@@ -2668,45 +2654,57 @@ class _EditingPageBaseState extends State<EditingPageBase>
     return TextInputType.text;
   }
 
-  bool _isSimpleTimeType(String rawType) {
+  bool _isTimeType(String rawType) {
     return rawType.trim().toLowerCase().contains('time');
   }
 
-  bool _isSimpleDurationType(String rawType) {
+  bool _isDurationType(String rawType) {
     final type = rawType.trim().toLowerCase();
     return type.contains('duration') || type.contains('timespan');
   }
 
-  bool _isSimpleBooleanType(String rawType) {
+  bool _isBooleanType(String rawType) {
     return SimpleSheetLogic.isBooleanType(rawType);
   }
 
-  String _initialSimpleControllerValue({
+  String _initialControllerValue({
     required int columnIndex,
     required List<String> values,
   }) {
     final value = columnIndex < values.length ? values[columnIndex].trim() : '';
-    if (columnIndex >= _simpleValueTypes.length ||
-        !_isSimpleBooleanType(_simpleValueTypes[columnIndex])) {
+    if (columnIndex >= _documentValueTypes.length ||
+        !_isBooleanType(_documentValueTypes[columnIndex])) {
       return value;
     }
-    return value.toUpperCase() == 'TRUE' ? 'TRUE' : 'FALSE';
+    if (value.isEmpty) return '';
+    if (value.toUpperCase() == 'TRUE') return 'TRUE';
+    if (value.toUpperCase() == 'FALSE') return 'FALSE';
+    return value;
   }
 
-  void _setSimpleBooleanValue(int columnIndex, bool value) {
-    if (columnIndex < 0 || columnIndex >= _simpleControllers.length) return;
-    _simpleControllers[columnIndex].text = value ? 'TRUE' : 'FALSE';
+  void _setBooleanValue(int columnIndex, bool? value) {
+    if (columnIndex < 0 || columnIndex >= _documentControllers.length) return;
+    _documentControllers[columnIndex].text = switch (value) {
+      true => 'TRUE',
+      false => 'FALSE',
+      null => '',
+    };
     setState(() {});
   }
 
-  Widget _buildSimpleBooleanField({
+  Widget _buildBooleanField({
     required int columnIndex,
     required String labelText,
     String? helperText,
   }) {
-    final value = columnIndex < _simpleControllers.length
-        ? _simpleControllers[columnIndex].text.trim().toUpperCase() == 'TRUE'
-        : false;
+    final rawValue = columnIndex < _documentControllers.length
+        ? _documentControllers[columnIndex].text.trim().toUpperCase()
+        : '';
+    final selected = rawValue == 'TRUE'
+        ? const <bool>{true}
+        : rawValue == 'FALSE'
+        ? const <bool>{false}
+        : const <bool>{};
     return InputDecorator(
       decoration: InputDecoration(labelText: labelText, helperText: helperText),
       child: Align(
@@ -2724,39 +2722,40 @@ class _EditingPageBaseState extends State<EditingPageBase>
               label: Text('FALSE'),
             ),
           ],
-          selected: <bool>{value},
+          selected: selected,
+          emptySelectionAllowed: true,
           showSelectedIcon: false,
           onSelectionChanged: (selection) {
-            final nextValue = selection.isEmpty ? false : selection.first;
-            _setSimpleBooleanValue(columnIndex, nextValue);
+            final nextValue = selection.isEmpty ? null : selection.first;
+            _setBooleanValue(columnIndex, nextValue);
           },
         ),
       ),
     );
   }
 
-  bool _looksLikeSimpleDurationValue(String rawValue) {
+  bool _looksLikeDurationValue(String rawValue) {
     final value = rawValue.trim();
     if (value.isEmpty) return true;
     return RegExp(r'^\d+([.,]\d+)?$').hasMatch(value) ||
         RegExp(r'^\d{1,3}:\d{2}(:\d{2})?$').hasMatch(value);
   }
 
-  bool _isSimpleTimespanField(String header) {
+  bool _isTimespanField(String header) {
     final value = header.trim().toLowerCase();
     return value.contains('pause') || value.contains('break');
   }
 
-  bool _isFixedSimpleDateField(int columnIndex) {
-    return (_simpleOpenMode == EditorOpenMode.dateBased ||
-            _simpleOpenMode == EditorOpenMode.dateBasedOpenEnd) &&
-        columnIndex == _simpleDateColumnIndex();
+  bool _isFixedDateField(int columnIndex) {
+    return (_documentOpenMode == EditorOpenMode.dateBased ||
+            _documentOpenMode == EditorOpenMode.dateBasedOpenEnd) &&
+        columnIndex == _documentDateColumnIndex();
   }
 
-  Future<void> _pickSimpleDateValue(int columnIndex) async {
-    if (columnIndex < 0 || columnIndex >= _simpleControllers.length) return;
+  Future<void> _pickDateValue(int columnIndex) async {
+    if (columnIndex < 0 || columnIndex >= _documentControllers.length) return;
 
-    final currentValue = _simpleControllers[columnIndex].text.trim();
+    final currentValue = _documentControllers[columnIndex].text.trim();
     final initialDate = _parseDateFromCellValue(currentValue) ?? DateTime.now();
     final firstDate = DateTime(1900);
     final lastDate = DateTime(2100);
@@ -2774,11 +2773,11 @@ class _EditingPageBaseState extends State<EditingPageBase>
     );
     if (!mounted || selectedDate == null) return;
 
-    _simpleControllers[columnIndex].text = _formatDate(selectedDate);
+    _documentControllers[columnIndex].text = _formatDate(selectedDate);
     setState(() {});
   }
 
-  String? _hintForSimpleType(String rawType, {required bool isDateField}) {
+  String? _hintForType(String rawType, {required bool isDateField}) {
     if (isDateField) {
       return 'YYYY-MM-DD';
     }
@@ -2939,7 +2938,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
 
   String get _headerTitle {
     if (!_isAdvancedMode) {
-      if (_hasSimpleSchema) {
+      if (_hasDocumentSchema) {
         return 'Editor';
       }
       return 'Get Started';
@@ -2949,7 +2948,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
 
   void _handleBack() {
     if (!_isAdvancedMode) {
-      if (_hasSimpleSchema) {
+      if (_hasDocumentSchema) {
         _exitEditor();
         if (widget.onBackToSelection != null) {
           widget.onBackToSelection!();
@@ -2973,36 +2972,36 @@ class _EditingPageBaseState extends State<EditingPageBase>
       _isAdvancedMode = !_isAdvancedMode;
       if (_isAdvancedMode) {
         _setupDone = false;
-        _simpleTextSelectionColumnIndex = null;
-        _simpleTextSelectionValue = null;
+        _documentTextSelectionColumnIndex = null;
+        _documentTextSelectionValue = null;
       }
     });
   }
 
   void _exitEditor() {
-    final oldControllers = _simpleControllers;
+    final oldControllers = _documentControllers;
     setState(() {
-      _simpleImportedFileName = null;
-      _simpleImportedPath = null;
-      _simpleImportedSheetName = null;
-      _simpleImportedFormat = null;
-      _simpleCsvDelimiter = ',';
-      _simpleHasTypeRow = false;
-      _simpleHasCachedValueTypes = false;
-      _simpleHeaderRowIndex = 0;
-      _simpleStartColumnIndex = 0;
-      _simpleHeaders = const <String>[];
-      _simpleValueTypes = const <String>[];
-      _simpleReadOnlyColumns = const <bool>[];
-      _simpleRows = const <List<String>>[];
-      _simpleControllers = const <TextEditingController>[];
-      _simpleEditingRowIndex = 0;
-      _simpleImportedWorkbook = null;
-      _simpleImportedSourceBytes = null;
-      _simpleDocumentTarget = null;
-      _simpleOpenMode = EditorOpenMode.dateBasedOpenEnd;
-      _simpleTextSelectionColumnIndex = null;
-      _simpleTextSelectionValue = null;
+      _documentImportedFileName = null;
+      _documentImportedPath = null;
+      _documentImportedSheetName = null;
+      _documentImportedFormat = null;
+      _documentCsvDelimiter = ',';
+      _documentHasTypeRow = false;
+      _documentHasCachedValueTypes = false;
+      _documentHeaderRowIndex = 0;
+      _documentStartColumnIndex = 0;
+      _documentHeaders = const <String>[];
+      _documentValueTypes = const <String>[];
+      _documentReadOnlyColumns = const <bool>[];
+      _documentRows = const <List<String>>[];
+      _documentControllers = const <TextEditingController>[];
+      _documentEditingRowIndex = 0;
+      _documentImportedWorkbook = null;
+      _documentImportedSourceBytes = null;
+      _documentDocumentTarget = null;
+      _documentOpenMode = EditorOpenMode.dateBasedOpenEnd;
+      _documentTextSelectionColumnIndex = null;
+      _documentTextSelectionValue = null;
       _isOpeningDocument = false;
     });
 
@@ -3028,8 +3027,8 @@ class _EditorTargetSelection {
   final int targetRowIndex;
 }
 
-class _SimpleOpeningSelection {
-  const _SimpleOpeningSelection({
+class _OpeningSelection {
+  const _OpeningSelection({
     required this.targetRowIndex,
     required this.textColumnIndex,
     required this.textValue,
@@ -3040,8 +3039,8 @@ class _SimpleOpeningSelection {
   final String? textValue;
 }
 
-class _SimpleTextTargetSelection {
-  const _SimpleTextTargetSelection({
+class _TextTargetSelection {
+  const _TextTargetSelection({
     required this.columnIndex,
     required this.rowIndex,
     required this.value,
@@ -3139,7 +3138,7 @@ class _TopHeader extends StatelessWidget {
             if (showModeSwitch)
               TextButton(
                 onPressed: onToggleMode,
-                child: Text(isAdvancedMode ? 'Advanced' : 'Simple'),
+                child: Text(isAdvancedMode ? 'Advanced' : 'Core'),
               ),
             if (showModeSwitch) const SizedBox(width: 6),
             ...trailingActions,

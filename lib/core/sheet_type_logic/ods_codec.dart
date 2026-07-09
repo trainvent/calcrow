@@ -53,7 +53,7 @@ SimpleSheetData simpleSheetDataFromTransfer(Map<String, Object?> message) {
     orElse: () => SimpleFileFormat.csv,
   );
   return SimpleSheetData(
-    fileName: (message['fileName'] as String?) ?? 'calcrow_simple',
+    fileName: (message['fileName'] as String?) ?? 'calcrow_sheet',
     path: message['path'] as String?,
     format: format,
     headers: ((message['headers'] as List?) ?? const <Object?>[])

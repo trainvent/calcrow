@@ -23,7 +23,7 @@ class CsvSheetCodec {
         .toList();
     if (nonEmptyLines.isEmpty) {
       throw const FormatException(
-        'Simple mode expects at least one header row.',
+        'Core editor expects at least one header row.',
       );
     }
 

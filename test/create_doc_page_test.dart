@@ -1,4 +1,4 @@
-import 'package:calcrow/features/home/editing/simple/create_doc_page.dart';
+import 'package:calcrow/features/home/editing/create_doc_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -78,8 +78,8 @@ void main() {
     expect(find.text('Pull-ups'), findsOneWidget);
     expect(find.text('Push-ups'), findsOneWidget);
     expect(find.text('Squats'), findsOneWidget);
-    expect(find.text('Float'), findsNWidgets(3));
-    expect(find.text('Integer'), findsNWidgets(3));
+    expect(find.text('float'), findsNWidgets(3));
+    expect(find.text('integer'), findsNWidgets(3));
   });
 
   testWidgets('Customer Service template preconfigures service fields', (

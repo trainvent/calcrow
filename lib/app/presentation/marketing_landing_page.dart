@@ -194,7 +194,7 @@ class _HeroCopy extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           Text(
-            'Open CSV, XLSX, or ODS files, edit the focused row in Simple mode, and save back to local or cloud storage.',
+            'Open CSV, XLSX, or ODS files, edit the focused row in core editor, and save back to local or cloud storage.',
             style: theme.textTheme.bodyLarge?.copyWith(
               fontSize: 17,
               height: 1.45,

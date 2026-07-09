@@ -12,7 +12,7 @@ class NamelistEditingPage extends EditingPageBase {
   }) : super(initialOpenMode: EditorOpenMode.textBased);
 }
 
-class _NamelistEditingModeBehavior extends _SimpleEditingModeBehavior {
+class _NamelistEditingModeBehavior extends _EditingModeBehavior {
   const _NamelistEditingModeBehavior();
 
   @override
@@ -28,7 +28,7 @@ class _NamelistEditingModeBehavior extends _SimpleEditingModeBehavior {
   String get requiredFirstColumnType => 'text';
 
   @override
-  Future<_SimpleOpeningSelection?> resolveOpening(
+  Future<_OpeningSelection?> resolveOpening(
     _EditingPageBaseState state,
     SimpleSheetData sheetData,
   ) async {
@@ -38,7 +38,7 @@ class _NamelistEditingModeBehavior extends _SimpleEditingModeBehavior {
       );
       return null;
     }
-    return const _SimpleOpeningSelection(
+    return const _OpeningSelection(
       targetRowIndex: 0,
       textColumnIndex: null,
       textValue: null,
@@ -47,8 +47,8 @@ class _NamelistEditingModeBehavior extends _SimpleEditingModeBehavior {
 
   @override
   void afterLoaded(_EditingPageBaseState state) {
-    if (state._simpleRows.isNotEmpty) {
-      state._beginSimpleTextEntryRowPick();
+    if (state._documentRows.isNotEmpty) {
+      state._beginTextEntryRowPick();
     }
   }
 
@@ -61,11 +61,11 @@ class _NamelistEditingModeBehavior extends _SimpleEditingModeBehavior {
   Future<void> handleSheetPreviewNewEntryPick(
     _EditingPageBaseState state,
   ) async {
-    await state._createNewSimpleTextEntry();
+    await state._createNewTextEntry();
   }
 
   @override
   Future<void> pickFromCurrentSheet(_EditingPageBaseState state) async {
-    state._beginSimpleTextEntryRowPick();
+    state._beginTextEntryRowPick();
   }
 }

@@ -16,16 +16,16 @@ import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/simple_sheet_file_service.dart';
 import 'package:calcrow/core/sheet_type_logic/simple_type_hint_cache.dart';
 
-import 'simple/create_doc_page.dart';
-import 'simple/editing_page_base.dart';
+import 'create_doc_page.dart';
+import 'editing_pages/editing_page_base.dart';
 
-enum _SimpleSetupAction { open, create }
+enum _SetupAction { open, create }
 
-enum _SimpleCreateDestination { local, cloud }
+enum _CreateDestination { local, cloud }
 
-enum _SimpleLocalCreateTarget { currentSafFolder, pickSafFolder }
+enum _LocalCreateTarget { currentSafFolder, pickSafFolder }
 
-enum _SimpleDocumentSource { local, cloud }
+enum _DocumentSource { local, cloud }
 
 class SelectionPage extends StatefulWidget {
   const SelectionPage({super.key});
@@ -58,13 +58,13 @@ class _SelectionPageState extends State<SelectionPage> {
   final SimpleSheetPersistenceService _sheetPersistenceService =
       SimpleSheetPersistenceService();
 
-  EditorOpenMode _simpleOpenMode = EditorOpenMode.dateBasedOpenEnd;
-  _SimpleSetupAction _simpleSetupAction = _SimpleSetupAction.open;
-  _SimpleDocumentSource _simpleDocumentSource = _SimpleDocumentSource.local;
+  EditorOpenMode _documentOpenMode = EditorOpenMode.dateBasedOpenEnd;
+  _SetupAction _documentSetupAction = _SetupAction.open;
+  _DocumentSource _documentDocumentSource = _DocumentSource.local;
   LocalSimpleDocumentSelection? _selectedLocalDocument;
-  String? _simpleImportedFileName;
-  String? _simpleImportedPath;
-  Uint8List? _simpleImportedSourceBytes;
+  String? _documentImportedFileName;
+  String? _documentImportedPath;
+  Uint8List? _documentImportedSourceBytes;
   bool _rememberLocalDocumentForReopen = false;
   bool _isOpeningDocument = false;
   bool _isChoosingLocalDocument = false;
@@ -77,19 +77,19 @@ class _SelectionPageState extends State<SelectionPage> {
   bool get _isAndroidPlatform =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
-  _SimpleDocumentSource get _effectiveSimpleDocumentSource {
+  _DocumentSource get _effectiveDocumentSource {
     if (!_supportsLocalFileEditing &&
-        _simpleDocumentSource == _SimpleDocumentSource.local) {
-      return _SimpleDocumentSource.cloud;
+        _documentDocumentSource == _DocumentSource.local) {
+      return _DocumentSource.cloud;
     }
-    return _simpleDocumentSource;
+    return _documentDocumentSource;
   }
 
   bool get _hasRememberedLocalDocument =>
       _rememberLocalDocumentForReopen &&
-      (_simpleImportedPath?.trim().isNotEmpty == true ||
-          (_simpleImportedSourceBytes?.isNotEmpty ?? false)) &&
-      (_simpleImportedFileName?.trim().isNotEmpty == true);
+      (_documentImportedPath?.trim().isNotEmpty == true ||
+          (_documentImportedSourceBytes?.isNotEmpty ?? false)) &&
+      (_documentImportedFileName?.trim().isNotEmpty == true);
 
   Future<void> _runWithDocumentOpeningIndicator(
     Future<void> Function() action,
@@ -143,7 +143,7 @@ class _SelectionPageState extends State<SelectionPage> {
     required EditorDocumentTarget target,
     String? successMessage,
   }) {
-    return switch (_simpleOpenMode) {
+    return switch (_documentOpenMode) {
       EditorOpenMode.dateBased => DiaryEditingPage(
         initialSheetData: sheetData,
         initialDocumentTarget: target,
@@ -176,7 +176,7 @@ class _SelectionPageState extends State<SelectionPage> {
       return false;
     }
     final firstCachedType = sheetData.valueTypes.first.trim().toLowerCase();
-    final message = switch (_simpleOpenMode) {
+    final message = switch (_documentOpenMode) {
       EditorOpenMode.dateBasedOpenEnd when firstCachedType != 'date' =>
         'Cached field types do not match Logbook.',
       EditorOpenMode.textBased when firstCachedType != 'text' =>
@@ -290,8 +290,8 @@ class _SelectionPageState extends State<SelectionPage> {
     if (!_supportsLocalFileEditing) return;
     if (_isChoosingLocalDocument || _isOpeningDocument) return;
     setState(() {
-      _simpleSetupAction = _SimpleSetupAction.open;
-      _simpleDocumentSource = _SimpleDocumentSource.local;
+      _documentSetupAction = _SetupAction.open;
+      _documentDocumentSource = _DocumentSource.local;
       _isChoosingLocalDocument = true;
     });
     try {
@@ -329,9 +329,9 @@ class _SelectionPageState extends State<SelectionPage> {
 
   void _cacheSelectedLocalDocument(LocalSimpleDocumentSelection selection) {
     _selectedLocalDocument = selection;
-    _simpleImportedFileName = selection.fileName;
-    _simpleImportedPath = selection.existingPath;
-    _simpleImportedSourceBytes = selection.bytes;
+    _documentImportedFileName = selection.fileName;
+    _documentImportedPath = selection.existingPath;
+    _documentImportedSourceBytes = selection.bytes;
     _rememberLocalDocumentForReopen = true;
   }
 
@@ -346,9 +346,9 @@ class _SelectionPageState extends State<SelectionPage> {
       try {
         final result = await ServiceLocator.simpleLocalDocumentService
             .reopenDocumentForSimpleEditor(
-              fileName: _simpleImportedFileName!,
-              existingPath: _simpleImportedPath,
-              cachedBytes: _simpleImportedSourceBytes,
+              fileName: _documentImportedFileName!,
+              existingPath: _documentImportedPath,
+              cachedBytes: _documentImportedSourceBytes,
               parseSheetData: _parseSimpleSheetData,
             );
         if (!mounted) return;
@@ -519,7 +519,7 @@ class _SelectionPageState extends State<SelectionPage> {
     }
 
     setState(() {
-      _simpleSetupAction = _SimpleSetupAction.open;
+      _documentSetupAction = _SetupAction.open;
       _isChoosingCloudFile = true;
     });
     try {
@@ -590,9 +590,9 @@ class _SelectionPageState extends State<SelectionPage> {
     return ServiceLocator.simpleCloudDocumentService.buildSubtitle();
   }
 
-  Future<_SimpleDocumentPromptData> _simpleDocumentPromptData() async {
+  Future<_DocumentPromptData> _documentDocumentPromptData() async {
     if (!ServiceLocator.isSetup) {
-      return _SimpleDocumentPromptData(
+      return _DocumentPromptData(
         localSubtitle: _defaultLocalDocumentSubtitle(),
         cloudSubtitle: 'Connect a cloud provider in Settings first.',
         hasSelectedCloudFile: false,
@@ -613,9 +613,9 @@ class _SelectionPageState extends State<SelectionPage> {
     final cloudSubtitle = settings == null
         ? 'Connect a cloud provider in Settings first.'
         : await _cloudDocumentSubtitle();
-    return _SimpleDocumentPromptData(
+    return _DocumentPromptData(
       localSubtitle: _hasRememberedLocalDocument
-          ? 'Selected local file: $_simpleImportedFileName'
+          ? 'Selected local file: $_documentImportedFileName'
           : !kIsWeb && defaultTargetPlatform == TargetPlatform.android
           ? 'Open a CSV, XLSX, or ODS document'
           : 'Open CSV, XLSX, or ODS. Calcrow detects the file type automatically.',
@@ -627,7 +627,7 @@ class _SelectionPageState extends State<SelectionPage> {
 
   String _defaultLocalDocumentSubtitle() {
     if (_hasRememberedLocalDocument) {
-      return 'Selected local file: $_simpleImportedFileName';
+      return 'Selected local file: $_documentImportedFileName';
     }
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       return 'Open a CSV, XLSX, or ODS document';
@@ -635,22 +635,22 @@ class _SelectionPageState extends State<SelectionPage> {
     return 'Open CSV, XLSX, or ODS. Calcrow detects the file type automatically.';
   }
 
-  Future<void> _openSelectedSimpleDocument() async {
+  Future<void> _openSelectedDocument() async {
     setState(() {
-      _simpleSetupAction = _SimpleSetupAction.open;
+      _documentSetupAction = _SetupAction.open;
     });
-    switch (_effectiveSimpleDocumentSource) {
-      case _SimpleDocumentSource.local:
+    switch (_effectiveDocumentSource) {
+      case _DocumentSource.local:
         await _openOrChooseLocalDocumentForSimple();
-      case _SimpleDocumentSource.cloud:
+      case _DocumentSource.cloud:
         await _openOrChooseCloudSyncFile();
     }
   }
 
   Future<void> _chooseCloudDocumentForSimple() async {
     setState(() {
-      _simpleSetupAction = _SimpleSetupAction.open;
-      _simpleDocumentSource = _SimpleDocumentSource.cloud;
+      _documentSetupAction = _SetupAction.open;
+      _documentDocumentSource = _DocumentSource.cloud;
     });
 
     final session = ServiceLocator.authService.currentSession;
@@ -673,26 +673,26 @@ class _SelectionPageState extends State<SelectionPage> {
     }
   }
 
-  Future<void> _createSimpleDocument() async {
+  Future<void> _createDocument() async {
     setState(() {
-      _simpleOpenMode = EditorOpenMode.dateBasedOpenEnd;
-      _simpleSetupAction = _SimpleSetupAction.create;
+      _documentOpenMode = EditorOpenMode.dateBasedOpenEnd;
+      _documentSetupAction = _SetupAction.create;
     });
-    final draft = await Navigator.of(context).push<SimpleDocumentDraft>(
+    final draft = await Navigator.of(context).push<DocumentDraft>(
       MaterialPageRoute(builder: (context) => const CreateDocPage()),
     );
     if (!mounted) return;
     if (draft == null) {
-      setState(() => _simpleSetupAction = _SimpleSetupAction.open);
+      setState(() => _documentSetupAction = _SetupAction.open);
       return;
     }
-    await _createSimpleDocumentFromDraft(draft);
+    await _createDocumentFromDraft(draft);
   }
 
-  Future<void> _createSimpleDocumentFromDraft(SimpleDocumentDraft draft) async {
+  Future<void> _createDocumentFromDraft(DocumentDraft draft) async {
     setState(() {
-      _simpleOpenMode = EditorOpenMode.dateBasedOpenEnd;
-      _simpleSetupAction = _SimpleSetupAction.create;
+      _documentOpenMode = EditorOpenMode.dateBasedOpenEnd;
+      _documentSetupAction = _SetupAction.create;
     });
     final sheetData = SimpleSheetData(
       fileName: draft.fileName,
@@ -711,25 +711,25 @@ class _SelectionPageState extends State<SelectionPage> {
           ? excel_pkg.Excel.createExcel()
           : null,
     );
-    final destination = await showDialog<_SimpleCreateDestination>(
+    final destination = await showDialog<_CreateDestination>(
       context: context,
       builder: (context) =>
           _CreateDestinationDialog(showLocal: _supportsLocalFileEditing),
     );
     if (!mounted) return;
     if (destination == null) {
-      setState(() => _simpleSetupAction = _SimpleSetupAction.open);
+      setState(() => _documentSetupAction = _SetupAction.open);
       return;
     }
     switch (destination) {
-      case _SimpleCreateDestination.local:
-        await _createLocalSimpleDocument(sheetData);
-      case _SimpleCreateDestination.cloud:
-        await _createCloudSimpleDocument(sheetData);
+      case _CreateDestination.local:
+        await _createLocalDocument(sheetData);
+      case _CreateDestination.cloud:
+        await _createCloudDocument(sheetData);
     }
   }
 
-  Future<void> _createLocalSimpleDocument(SimpleSheetData sheetData) async {
+  Future<void> _createLocalDocument(SimpleSheetData sheetData) async {
     try {
       final bytes = SimpleSheetFileService.buildBytes(sheetData);
       final preferredSafTreeUri = await _safTreeUriForNewLocalDocument();
@@ -769,7 +769,7 @@ class _SelectionPageState extends State<SelectionPage> {
       );
     } catch (error) {
       if (!mounted) return;
-      setState(() => _simpleSetupAction = _SimpleSetupAction.open);
+      setState(() => _documentSetupAction = _SetupAction.open);
       if (error is StateError && error.message == 'Save canceled.') {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Create document canceled.')),
@@ -791,7 +791,7 @@ class _SelectionPageState extends State<SelectionPage> {
     }
   }
 
-  Future<void> _createCloudSimpleDocument(SimpleSheetData sheetData) async {
+  Future<void> _createCloudDocument(SimpleSheetData sheetData) async {
     final folder = await _pickCloudCreateFolder();
     if (!mounted || folder == null) return;
 
@@ -885,7 +885,7 @@ class _SelectionPageState extends State<SelectionPage> {
     }
   }
 
-  Future<void> _setRecentSimpleOpeningConfiguration() async {
+  Future<void> _setRecentOpeningConfiguration() async {
     final session = ServiceLocator.authService.currentSession;
     if (session == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -912,7 +912,7 @@ class _SelectionPageState extends State<SelectionPage> {
 
     final selected = await showDialog<SimpleRecentOpenConfig>(
       context: context,
-      builder: (dialogContext) => _SimpleRecentConfigDialog(configs: configs),
+      builder: (dialogContext) => _RecentConfigDialog(configs: configs),
     );
     if (!mounted || selected == null) return;
     await _applySimpleRecentOpenConfig(selected);
@@ -921,26 +921,26 @@ class _SelectionPageState extends State<SelectionPage> {
   Future<void> _applySimpleRecentOpenConfig(
     SimpleRecentOpenConfig config,
   ) async {
-    final openMode = _simpleOpenModeFromName(config.openMode);
-    final source = _simpleDocumentSourceFromRecent(config.source);
+    final openMode = _documentOpenModeFromName(config.openMode);
+    final source = _documentDocumentSourceFromRecent(config.source);
     setState(() {
-      _simpleOpenMode = openMode;
-      _simpleDocumentSource = source;
-      if (source == _SimpleDocumentSource.local) {
-        _simpleImportedFileName = config.fileName;
-        _simpleImportedPath = config.path;
-        _simpleImportedSourceBytes = null;
+      _documentOpenMode = openMode;
+      _documentDocumentSource = source;
+      if (source == _DocumentSource.local) {
+        _documentImportedFileName = config.fileName;
+        _documentImportedPath = config.path;
+        _documentImportedSourceBytes = null;
         _selectedLocalDocument = null;
         _rememberLocalDocumentForReopen = config.path?.isNotEmpty == true;
       } else {
         _rememberLocalDocumentForReopen = false;
-        _simpleImportedPath = null;
-        _simpleImportedSourceBytes = null;
+        _documentImportedPath = null;
+        _documentImportedSourceBytes = null;
         _selectedLocalDocument = null;
       }
     });
 
-    if (source == _SimpleDocumentSource.cloud && config.fileId != null) {
+    if (source == _DocumentSource.cloud && config.fileId != null) {
       final session = ServiceLocator.authService.currentSession;
       final provider = config.source == SimpleRecentDocumentSource.googleDrive
           ? CloudSyncProvider.googleDrive
@@ -962,24 +962,24 @@ class _SelectionPageState extends State<SelectionPage> {
     }
   }
 
-  EditorOpenMode _simpleOpenModeFromName(String name) {
+  EditorOpenMode _documentOpenModeFromName(String name) {
     return EditorOpenMode.values.firstWhere(
       (candidate) => candidate.name == name,
       orElse: () => EditorOpenMode.dateBased,
     );
   }
 
-  _SimpleDocumentSource _simpleDocumentSourceFromRecent(
+  _DocumentSource _documentDocumentSourceFromRecent(
     SimpleRecentDocumentSource source,
   ) {
     return switch (source) {
-      SimpleRecentDocumentSource.local => _SimpleDocumentSource.local,
+      SimpleRecentDocumentSource.local => _DocumentSource.local,
       SimpleRecentDocumentSource.googleDrive ||
-      SimpleRecentDocumentSource.webDav => _SimpleDocumentSource.cloud,
+      SimpleRecentDocumentSource.webDav => _DocumentSource.cloud,
     };
   }
 
-  String _simpleOpenModeLabel(EditorOpenMode mode) {
+  String _documentOpenModeLabel(EditorOpenMode mode) {
     return switch (mode) {
       EditorOpenMode.dateBased => 'Diary',
       EditorOpenMode.dateBasedOpenEnd => 'Logbook',
@@ -987,7 +987,7 @@ class _SelectionPageState extends State<SelectionPage> {
     };
   }
 
-  String _simpleOpenModeDescription(EditorOpenMode mode) {
+  String _documentOpenModeDescription(EditorOpenMode mode) {
     return switch (mode) {
       EditorOpenMode.dateBased =>
         'Open the existing row for today and keep one entry per day.',
@@ -998,7 +998,7 @@ class _SelectionPageState extends State<SelectionPage> {
     };
   }
 
-  String _simpleOpenModeTableHint(EditorOpenMode mode) {
+  String _documentOpenModeTableHint(EditorOpenMode mode) {
     return switch (mode) {
       EditorOpenMode.dateBased =>
         'Your table needs a date column with one prepared row per day.',
@@ -1009,7 +1009,7 @@ class _SelectionPageState extends State<SelectionPage> {
     };
   }
 
-  void _showSimpleOpenModeInfo(EditorOpenMode selectedMode) {
+  void _showOpenModeInfo(EditorOpenMode selectedMode) {
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
@@ -1028,7 +1028,7 @@ class _SelectionPageState extends State<SelectionPage> {
                     children: [
                       Expanded(
                         child: Text(
-                          _simpleOpenModeLabel(mode),
+                          _documentOpenModeLabel(mode),
                           style: dialogTheme.textTheme.titleSmall,
                         ),
                       ),
@@ -1041,10 +1041,10 @@ class _SelectionPageState extends State<SelectionPage> {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(_simpleOpenModeDescription(mode)),
+                  Text(_documentOpenModeDescription(mode)),
                   const SizedBox(height: 4),
                   Text(
-                    _simpleOpenModeTableHint(mode),
+                    _documentOpenModeTableHint(mode),
                     style: dialogTheme.textTheme.bodySmall?.copyWith(
                       color: dialogTheme.colorScheme.onSurfaceVariant,
                     ),
@@ -1068,8 +1068,8 @@ class _SelectionPageState extends State<SelectionPage> {
   void _forgetRememberedLocalDocument() {
     setState(() {
       _rememberLocalDocumentForReopen = false;
-      _simpleImportedPath = null;
-      _simpleImportedSourceBytes = null;
+      _documentImportedPath = null;
+      _documentImportedSourceBytes = null;
       _selectedLocalDocument = null;
     });
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1105,7 +1105,7 @@ class _SelectionPageState extends State<SelectionPage> {
         preferredSafTreeUri.isEmpty) {
       return preferredSafTreeUri;
     }
-    final target = await showDialog<_SimpleLocalCreateTarget>(
+    final target = await showDialog<_LocalCreateTarget>(
       context: context,
       builder: (context) => const _LocalCreateTargetDialog(),
     );
@@ -1113,9 +1113,9 @@ class _SelectionPageState extends State<SelectionPage> {
     switch (target) {
       case null:
         throw StateError('Save canceled.');
-      case _SimpleLocalCreateTarget.currentSafFolder:
+      case _LocalCreateTarget.currentSafFolder:
         return preferredSafTreeUri;
-      case _SimpleLocalCreateTarget.pickSafFolder:
+      case _LocalCreateTarget.pickSafFolder:
         return _pickSafTreeUriForNewDocument();
     }
   }
@@ -1241,16 +1241,16 @@ class _SelectionPageState extends State<SelectionPage> {
     }
 
     final theme = Theme.of(context);
-    final isCreateMode = _simpleSetupAction == _SimpleSetupAction.create;
+    final isCreateMode = _documentSetupAction == _SetupAction.create;
     final setupOpenMode = isCreateMode
         ? EditorOpenMode.dateBasedOpenEnd
-        : _simpleOpenMode;
+        : _documentOpenMode;
     final openModeItems = isCreateMode
         ? <DropdownMenuItem<EditorOpenMode>>[
             DropdownMenuItem(
               value: EditorOpenMode.dateBasedOpenEnd,
               child: Text(
-                _simpleOpenModeLabel(EditorOpenMode.dateBasedOpenEnd),
+                _documentOpenModeLabel(EditorOpenMode.dateBasedOpenEnd),
               ),
             ),
           ]
@@ -1258,7 +1258,7 @@ class _SelectionPageState extends State<SelectionPage> {
               .map(
                 (mode) => DropdownMenuItem<EditorOpenMode>(
                   value: mode,
-                  child: Text(_simpleOpenModeLabel(mode)),
+                  child: Text(_documentOpenModeLabel(mode)),
                 ),
               )
               .toList();
@@ -1307,8 +1307,7 @@ class _SelectionPageState extends State<SelectionPage> {
                         ),
                         IconButton(
                           tooltip: 'Explain opening modes',
-                          onPressed: () =>
-                              _showSimpleOpenModeInfo(setupOpenMode),
+                          onPressed: () => _showOpenModeInfo(setupOpenMode),
                           icon: const Icon(Icons.info_outline_rounded),
                         ),
                       ],
@@ -1323,7 +1322,7 @@ class _SelectionPageState extends State<SelectionPage> {
                       onChanged: (value) {
                         if (value == null) return;
                         setState(() {
-                          _simpleOpenMode = isCreateMode
+                          _documentOpenMode = isCreateMode
                               ? EditorOpenMode.dateBasedOpenEnd
                               : value;
                         });
@@ -1334,12 +1333,12 @@ class _SelectionPageState extends State<SelectionPage> {
               ),
             ),
             const SizedBox(height: 14),
-            FutureBuilder<_SimpleDocumentPromptData>(
-              future: _simpleDocumentPromptData(),
+            FutureBuilder<_DocumentPromptData>(
+              future: _documentDocumentPromptData(),
               builder: (context, snapshot) {
                 final data =
                     snapshot.data ??
-                    const _SimpleDocumentPromptData(
+                    const _DocumentPromptData(
                       localSubtitle: 'Open CSV, XLSX, or ODS.',
                       cloudSubtitle:
                           'Choose or create the active cloud sync file.',
@@ -1349,8 +1348,8 @@ class _SelectionPageState extends State<SelectionPage> {
                 return Column(
                   children: [
                     _ChooseDocumentCard(
-                      selected: _simpleSetupAction == _SimpleSetupAction.open,
-                      selectedSource: _effectiveSimpleDocumentSource,
+                      selected: _documentSetupAction == _SetupAction.open,
+                      selectedSource: _effectiveDocumentSource,
                       localSubtitle: data.localSubtitle,
                       cloudSubtitle: data.cloudSubtitle,
                       isChoosingLocalDocument: _isChoosingLocalDocument,
@@ -1359,13 +1358,12 @@ class _SelectionPageState extends State<SelectionPage> {
                       hasSelectedCloudFile: data.hasSelectedCloudFile,
                       showLocalDocument: _supportsLocalFileEditing,
                       onSelected: () => setState(
-                        () => _simpleSetupAction = _SimpleSetupAction.open,
+                        () => _documentSetupAction = _SetupAction.open,
                       ),
                       onChooseLocal: data.hasRememberedLocalFile
                           ? () => setState(() {
-                              _simpleSetupAction = _SimpleSetupAction.open;
-                              _simpleDocumentSource =
-                                  _SimpleDocumentSource.local;
+                              _documentSetupAction = _SetupAction.open;
+                              _documentDocumentSource = _DocumentSource.local;
                             })
                           : _chooseLocalDocumentForSimple,
                       onChooseCloud: _chooseCloudDocumentForSimple,
@@ -1374,12 +1372,12 @@ class _SelectionPageState extends State<SelectionPage> {
                     ),
                     const SizedBox(height: 14),
                     _CreateDocumentCard(
-                      selected: _simpleSetupAction == _SimpleSetupAction.create,
+                      selected: _documentSetupAction == _SetupAction.create,
                       onSelected: () => setState(() {
-                        _simpleSetupAction = _SimpleSetupAction.create;
-                        _simpleOpenMode = EditorOpenMode.dateBasedOpenEnd;
+                        _documentSetupAction = _SetupAction.create;
+                        _documentOpenMode = EditorOpenMode.dateBasedOpenEnd;
                       }),
-                      onCreate: _createSimpleDocument,
+                      onCreate: _createDocument,
                     ),
                   ],
                 );
@@ -1395,7 +1393,7 @@ class _SelectionPageState extends State<SelectionPage> {
                       child: SizedBox(
                         height: 56,
                         child: OutlinedButton(
-                          onPressed: _setRecentSimpleOpeningConfiguration,
+                          onPressed: _setRecentOpeningConfiguration,
                           child: const FittedBox(
                             fit: BoxFit.scaleDown,
                             child: Text('Set Recent'),
@@ -1411,19 +1409,18 @@ class _SelectionPageState extends State<SelectionPage> {
                           onPressed:
                               _isOpeningDocument ||
                                   _isChoosingCloudFile ||
-                                  (_simpleSetupAction ==
-                                          _SimpleSetupAction.open &&
-                                      _effectiveSimpleDocumentSource ==
-                                          _SimpleDocumentSource.local &&
+                                  (_documentSetupAction == _SetupAction.open &&
+                                      _effectiveDocumentSource ==
+                                          _DocumentSource.local &&
                                       !_hasRememberedLocalDocument)
                               ? null
-                              : _simpleSetupAction == _SimpleSetupAction.open
-                              ? _openSelectedSimpleDocument
-                              : _createSimpleDocument,
+                              : _documentSetupAction == _SetupAction.open
+                              ? _openSelectedDocument
+                              : _createDocument,
                           child: FittedBox(
                             fit: BoxFit.scaleDown,
                             child: Text(
-                              _simpleSetupAction == _SimpleSetupAction.open
+                              _documentSetupAction == _SetupAction.open
                                   ? 'Open'
                                   : 'Create',
                             ),
@@ -1452,8 +1449,8 @@ class _SelectionPageState extends State<SelectionPage> {
   }
 }
 
-class _SimpleDocumentPromptData {
-  const _SimpleDocumentPromptData({
+class _DocumentPromptData {
+  const _DocumentPromptData({
     required this.localSubtitle,
     required this.cloudSubtitle,
     required this.hasSelectedCloudFile,
@@ -1466,8 +1463,8 @@ class _SimpleDocumentPromptData {
   final bool hasRememberedLocalFile;
 }
 
-class _SimpleRecentConfigDialog extends StatelessWidget {
-  const _SimpleRecentConfigDialog({required this.configs});
+class _RecentConfigDialog extends StatelessWidget {
+  const _RecentConfigDialog({required this.configs});
 
   final List<SimpleRecentOpenConfig> configs;
 
@@ -1547,7 +1544,7 @@ class _ChooseDocumentCard extends StatelessWidget {
   });
 
   final bool selected;
-  final _SimpleDocumentSource selectedSource;
+  final _DocumentSource selectedSource;
   final String localSubtitle;
   final String cloudSubtitle;
   final bool isChoosingLocalDocument;
@@ -1601,7 +1598,7 @@ class _ChooseDocumentCard extends StatelessWidget {
               const SizedBox(height: 8),
               if (showLocalDocument)
                 _DocumentSourceTile(
-                  selected: selectedSource == _SimpleDocumentSource.local,
+                  selected: selectedSource == _DocumentSource.local,
                   title: 'Local document',
                   subtitle: localSubtitle,
                   icon: Icons.folder_open_rounded,
@@ -1622,7 +1619,7 @@ class _ChooseDocumentCard extends StatelessWidget {
                       : null,
                 ),
               _DocumentSourceTile(
-                selected: selectedSource == _SimpleDocumentSource.cloud,
+                selected: selectedSource == _DocumentSource.cloud,
                 title: 'Cloud document',
                 subtitle: cloudSubtitle,
                 icon: Icons.cloud_outlined,
@@ -1771,15 +1768,13 @@ class _CreateDestinationDialog extends StatelessWidget {
               leading: const Icon(Icons.folder_open_rounded),
               title: const Text('Local'),
               subtitle: const Text('Choose a save location on this device.'),
-              onTap: () =>
-                  Navigator.of(context).pop(_SimpleCreateDestination.local),
+              onTap: () => Navigator.of(context).pop(_CreateDestination.local),
             ),
           ListTile(
             leading: const Icon(Icons.cloud_outlined),
             title: const Text('Cloud'),
             subtitle: const Text('Choose a Google Drive or WebDAV folder.'),
-            onTap: () =>
-                Navigator.of(context).pop(_SimpleCreateDestination.cloud),
+            onTap: () => Navigator.of(context).pop(_CreateDestination.cloud),
           ),
         ],
       ),
@@ -1809,17 +1804,15 @@ class _LocalCreateTargetDialog extends StatelessWidget {
             subtitle: const Text(
               'Save into the folder configured in Settings.',
             ),
-            onTap: () => Navigator.of(
-              context,
-            ).pop(_SimpleLocalCreateTarget.currentSafFolder),
+            onTap: () =>
+                Navigator.of(context).pop(_LocalCreateTarget.currentSafFolder),
           ),
           ListTile(
             leading: const Icon(Icons.create_new_folder_outlined),
             title: const Text('Pick SAF folder'),
             subtitle: const Text('Choose a writable Android folder.'),
-            onTap: () => Navigator.of(
-              context,
-            ).pop(_SimpleLocalCreateTarget.pickSafFolder),
+            onTap: () =>
+                Navigator.of(context).pop(_LocalCreateTarget.pickSafFolder),
           ),
         ],
       ),

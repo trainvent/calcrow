@@ -12,7 +12,7 @@ class LogbookEditingPage extends EditingPageBase {
   }) : super(initialOpenMode: EditorOpenMode.dateBasedOpenEnd);
 }
 
-class _LogbookEditingModeBehavior extends _SimpleEditingModeBehavior {
+class _LogbookEditingModeBehavior extends _EditingModeBehavior {
   const _LogbookEditingModeBehavior();
 
   @override
@@ -28,7 +28,7 @@ class _LogbookEditingModeBehavior extends _SimpleEditingModeBehavior {
   String get requiredFirstColumnType => 'date';
 
   @override
-  Future<_SimpleOpeningSelection?> resolveOpening(
+  Future<_OpeningSelection?> resolveOpening(
     _EditingPageBaseState state,
     SimpleSheetData sheetData,
   ) async {
@@ -47,7 +47,7 @@ class _LogbookEditingModeBehavior extends _SimpleEditingModeBehavior {
       );
       return null;
     }
-    return _SimpleOpeningSelection(
+    return _OpeningSelection(
       targetRowIndex: selection.targetRowIndex,
       textColumnIndex: null,
       textValue: null,
@@ -61,6 +61,6 @@ class _LogbookEditingModeBehavior extends _SimpleEditingModeBehavior {
 
   @override
   Future<void> pickFromCurrentSheet(_EditingPageBaseState state) async {
-    await state._pickSimpleTodayEntryFromCurrentSheet();
+    await state._pickTodayEntryFromCurrentSheet();
   }
 }

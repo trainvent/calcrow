@@ -1,12 +1,16 @@
 import 'package:calcrow/core/data/services/simple_sheet_persistence_service.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/features/home/editing/selection_page.dart';
-import 'package:calcrow/features/home/editing/simple/editing_page_base.dart';
+import 'package:calcrow/features/home/editing/editing_pages/editing_page_base.dart';
 import 'package:calcrow/features/home/sheet/sheet_preview_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  setUp(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+  });
+
   tearDown(() {
     SheetPreviewStore.rowPickRequest.value = null;
     SheetPreviewStore.requestedTabIndex.value = null;
@@ -14,15 +18,13 @@ void main() {
     SheetPreviewStore.notifier.value = SheetPreviewData.initial();
   });
 
-  testWidgets('selection page owns the get started setup surface', (
-    tester,
-  ) async {
+  testWidgets('selection page owns the selector setup surface', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(home: Scaffold(body: SelectionPage())),
     );
     await tester.pump();
 
-    expect(find.text('Get Started'), findsOneWidget);
+    expect(find.text('Selector'), findsOneWidget);
     expect(find.text('Opening Mode'), findsOneWidget);
     expect(find.text('Choose Document'), findsOneWidget);
     expect(find.text('Create Document'), findsOneWidget);
@@ -38,7 +40,7 @@ void main() {
 
     expect(find.text('Editor'), findsOneWidget);
     expect(find.text('Current File'), findsOneWidget);
-    expect(find.text('Save'), findsOneWidget);
+    expect(find.text('Save'), findsWidgets);
     expect(find.byKey(_EmbeddedEditorHarness.bottomNavKey), findsOneWidget);
   });
 
@@ -52,15 +54,17 @@ void main() {
     await tester.tap(find.byTooltip('Back'));
     await tester.pump();
 
-    expect(find.text('Get Started'), findsOneWidget);
+    expect(find.text('Selector'), findsOneWidget);
     expect(find.text('Opening Mode'), findsOneWidget);
     expect(find.text('Editor'), findsNothing);
     expect(find.byKey(_EmbeddedEditorHarness.bottomNavKey), findsOneWidget);
   });
 
-  testWidgets('saving a simple open-ended row stays on the saved row', (
+  testWidgets('saving an open-ended row stays on the saved row', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -79,6 +83,7 @@ void main() {
     await tester.pump();
 
     await tester.enterText(find.widgetWithText(TextField, 'Notes'), 'steady');
+    await tester.ensureVisible(find.text('Save'));
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 
@@ -87,9 +92,11 @@ void main() {
     expect(find.textContaining('Editing new row at bottom'), findsNothing);
   });
 
-  testWidgets('new simple open-ended row warns before replacing edits', (
+  testWidgets('new open-ended row warns before replacing edits', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -108,6 +115,7 @@ void main() {
     await tester.pump();
 
     await tester.enterText(find.widgetWithText(TextField, 'Notes'), 'draft');
+    await tester.ensureVisible(find.text('New'));
     await tester.tap(find.text('New'));
     await tester.pumpAndSettle();
 
@@ -116,7 +124,7 @@ void main() {
       find.text('Save the current row before starting a new one?'),
       findsOneWidget,
     );
-    expect(find.text('Save'), findsOneWidget);
+    expect(find.text('Save'), findsWidgets);
     expect(find.text('Discard'), findsOneWidget);
     expect(find.text('Cancel'), findsOneWidget);
     expect(find.text('draft'), findsOneWidget);
@@ -273,9 +281,9 @@ void main() {
     await tester.tap(find.text('Adjust'));
     await tester.pump();
 
-    expect(find.byKey(const ValueKey('simple-type-options-0-date')), findsOne);
+    expect(find.byKey(const ValueKey('field-type-options-0-date')), findsOne);
     expect(
-      find.byKey(const ValueKey('simple-type-options-0-text')),
+      find.byKey(const ValueKey('field-type-options-0-text')),
       findsNothing,
     );
   });
@@ -305,9 +313,9 @@ void main() {
     await tester.tap(find.text('Adjust'));
     await tester.pump();
 
-    expect(find.byKey(const ValueKey('simple-type-options-0-text')), findsOne);
+    expect(find.byKey(const ValueKey('field-type-options-0-text')), findsOne);
     expect(
-      find.byKey(const ValueKey('simple-type-options-0-date')),
+      find.byKey(const ValueKey('field-type-options-0-date')),
       findsNothing,
     );
   });

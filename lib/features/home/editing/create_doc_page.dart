@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:calcrow/app/widgets/templates_dialogue.dart';
+import 'package:calcrow/core/sheet_type_logic/field_type.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/simple_sheet_file_service.dart';
-import 'package:calcrow/features/home/editing/simple/widgets/moving_tile_widget.dart';
+import 'package:calcrow/features/home/editing/widgets/moving_tile_widget.dart';
 
-class SimpleDocumentDraft {
-  const SimpleDocumentDraft({
+class DocumentDraft {
+  const DocumentDraft({
     required this.fileName,
     required this.format,
     required this.headers,
@@ -26,26 +27,15 @@ class CreateDocPage extends StatefulWidget {
 }
 
 class _CreateDocPageState extends State<CreateDocPage> {
-  static const List<String> _typeOptions = <String>[
-    'text',
-    'date',
-    'time',
-    'duration',
-    'integer',
-    'float',
-    'boolean',
-    'email',
-    'phone',
-  ];
   final TextEditingController _fileNameController = TextEditingController(
-    text: 'calcrow_simple',
+    text: 'calcrow_sheet',
   );
-  final List<_SimpleColumnDraft> _columns = <_SimpleColumnDraft>[
-    _SimpleColumnDraft(header: 'Date', type: 'date'),
-    _SimpleColumnDraft(header: 'Start', type: 'time'),
-    _SimpleColumnDraft(header: 'End', type: 'time'),
-    _SimpleColumnDraft(header: 'Pause', type: 'duration'),
-    _SimpleColumnDraft(header: 'Notes', type: 'text'),
+  final List<_ColumnDraft> _columns = <_ColumnDraft>[
+    _ColumnDraft(header: 'Date', type: FieldType.date),
+    _ColumnDraft(header: 'Start', type: FieldType.time),
+    _ColumnDraft(header: 'End', type: FieldType.time),
+    _ColumnDraft(header: 'Pause', type: FieldType.duration),
+    _ColumnDraft(header: 'Notes', type: FieldType.text),
   ];
   SimpleFileFormat _format = SimpleFileFormat.csv;
   bool _isArranging = false;
@@ -62,7 +52,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
 
   void _addColumn() {
     setState(() {
-      _columns.add(_SimpleColumnDraft(header: '', type: 'text'));
+      _columns.add(_ColumnDraft(header: '', type: FieldType.text));
       _errorText = null;
     });
   }
@@ -102,16 +92,16 @@ class _CreateDocPageState extends State<CreateDocPage> {
   }
 
   Future<void> _openTemplates() async {
-    final template = await showDialog<SimpleDocumentTemplate>(
+    final template = await showDialog<DocumentTemplate>(
       context: context,
       builder: (context) =>
-          const TemplatesDialogue(templates: simpleDocumentTemplates),
+          const TemplatesDialogue(templates: documentTemplates),
     );
     if (!mounted || template == null) return;
     _applyTemplate(template);
   }
 
-  void _applyTemplate(SimpleDocumentTemplate template) {
+  void _applyTemplate(DocumentTemplate template) {
     for (final column in _columns) {
       column.dispose();
     }
@@ -121,8 +111,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
         ..clear()
         ..addAll(
           template.columns.map(
-            (column) =>
-                _SimpleColumnDraft(header: column.header, type: column.type),
+            (column) => _ColumnDraft(header: column.header, type: column.type),
           ),
         );
       _isArranging = false;
@@ -138,7 +127,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
         .toList();
     final valueTypes = _columns
         .where((column) => column.headerController.text.trim().isNotEmpty)
-        .map((column) => column.type)
+        .map((column) => column.type.value)
         .toList();
 
     if (headers.isEmpty) {
@@ -156,7 +145,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
     }
 
     Navigator.of(context).pop(
-      SimpleDocumentDraft(
+      DocumentDraft(
         fileName: fileName,
         format: _format,
         headers: headers,
@@ -168,7 +157,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
   String _fileNameWithFormat(String value, SimpleFileFormat format) {
     final extension = _extensionForFormat(format);
     final baseName = _baseFileName(value);
-    return '${baseName.isEmpty ? 'calcrow_simple' : baseName}.$extension';
+    return '${baseName.isEmpty ? 'calcrow_sheet' : baseName}.$extension';
   }
 
   String _baseFileName(String value) {
@@ -206,12 +195,15 @@ class _CreateDocPageState extends State<CreateDocPage> {
         }
       },
     );
-    final typeField = DropdownButtonFormField<String>(
+    final typeField = DropdownButtonFormField<FieldType>(
       initialValue: column.type,
       decoration: const InputDecoration(labelText: 'Type'),
-      items: _typeOptions
+      items: FieldType.createOptions
           .map(
-            (type) => DropdownMenuItem<String>(value: type, child: Text(type)),
+            (type) => DropdownMenuItem<FieldType>(
+              value: type,
+              child: Text(type.value),
+            ),
           )
           .toList(),
       onChanged: (value) {
@@ -399,12 +391,12 @@ class _CreateDocPageState extends State<CreateDocPage> {
   }
 }
 
-class _SimpleColumnDraft {
-  _SimpleColumnDraft({required String header, required this.type})
+class _ColumnDraft {
+  _ColumnDraft({required String header, required this.type})
     : headerController = TextEditingController(text: header);
 
   final TextEditingController headerController;
-  String type;
+  FieldType type;
 
   void dispose() {
     headerController.dispose();

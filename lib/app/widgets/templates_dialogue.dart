@@ -1,98 +1,102 @@
 import 'package:flutter/material.dart';
+import 'package:calcrow/core/sheet_type_logic/field_type.dart';
 
-const simpleDocumentTemplates = <SimpleDocumentTemplate>[
-  SimpleDocumentTemplate(
+const documentTemplates = <DocumentTemplate>[
+  DocumentTemplate(
     name: 'Workout like Bruce Lee',
     fileName: 'bruce_lee_workout',
     description:
         'Track training sessions without turning the sheet into a fitness app.',
-    columns: <SimpleTemplateColumn>[
-      SimpleTemplateColumn(header: 'Date', type: 'date'),
-      SimpleTemplateColumn(header: 'Run km', type: 'Float'),
-      SimpleTemplateColumn(header: 'Clean and Press weight', type: 'Float'),
-      SimpleTemplateColumn(header: 'Barbell Curl weight', type: 'Float'),
-      SimpleTemplateColumn(
+    columns: <TemplateColumn>[
+      TemplateColumn(header: 'Date', type: FieldType.date),
+      TemplateColumn(header: 'Run km', type: FieldType.float),
+      TemplateColumn(header: 'Clean and Press weight', type: FieldType.float),
+      TemplateColumn(header: 'Barbell Curl weight', type: FieldType.float),
+      TemplateColumn(
         header: 'Behind-the-neck Press weight',
-        type: 'Float',
+        type: FieldType.float,
       ),
-      SimpleTemplateColumn(header: 'Upright Row weight', type: 'Float'),
-      SimpleTemplateColumn(header: 'Barbell Squat weight', type: 'Float'),
-      SimpleTemplateColumn(header: 'Barbell Row weight', type: 'Float'),
-      SimpleTemplateColumn(header: 'Barbell Bench Press weight', type: 'Float'),
-      SimpleTemplateColumn(header: 'Barbell Pullover weight', type: 'Float'),
-      SimpleTemplateColumn(header: 'Reps', type: 'Integer'),
-      SimpleTemplateColumn(header: 'Sets', type: 'Integer'),
-      SimpleTemplateColumn(header: 'Notes', type: 'text'),
+      TemplateColumn(header: 'Upright Row weight', type: FieldType.float),
+      TemplateColumn(header: 'Barbell Squat weight', type: FieldType.float),
+      TemplateColumn(header: 'Barbell Row weight', type: FieldType.float),
+      TemplateColumn(
+        header: 'Barbell Bench Press weight',
+        type: FieldType.float,
+      ),
+      TemplateColumn(header: 'Barbell Pullover weight', type: FieldType.float),
+      TemplateColumn(header: 'Reps', type: FieldType.integer),
+      TemplateColumn(header: 'Sets', type: FieldType.integer),
+      TemplateColumn(header: 'Notes', type: FieldType.text),
     ],
   ),
-  SimpleDocumentTemplate(
+  DocumentTemplate(
     name: 'Triathlon Training Tracker Plus',
     fileName: 'triathlon_training_tracker_plus',
     description: 'Track swim, bike, run, and strength work in one row.',
-    columns: <SimpleTemplateColumn>[
-      SimpleTemplateColumn(header: 'Date', type: 'date'),
-      SimpleTemplateColumn(header: 'Run km', type: 'Float'),
-      SimpleTemplateColumn(header: 'Swim km', type: 'Float'),
-      SimpleTemplateColumn(header: 'Bike km', type: 'Float'),
-      SimpleTemplateColumn(header: 'Pull-ups', type: 'Integer'),
-      SimpleTemplateColumn(header: 'Push-ups', type: 'Integer'),
-      SimpleTemplateColumn(header: 'Squats', type: 'Integer'),
+    columns: <TemplateColumn>[
+      TemplateColumn(header: 'Date', type: FieldType.date),
+      TemplateColumn(header: 'Run km', type: FieldType.float),
+      TemplateColumn(header: 'Swim km', type: FieldType.float),
+      TemplateColumn(header: 'Bike km', type: FieldType.float),
+      TemplateColumn(header: 'Pull-ups', type: FieldType.integer),
+      TemplateColumn(header: 'Push-ups', type: FieldType.integer),
+      TemplateColumn(header: 'Squats', type: FieldType.integer),
     ],
   ),
-  SimpleDocumentTemplate(
+  DocumentTemplate(
     name: 'Customer Service',
     fileName: 'customer_service',
     description: 'Log customer visits, billable time, expenses, and outcomes.',
-    columns: <SimpleTemplateColumn>[
-      SimpleTemplateColumn(header: 'Date', type: 'date'),
-      SimpleTemplateColumn(header: 'Customer', type: 'text'),
-      SimpleTemplateColumn(header: 'Workhours', type: 'Float'),
-      SimpleTemplateColumn(header: 'Expenses', type: 'Float'),
-      SimpleTemplateColumn(header: 'Work done', type: 'text'),
-      SimpleTemplateColumn(header: 'Notes', type: 'text'),
+    columns: <TemplateColumn>[
+      TemplateColumn(header: 'Date', type: FieldType.date),
+      TemplateColumn(header: 'Customer', type: FieldType.text),
+      TemplateColumn(header: 'Workhours', type: FieldType.float),
+      TemplateColumn(header: 'Expenses', type: FieldType.float),
+      TemplateColumn(header: 'Work done', type: FieldType.text),
+      TemplateColumn(header: 'Notes', type: FieldType.text),
     ],
   ),
-  SimpleDocumentTemplate(
+  DocumentTemplate(
     name: 'Guestlist',
     fileName: 'guestlist',
     description: 'Names, contacts, and RSVP status for an event.',
-    columns: <SimpleTemplateColumn>[
-      SimpleTemplateColumn(header: 'Date', type: 'date'),
-      SimpleTemplateColumn(header: 'Name', type: 'text'),
-      SimpleTemplateColumn(header: 'Email', type: 'email'),
-      SimpleTemplateColumn(header: 'Phone', type: 'phone'),
-      SimpleTemplateColumn(header: 'RSVP', type: 'boolean'),
-      SimpleTemplateColumn(header: 'Notes', type: 'text'),
+    columns: <TemplateColumn>[
+      TemplateColumn(header: 'Date', type: FieldType.date),
+      TemplateColumn(header: 'Name', type: FieldType.text),
+      TemplateColumn(header: 'Email', type: FieldType.email),
+      TemplateColumn(header: 'Phone', type: FieldType.phone),
+      TemplateColumn(header: 'RSVP', type: FieldType.boolean),
+      TemplateColumn(header: 'Notes', type: FieldType.text),
     ],
   ),
-  SimpleDocumentTemplate(
+  DocumentTemplate(
     name: 'Workhours',
     fileName: 'workhours',
     description: 'A clean day-by-day timesheet with breaks and notes.',
-    columns: <SimpleTemplateColumn>[
-      SimpleTemplateColumn(header: 'Date', type: 'date'),
-      SimpleTemplateColumn(header: 'Start', type: 'time'),
-      SimpleTemplateColumn(header: 'End', type: 'time'),
-      SimpleTemplateColumn(header: 'Pause', type: 'duration'),
-      SimpleTemplateColumn(header: 'Notes', type: 'text'),
+    columns: <TemplateColumn>[
+      TemplateColumn(header: 'Date', type: FieldType.date),
+      TemplateColumn(header: 'Start', type: FieldType.time),
+      TemplateColumn(header: 'End', type: FieldType.time),
+      TemplateColumn(header: 'Pause', type: FieldType.duration),
+      TemplateColumn(header: 'Notes', type: FieldType.text),
     ],
   ),
-  SimpleDocumentTemplate(
+  DocumentTemplate(
     name: 'Invoices',
     fileName: 'invoices',
     description: 'Basic invoice tracking with dates, clients, and totals.',
-    columns: <SimpleTemplateColumn>[
-      SimpleTemplateColumn(header: 'Date', type: 'date'),
-      SimpleTemplateColumn(header: 'Client', type: 'text'),
-      SimpleTemplateColumn(header: 'Invoice', type: 'text'),
-      SimpleTemplateColumn(header: 'Amount', type: 'Float'),
-      SimpleTemplateColumn(header: 'Status', type: 'text'),
+    columns: <TemplateColumn>[
+      TemplateColumn(header: 'Date', type: FieldType.date),
+      TemplateColumn(header: 'Client', type: FieldType.text),
+      TemplateColumn(header: 'Invoice', type: FieldType.text),
+      TemplateColumn(header: 'Amount', type: FieldType.float),
+      TemplateColumn(header: 'Status', type: FieldType.text),
     ],
   ),
 ];
 
-class SimpleDocumentTemplate {
-  const SimpleDocumentTemplate({
+class DocumentTemplate {
+  const DocumentTemplate({
     required this.name,
     required this.fileName,
     required this.description,
@@ -102,20 +106,20 @@ class SimpleDocumentTemplate {
   final String name;
   final String fileName;
   final String description;
-  final List<SimpleTemplateColumn> columns;
+  final List<TemplateColumn> columns;
 }
 
-class SimpleTemplateColumn {
-  const SimpleTemplateColumn({required this.header, required this.type});
+class TemplateColumn {
+  const TemplateColumn({required this.header, required this.type});
 
   final String header;
-  final String type;
+  final FieldType type;
 }
 
 class TemplatesDialogue extends StatelessWidget {
   const TemplatesDialogue({super.key, required this.templates});
 
-  final List<SimpleDocumentTemplate> templates;
+  final List<DocumentTemplate> templates;
 
   @override
   Widget build(BuildContext context) {
@@ -173,7 +177,7 @@ class TemplatesDialogue extends StatelessWidget {
 class _TemplateOptionTile extends StatelessWidget {
   const _TemplateOptionTile({required this.template});
 
-  final SimpleDocumentTemplate template;
+  final DocumentTemplate template;
 
   @override
   Widget build(BuildContext context) {
@@ -220,7 +224,7 @@ class _TemplateOptionTile extends StatelessWidget {
 class _TemplateFieldPreview extends StatelessWidget {
   const _TemplateFieldPreview({required this.columns});
 
-  final List<SimpleTemplateColumn> columns;
+  final List<TemplateColumn> columns;
 
   @override
   Widget build(BuildContext context) {
@@ -228,7 +232,7 @@ class _TemplateFieldPreview extends StatelessWidget {
         .where(
           (column) =>
               column.header.trim().toLowerCase() != 'date' ||
-              column.type.trim().toLowerCase() != 'date',
+              column.type != FieldType.date,
         )
         .toList(growable: false);
     final chipStrip = SingleChildScrollView(
@@ -263,24 +267,24 @@ class _TemplateFieldPreview extends StatelessWidget {
     );
   }
 
-  IconData _iconForType(String type) {
+  IconData _iconForType(FieldType type) {
     switch (type) {
-      case 'date':
+      case FieldType.date:
         return Icons.calendar_today_outlined;
-      case 'time':
+      case FieldType.time:
         return Icons.schedule_rounded;
-      case 'duration':
+      case FieldType.duration:
         return Icons.timer_outlined;
-      case 'Integer':
-      case 'Float':
+      case FieldType.integer:
+      case FieldType.float:
         return Icons.pin_outlined;
-      case 'boolean':
+      case FieldType.boolean:
         return Icons.toggle_on_outlined;
-      case 'email':
+      case FieldType.email:
         return Icons.alternate_email_rounded;
-      case 'phone':
+      case FieldType.phone:
         return Icons.phone_outlined;
-      default:
+      case FieldType.text:
         return Icons.text_fields_rounded;
     }
   }

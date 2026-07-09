@@ -12,7 +12,7 @@ class DiaryEditingPage extends EditingPageBase {
   }) : super(initialOpenMode: EditorOpenMode.dateBased);
 }
 
-class _DiaryEditingModeBehavior extends _SimpleEditingModeBehavior {
+class _DiaryEditingModeBehavior extends _EditingModeBehavior {
   const _DiaryEditingModeBehavior();
 
   @override
@@ -22,7 +22,7 @@ class _DiaryEditingModeBehavior extends _SimpleEditingModeBehavior {
   String get pickButtonLabel => 'Jump Today';
 
   @override
-  Future<_SimpleOpeningSelection?> resolveOpening(
+  Future<_OpeningSelection?> resolveOpening(
     _EditingPageBaseState state,
     SimpleSheetData sheetData,
   ) async {
@@ -37,7 +37,7 @@ class _DiaryEditingModeBehavior extends _SimpleEditingModeBehavior {
       );
       return null;
     }
-    return _SimpleOpeningSelection(
+    return _OpeningSelection(
       targetRowIndex: selection.targetRowIndex,
       textColumnIndex: null,
       textValue: null,
