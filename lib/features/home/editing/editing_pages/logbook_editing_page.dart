@@ -30,7 +30,7 @@ class _LogbookEditingModeBehavior extends _EditingModeBehavior {
   @override
   Future<_OpeningSelection?> resolveOpening(
     _EditingPageBaseState state,
-    SimpleSheetData sheetData,
+    SheetData sheetData,
   ) async {
     if (state._cachedFirstColumnBlocksDateBasedOpening(sheetData)) {
       state._showCachedTypeMismatchSnackBar(

@@ -5,7 +5,7 @@ import 'db_service.dart';
 
 enum CloudSyncProvider { googleDrive, webDav }
 
-enum SimpleRecentDocumentSource { local, googleDrive, webDav }
+enum RecentDocumentSource { local, googleDrive, webDav }
 
 CloudSyncProvider? cloudSyncProviderFromSettings(Object? value) {
   switch ((value as String?)?.trim()) {
@@ -56,8 +56,8 @@ class WebDavSavedEntry {
   }
 }
 
-class SimpleRecentOpenConfig {
-  const SimpleRecentOpenConfig({
+class RecentOpenConfig {
+  const RecentOpenConfig({
     required this.source,
     required this.fileName,
     required this.openMode,
@@ -67,7 +67,7 @@ class SimpleRecentOpenConfig {
     this.updatedAt,
   });
 
-  final SimpleRecentDocumentSource source;
+  final RecentDocumentSource source;
   final String fileName;
   final String openMode;
   final String? path;
@@ -78,11 +78,11 @@ class SimpleRecentOpenConfig {
   String get dedupeKey =>
       '${source.name}|${fileId ?? path ?? fileName}|$openMode';
 
-  static SimpleRecentOpenConfig? fromMap(Object? raw) {
+  static RecentOpenConfig? fromMap(Object? raw) {
     if (raw is! Map) return null;
     final sourceName = UserSettingsData._readTrimmed(raw['source']);
     final source = _firstWhereOrNull(
-      SimpleRecentDocumentSource.values,
+      RecentDocumentSource.values,
       (candidate) => candidate.name == sourceName,
     );
     final fileName = UserSettingsData._readTrimmed(raw['fileName']);
@@ -90,14 +90,14 @@ class SimpleRecentOpenConfig {
     if (source == null || fileName == null || openMode == null) return null;
     final path = UserSettingsData._readTrimmed(raw['path']);
     final fileId = UserSettingsData._readTrimmed(raw['fileId']);
-    if (source == SimpleRecentDocumentSource.local && path == null) {
+    if (source == RecentDocumentSource.local && path == null) {
       return null;
     }
-    if (source != SimpleRecentDocumentSource.local && fileId == null) {
+    if (source != RecentDocumentSource.local && fileId == null) {
       return null;
     }
     final updatedAtRaw = UserSettingsData._readTrimmed(raw['updatedAt']);
-    return SimpleRecentOpenConfig(
+    return RecentOpenConfig(
       source: source,
       fileName: fileName,
       openMode: openMode,
@@ -120,8 +120,8 @@ class SimpleRecentOpenConfig {
     };
   }
 
-  SimpleRecentOpenConfig touch(DateTime now) {
-    return SimpleRecentOpenConfig(
+  RecentOpenConfig touch(DateTime now) {
+    return RecentOpenConfig(
       source: source,
       fileName: fileName,
       openMode: openMode,
@@ -170,7 +170,7 @@ class UserSettingsData {
     this.webDavSyncFileName,
     this.webDavSyncMimeType,
     this.safTreeUri,
-    this.simpleRecentOpenConfigs = const <SimpleRecentOpenConfig>[],
+    this.recentOpenConfigs = const <RecentOpenConfig>[],
   });
 
   final String defaultDateFormat;
@@ -191,7 +191,7 @@ class UserSettingsData {
   final String? webDavSyncFileName;
   final String? webDavSyncMimeType;
   final String? safTreeUri;
-  final List<SimpleRecentOpenConfig> simpleRecentOpenConfigs;
+  final List<RecentOpenConfig> recentOpenConfigs;
 
   factory UserSettingsData.fromMap(Map<String, dynamic>? map) {
     final settings = map ?? const <String, dynamic>{};
@@ -248,9 +248,7 @@ class UserSettingsData {
       webDavSyncFileName: _readTrimmed(settings['webDavSyncFileName']),
       webDavSyncMimeType: _readTrimmed(settings['webDavSyncMimeType']),
       safTreeUri: _readTrimmed(settings['safTreeUri']),
-      simpleRecentOpenConfigs: _parseSimpleRecentOpenConfigs(
-        settings['simpleRecentOpenConfigs'],
-      ),
+      recentOpenConfigs: _parseRecentOpenConfigs(settings['recentOpenConfigs']),
     );
   }
 
@@ -290,13 +288,11 @@ class UserSettingsData {
     ];
   }
 
-  static List<SimpleRecentOpenConfig> _parseSimpleRecentOpenConfigs(
-    Object? raw,
-  ) {
-    if (raw is! List) return const <SimpleRecentOpenConfig>[];
-    final parsed = <SimpleRecentOpenConfig>[];
+  static List<RecentOpenConfig> _parseRecentOpenConfigs(Object? raw) {
+    if (raw is! List) return const <RecentOpenConfig>[];
+    final parsed = <RecentOpenConfig>[];
     for (final candidate in raw) {
-      final config = SimpleRecentOpenConfig.fromMap(candidate);
+      final config = RecentOpenConfig.fromMap(candidate);
       if (config == null) continue;
       if (parsed.any((existing) => existing.dedupeKey == config.dedupeKey)) {
         continue;
@@ -364,38 +360,36 @@ class UserRepository {
     }, SetOptions(merge: true));
   }
 
-  Future<void> rememberSimpleOpenConfig({
+  Future<void> rememberOpenConfig({
     required String uid,
-    required SimpleRecentOpenConfig config,
+    required RecentOpenConfig config,
   }) async {
     final settings = await getUserSettings(uid);
     final now = DateTime.now();
     final touched = config.touch(now);
-    final next = <SimpleRecentOpenConfig>[
+    final next = <RecentOpenConfig>[
       touched,
-      ...settings.simpleRecentOpenConfigs.where(
+      ...settings.recentOpenConfigs.where(
         (candidate) => candidate.dedupeKey != touched.dedupeKey,
       ),
     ].take(8).toList();
 
     await _firestore.collection(_usersCollection).doc(uid).set({
       'settings': {
-        'simpleRecentOpenConfigs': next
-            .map((config) => config.toMap())
-            .toList(),
+        'recentOpenConfigs': next.map((config) => config.toMap()).toList(),
       },
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
 
-  Future<List<String>?> readSimpleTypeHints({
+  Future<List<String>?> readTypeHints({
     required String uid,
     required CloudSyncProvider provider,
     required String documentId,
   }) async {
     final settings = await _dbService.getUserSettings(uid);
-    final entries = _parseSimpleTypeHintEntries(settings?['simpleTypeHints']);
-    final key = _simpleTypeHintKey(provider: provider, documentId: documentId);
+    final entries = _parseTypeHintEntries(settings?['typeHints']);
+    final key = _typeHintKey(provider: provider, documentId: documentId);
     final entry = _firstWhereOrNull(
       entries,
       (candidate) => candidate.key == key,
@@ -403,7 +397,7 @@ class UserRepository {
     return entry?.valueTypes;
   }
 
-  Future<void> rememberSimpleTypeHints({
+  Future<void> rememberTypeHints({
     required String uid,
     required CloudSyncProvider provider,
     required String documentId,
@@ -417,9 +411,9 @@ class UserRepository {
     if (normalizedTypes.isEmpty) return;
 
     final settings = await _dbService.getUserSettings(uid);
-    final entries = _parseSimpleTypeHintEntries(settings?['simpleTypeHints']);
-    final key = _simpleTypeHintKey(provider: provider, documentId: documentId);
-    final nextEntry = _SimpleTypeHintEntry(
+    final entries = _parseTypeHintEntries(settings?['typeHints']);
+    final key = _typeHintKey(provider: provider, documentId: documentId);
+    final nextEntry = _TypeHintEntry(
       key: key,
       provider: cloudSyncProviderToSettings(provider),
       documentId: documentId,
@@ -427,33 +421,29 @@ class UserRepository {
       valueTypes: normalizedTypes,
       updatedAt: DateTime.now(),
     );
-    final next = <_SimpleTypeHintEntry>[
+    final next = <_TypeHintEntry>[
       nextEntry,
       ...entries.where((entry) => entry.key != key),
     ].take(50).toList();
 
     await _firestore.collection(_usersCollection).doc(uid).set({
-      'settings': {
-        'simpleTypeHints': next.map((entry) => entry.toMap()).toList(),
-      },
+      'settings': {'typeHints': next.map((entry) => entry.toMap()).toList()},
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
 
-  Future<void> clearSimpleTypeHints({
+  Future<void> clearTypeHints({
     required String uid,
     required CloudSyncProvider provider,
     required String documentId,
   }) async {
     final settings = await _dbService.getUserSettings(uid);
-    final entries = _parseSimpleTypeHintEntries(settings?['simpleTypeHints']);
-    final key = _simpleTypeHintKey(provider: provider, documentId: documentId);
+    final entries = _parseTypeHintEntries(settings?['typeHints']);
+    final key = _typeHintKey(provider: provider, documentId: documentId);
     final next = entries.where((entry) => entry.key != key).toList();
 
     await _firestore.collection(_usersCollection).doc(uid).set({
-      'settings': {
-        'simpleTypeHints': next.map((entry) => entry.toMap()).toList(),
-      },
+      'settings': {'typeHints': next.map((entry) => entry.toMap()).toList()},
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
@@ -648,8 +638,8 @@ class UserRepository {
   }
 }
 
-class _SimpleTypeHintEntry {
-  const _SimpleTypeHintEntry({
+class _TypeHintEntry {
+  const _TypeHintEntry({
     required this.key,
     required this.provider,
     required this.documentId,
@@ -665,7 +655,7 @@ class _SimpleTypeHintEntry {
   final List<String> valueTypes;
   final DateTime updatedAt;
 
-  static _SimpleTypeHintEntry? fromMap(Object? raw) {
+  static _TypeHintEntry? fromMap(Object? raw) {
     if (raw is! Map) return null;
     final key = UserSettingsData._readTrimmed(raw['key']);
     final provider = UserSettingsData._readTrimmed(raw['provider']);
@@ -680,7 +670,7 @@ class _SimpleTypeHintEntry {
         .toList(growable: false);
     if (valueTypes.isEmpty) return null;
     final updatedAtRaw = UserSettingsData._readTrimmed(raw['updatedAt']);
-    return _SimpleTypeHintEntry(
+    return _TypeHintEntry(
       key: key,
       provider: provider,
       documentId: documentId,
@@ -705,11 +695,11 @@ class _SimpleTypeHintEntry {
   }
 }
 
-List<_SimpleTypeHintEntry> _parseSimpleTypeHintEntries(Object? raw) {
-  if (raw is! List) return const <_SimpleTypeHintEntry>[];
-  final parsed = <_SimpleTypeHintEntry>[];
+List<_TypeHintEntry> _parseTypeHintEntries(Object? raw) {
+  if (raw is! List) return const <_TypeHintEntry>[];
+  final parsed = <_TypeHintEntry>[];
   for (final candidate in raw) {
-    final entry = _SimpleTypeHintEntry.fromMap(candidate);
+    final entry = _TypeHintEntry.fromMap(candidate);
     if (entry == null) continue;
     if (parsed.any((existing) => existing.key == entry.key)) continue;
     parsed.add(entry);
@@ -718,7 +708,7 @@ List<_SimpleTypeHintEntry> _parseSimpleTypeHintEntries(Object? raw) {
   return parsed;
 }
 
-String _simpleTypeHintKey({
+String _typeHintKey({
   required CloudSyncProvider provider,
   required String documentId,
 }) {

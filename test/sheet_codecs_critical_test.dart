@@ -1,14 +1,14 @@
 import 'dart:typed_data';
 
 import 'package:excel/excel.dart' as excel_pkg;
+import 'package:calcrow/core/guessers/field_type_guesser.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:calcrow/core/sheet_type_logic/csv_codec.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
-import 'package:calcrow/core/sheet_type_logic/simple_sheet_file_service.dart';
-import 'package:calcrow/core/sheet_type_logic/simple_sheet_logic.dart';
-import 'package:calcrow/core/sheet_type_logic/simple_type_hint_cache.dart';
+import 'package:calcrow/core/sheet_type_logic/sheet_file_service.dart';
+import 'package:calcrow/core/sheet_type_logic/type_hint_cache.dart';
 import 'package:calcrow/core/sheet_type_logic/xlsx_codec.dart';
 
 import 'support/sheet_test_helpers.dart';
@@ -17,18 +17,27 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   SharedPreferences.setMockInitialValues(<String, Object>{});
 
-  group('Simple type logic', () {
+  group('Sheet type logic', () {
     test('Integer and Float labels map to distinct numeric types', () {
-      expect(SimpleSheetLogic.normalizeTypeLabel('Integer'), 'int');
-      expect(SimpleSheetLogic.normalizeTypeLabel('Float'), 'float');
-      expect(SimpleSheetLogic.isIntegerType('Integer'), isTrue);
-      expect(SimpleSheetLogic.isIntegerType('Float'), isFalse);
-      expect(SimpleSheetLogic.isDecimalType('Integer'), isFalse);
-      expect(SimpleSheetLogic.isDecimalType('Float'), isTrue);
-      expect(SimpleSheetLogic.normalizeTypeLabel('boolean'), 'boolean');
-      expect(SimpleSheetLogic.looksLikeBooleanValue('TRUE'), isTrue);
-      expect(SimpleSheetLogic.looksLikeBooleanValue('FALSE'), isTrue);
-      expect(SimpleSheetLogic.looksLikeBooleanValue('yes'), isFalse);
+      expect(FieldTypeGuesser.normalizeTypeLabel('Integer'), 'int');
+      expect(FieldTypeGuesser.normalizeTypeLabel('float'), 'float');
+      expect(FieldTypeGuesser.isIntegerType('Integer'), isTrue);
+      expect(FieldTypeGuesser.isIntegerType('float'), isFalse);
+      expect(FieldTypeGuesser.isDecimalType('Integer'), isFalse);
+      expect(FieldTypeGuesser.isDecimalType('float'), isTrue);
+      expect(FieldTypeGuesser.normalizeTypeLabel('boolean'), 'boolean');
+      expect(FieldTypeGuesser.looksLikeBooleanValue('TRUE'), isTrue);
+      expect(FieldTypeGuesser.looksLikeBooleanValue('FALSE'), isTrue);
+      expect(FieldTypeGuesser.looksLikeBooleanValue('yes'), isFalse);
+    });
+
+    test('header guesses use field-aware tokens', () {
+      expect(FieldTypeGuesser.typeFromHeader('Date'), 'date');
+      expect(FieldTypeGuesser.typeFromHeader('Entry Date'), 'date');
+      expect(FieldTypeGuesser.typeFromHeader('Endurance'), isNull);
+      expect(FieldTypeGuesser.typeFromHeader('Hours'), 'float');
+      expect(FieldTypeGuesser.typeFromHeader('Sets'), 'int');
+      expect(FieldTypeGuesser.typeFromHeader('RSVP'), 'boolean');
     });
   });
 
@@ -71,7 +80,7 @@ void main() {
         final parsed = await parseCsv('Date,Hours,Notes\n');
 
         expect(parsed.headers, ['Date', 'Hours', 'Notes']);
-        expect(parsed.valueTypes, ['date', 'Float', 'text']);
+        expect(parsed.valueTypes, ['date', 'float', 'text']);
         expect(parsed.rows, isEmpty);
 
         final updated = copySheetData(
@@ -175,7 +184,7 @@ void main() {
       final parsed = parseXlsx(
         buildWorkbookBytes([
           ['name', 'date', 'hours'],
-          ['text', 'date', 'Float'],
+          ['text', 'date', 'float'],
           ['Alice', '2026-01-01', '8'],
         ]),
       );
@@ -197,7 +206,7 @@ void main() {
       final reparsed = parseXlsx(XlsxSheetCodec.buildBytes(updated));
 
       expect(reparsed.headers, ['name', 'date', 'hours']);
-      expect(reparsed.valueTypes, ['text', 'date', 'Float']);
+      expect(reparsed.valueTypes, ['text', 'date', 'float']);
       expect(reparsed.rows, [
         ['Alice', '2026-01-01', '8.5'],
         ['Bob', '2026-01-02', '7'],
@@ -220,12 +229,12 @@ void main() {
       ]);
     });
 
-    test('XLSX can be built from a fresh simple document draft', () {
+    test('XLSX can be built from a fresh sheet draft', () {
       final workbook = excel_pkg.Excel.createExcel();
-      final draft = SimpleSheetData(
+      final draft = SheetData(
         fileName: 'fresh.xlsx',
         path: null,
-        format: SimpleFileFormat.xlsx,
+        format: SheetFileFormat.xlsx,
         headers: const <String>['Date', 'Start', 'End', 'Notes'],
         valueTypes: const <String>['date', 'time', 'time', 'text'],
         readOnlyColumns: List<bool>.filled(4, false),
@@ -241,13 +250,13 @@ void main() {
     });
 
     test('XLSX parse reuses confirmed cached field types', () async {
-      await SimpleTypeHintCache.rememberCsvTypes(
+      await TypeHintCache.rememberCsvTypes(
         fileName: 'cached.xlsx',
         path: '/tmp/cached.xlsx',
-        valueTypes: const <String>['text', 'date', 'Float'],
+        valueTypes: const <String>['text', 'date', 'float'],
       );
 
-      final parsed = await SimpleSheetFileService.parse(
+      final parsed = await SheetFileService.parse(
         bytes: buildWorkbookBytes([
           ['name', 'date', 'hours'],
         ]),
@@ -255,15 +264,15 @@ void main() {
         path: '/tmp/cached.xlsx',
       );
 
-      expect(parsed.valueTypes, ['text', 'date', 'Float']);
+      expect(parsed.valueTypes, ['text', 'date', 'float']);
       expect(parsed.pendingTypeSelectionColumns, isEmpty);
     });
 
     test('XLSX boolean fields roundtrip as TRUE and FALSE', () {
-      final draft = SimpleSheetData(
+      final draft = SheetData(
         fileName: 'guestlist.xlsx',
         path: null,
-        format: SimpleFileFormat.xlsx,
+        format: SheetFileFormat.xlsx,
         headers: const <String>['Date', 'RSVP', 'Notes'],
         valueTypes: const <String>['date', 'boolean', 'text'],
         readOnlyColumns: List<bool>.filled(3, false),
@@ -285,11 +294,11 @@ void main() {
   });
 }
 
-Future<SimpleSheetData> parseCsv(String content) {
+Future<SheetData> parseCsv(String content) {
   return parseCsvBytes(utf8Bytes(content));
 }
 
-Future<SimpleSheetData> parseCsvBytes(Uint8List bytes) {
+Future<SheetData> parseCsvBytes(Uint8List bytes) {
   return CsvSheetCodec.parse(
     bytes: bytes,
     fileName: 'sample.csv',
@@ -325,7 +334,7 @@ Uint8List buildWorkbookBytes(List<List<String>> rows) {
   return Uint8List.fromList(encoded!);
 }
 
-SimpleSheetData parseXlsx(Uint8List bytes) {
+SheetData parseXlsx(Uint8List bytes) {
   return XlsxSheetCodec.parse(
     bytes: bytes,
     fileName: 'sample.xlsx',

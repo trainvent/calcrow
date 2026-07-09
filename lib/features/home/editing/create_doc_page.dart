@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:calcrow/app/widgets/templates_dialogue.dart';
 import 'package:calcrow/core/sheet_type_logic/field_type.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
-import 'package:calcrow/core/sheet_type_logic/simple_sheet_file_service.dart';
+import 'package:calcrow/core/sheet_type_logic/sheet_file_service.dart';
 import 'package:calcrow/features/home/editing/widgets/moving_tile_widget.dart';
 
 class DocumentDraft {
@@ -14,7 +14,7 @@ class DocumentDraft {
   });
 
   final String fileName;
-  final SimpleFileFormat format;
+  final SheetFileFormat format;
   final List<String> headers;
   final List<String> valueTypes;
 }
@@ -37,7 +37,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
     _ColumnDraft(header: 'Pause', type: FieldType.duration),
     _ColumnDraft(header: 'Notes', type: FieldType.text),
   ];
-  SimpleFileFormat _format = SimpleFileFormat.csv;
+  SheetFileFormat _format = SheetFileFormat.csv;
   bool _isArranging = false;
   String? _errorText;
 
@@ -83,8 +83,8 @@ class _CreateDocPageState extends State<CreateDocPage> {
     setState(() => _isArranging = true);
   }
 
-  void _setFormat(SimpleFileFormat format) {
-    if (format == _format || format == SimpleFileFormat.ods) return;
+  void _setFormat(SheetFileFormat format) {
+    if (format == _format || format == SheetFileFormat.ods) return;
     setState(() {
       _format = format;
       _errorText = null;
@@ -154,7 +154,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
     );
   }
 
-  String _fileNameWithFormat(String value, SimpleFileFormat format) {
+  String _fileNameWithFormat(String value, SheetFileFormat format) {
     final extension = _extensionForFormat(format);
     final baseName = _baseFileName(value);
     return '${baseName.isEmpty ? 'calcrow_sheet' : baseName}.$extension';
@@ -167,8 +167,8 @@ class _CreateDocPageState extends State<CreateDocPage> {
     );
   }
 
-  String _extensionForFormat(SimpleFileFormat format) {
-    return SimpleSheetFileService.defaultExtensionForFormat(format);
+  String _extensionForFormat(SheetFileFormat format) {
+    return SheetFileService.defaultExtensionForFormat(format);
   }
 
   void _handleFileNameChanged(String value) {
@@ -289,26 +289,26 @@ class _CreateDocPageState extends State<CreateDocPage> {
                       onChanged: _handleFileNameChanged,
                     ),
                     const SizedBox(height: 16),
-                    SegmentedButton<SimpleFileFormat>(
-                      segments: const <ButtonSegment<SimpleFileFormat>>[
-                        ButtonSegment<SimpleFileFormat>(
-                          value: SimpleFileFormat.csv,
+                    SegmentedButton<SheetFileFormat>(
+                      segments: const <ButtonSegment<SheetFileFormat>>[
+                        ButtonSegment<SheetFileFormat>(
+                          value: SheetFileFormat.csv,
                           label: Text('CSV'),
                           icon: Icon(Icons.table_rows_outlined),
                         ),
-                        ButtonSegment<SimpleFileFormat>(
-                          value: SimpleFileFormat.xlsx,
+                        ButtonSegment<SheetFileFormat>(
+                          value: SheetFileFormat.xlsx,
                           label: Text('XLSX'),
                           icon: Icon(Icons.grid_on_rounded),
                         ),
-                        ButtonSegment<SimpleFileFormat>(
-                          value: SimpleFileFormat.ods,
+                        ButtonSegment<SheetFileFormat>(
+                          value: SheetFileFormat.ods,
                           label: Text('ODS later'),
                           icon: Icon(Icons.pending_outlined),
                           enabled: false,
                         ),
                       ],
-                      selected: <SimpleFileFormat>{_format},
+                      selected: <SheetFileFormat>{_format},
                       showSelectedIcon: false,
                       onSelectionChanged: (selection) {
                         if (selection.isEmpty) return;

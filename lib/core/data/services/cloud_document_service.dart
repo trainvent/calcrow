@@ -2,16 +2,16 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import '../../sheet_type_logic/sheet_file_models.dart';
-import '../../sheet_type_logic/simple_type_hint_cache.dart';
+import '../../sheet_type_logic/type_hint_cache.dart';
 import 'auth_service.dart';
 import 'google_drive_auth_service.dart';
 import 'google_drive_sync_service.dart';
-import 'simple_local_document_service.dart';
+import 'local_document_service.dart';
 import 'user_repository.dart';
 import 'webdav_service.dart';
 
-class CloudSimpleDocumentException implements Exception {
-  const CloudSimpleDocumentException(this.message);
+class CloudDocumentException implements Exception {
+  const CloudDocumentException(this.message);
 
   final String message;
 
@@ -63,18 +63,15 @@ class CloudBrowserEntry {
   }
 }
 
-class CloudSimpleDocumentOpenResult {
-  const CloudSimpleDocumentOpenResult({
-    required this.sheetData,
-    required this.file,
-  });
+class CloudDocumentOpenResult {
+  const CloudDocumentOpenResult({required this.sheetData, required this.file});
 
-  final SimpleSheetData sheetData;
+  final SheetData sheetData;
   final CloudFileMetadata file;
 }
 
-class SimpleCloudDocumentService {
-  SimpleCloudDocumentService({
+class CloudDocumentService {
+  CloudDocumentService({
     required AuthService authService,
     required UserRepository userRepository,
     required GoogleDriveAuthService googleDriveAuthService,
@@ -193,9 +190,9 @@ class SimpleCloudDocumentService {
     };
   }
 
-  Future<CloudSimpleDocumentOpenResult> openDocument({
+  Future<CloudDocumentOpenResult> openDocument({
     required CloudFileMetadata file,
-    required ParseSimpleSheetData parseSheetData,
+    required ParseSheetData parseSheetData,
   }) async {
     final session = _requireSession();
     await _restoreTypeHintsToLocalCache(session.uid, file);
@@ -210,7 +207,7 @@ class SimpleCloudDocumentService {
       ),
     };
     if (bytes.isEmpty) {
-      throw const CloudSimpleDocumentException(
+      throw const CloudDocumentException(
         'Could not read cloud document content.',
       );
     }
@@ -220,7 +217,7 @@ class SimpleCloudDocumentService {
       path: file.id,
       mimeType: file.mimeType,
     );
-    return CloudSimpleDocumentOpenResult(sheetData: sheetData, file: file);
+    return CloudDocumentOpenResult(sheetData: sheetData, file: file);
   }
 
   Future<void> rememberTypeHints({
@@ -233,8 +230,8 @@ class SimpleCloudDocumentService {
 
   Future<void> clearTypeHints({required CloudFileMetadata file}) async {
     final session = _requireSession();
-    await SimpleTypeHintCache.clearCsvTypes(fileName: file.name, path: file.id);
-    await _userRepository.clearSimpleTypeHints(
+    await TypeHintCache.clearCsvTypes(fileName: file.name, path: file.id);
+    await _userRepository.clearTypeHints(
       uid: session.uid,
       provider: file.provider,
       documentId: file.id,
@@ -246,7 +243,7 @@ class SimpleCloudDocumentService {
     required String fileName,
     required Uint8List bytes,
     required String outputMimeType,
-    required SimpleSheetData simpleData,
+    required SheetData sheetData,
   }) async {
     final session = _requireSession();
     final metadata = switch (existingFile.provider) {
@@ -255,7 +252,7 @@ class SimpleCloudDocumentService {
         fileName: fileName,
         bytes: bytes,
         outputMimeType: outputMimeType,
-        simpleData: simpleData,
+        sheetData: sheetData,
       ),
       CloudSyncProvider.webDav => await _persistWebDavDocument(
         sessionUid: session.uid,
@@ -266,7 +263,7 @@ class SimpleCloudDocumentService {
       ),
     };
     await setSelectedSyncFile(file: metadata);
-    await _rememberTypeHints(session.uid, metadata, simpleData.valueTypes);
+    await _rememberTypeHints(session.uid, metadata, sheetData.valueTypes);
     return metadata;
   }
 
@@ -293,7 +290,7 @@ class SimpleCloudDocumentService {
   AuthSession _requireSession() {
     final session = _authService.currentSession;
     if (session == null) {
-      throw const CloudSimpleDocumentException(
+      throw const CloudDocumentException(
         'Connect a cloud provider in Settings first.',
       );
     }
@@ -305,13 +302,13 @@ class SimpleCloudDocumentService {
     CloudFileMetadata file,
   ) async {
     try {
-      final valueTypes = await _userRepository.readSimpleTypeHints(
+      final valueTypes = await _userRepository.readTypeHints(
         uid: uid,
         provider: file.provider,
         documentId: file.id,
       );
       if (valueTypes == null || valueTypes.isEmpty) return;
-      await SimpleTypeHintCache.rememberCsvTypes(
+      await TypeHintCache.rememberCsvTypes(
         fileName: file.name,
         path: file.id,
         valueTypes: valueTypes,
@@ -327,12 +324,12 @@ class SimpleCloudDocumentService {
     List<String> valueTypes,
   ) async {
     try {
-      await SimpleTypeHintCache.rememberCsvTypes(
+      await TypeHintCache.rememberCsvTypes(
         fileName: file.name,
         path: file.id,
         valueTypes: valueTypes,
       );
-      await _userRepository.rememberSimpleTypeHints(
+      await _userRepository.rememberTypeHints(
         uid: uid,
         provider: file.provider,
         documentId: file.id,
@@ -347,7 +344,7 @@ class SimpleCloudDocumentService {
   CloudSyncProvider _requireProvider(UserSettingsData settings) {
     final provider = _activeProvider(settings);
     if (provider == null) {
-      throw const CloudSimpleDocumentException(
+      throw const CloudDocumentException(
         'No cloud provider is active. Choose Google Drive or WebDAV in Settings first.',
       );
     }
@@ -406,9 +403,9 @@ class SimpleCloudDocumentService {
           )
           .toList();
     } on GoogleDriveAuthException catch (error) {
-      throw CloudSimpleDocumentException(error.message);
+      throw CloudDocumentException(error.message);
     } on GoogleDriveSyncException catch (error) {
-      throw CloudSimpleDocumentException(error.message);
+      throw CloudDocumentException(error.message);
     } finally {
       client.close();
     }
@@ -437,7 +434,7 @@ class SimpleCloudDocumentService {
           )
           .toList();
     } on WebDavException catch (error) {
-      throw CloudSimpleDocumentException(error.message);
+      throw CloudDocumentException(error.message);
     }
   }
 
@@ -463,9 +460,9 @@ class SimpleCloudDocumentService {
         modifiedTime: file.modifiedTime,
       );
     } on GoogleDriveAuthException catch (error) {
-      throw CloudSimpleDocumentException(error.message);
+      throw CloudDocumentException(error.message);
     } on GoogleDriveSyncException catch (error) {
-      throw CloudSimpleDocumentException(error.message);
+      throw CloudDocumentException(error.message);
     } finally {
       client.close();
     }
@@ -492,7 +489,7 @@ class SimpleCloudDocumentService {
         mimeType: 'text/csv',
       );
     } on WebDavException catch (error) {
-      throw CloudSimpleDocumentException(error.message);
+      throw CloudDocumentException(error.message);
     }
     return CloudFileMetadata(
       provider: CloudSyncProvider.webDav,
@@ -526,9 +523,9 @@ class SimpleCloudDocumentService {
         modifiedTime: file.modifiedTime,
       );
     } on GoogleDriveAuthException catch (error) {
-      throw CloudSimpleDocumentException(error.message);
+      throw CloudDocumentException(error.message);
     } on GoogleDriveSyncException catch (error) {
-      throw CloudSimpleDocumentException(error.message);
+      throw CloudDocumentException(error.message);
     } finally {
       client.close();
     }
@@ -556,7 +553,7 @@ class SimpleCloudDocumentService {
         mimeType: mimeType,
       );
     } on WebDavException catch (error) {
-      throw CloudSimpleDocumentException(error.message);
+      throw CloudDocumentException(error.message);
     }
     return CloudFileMetadata(
       provider: CloudSyncProvider.webDav,
@@ -584,9 +581,9 @@ class SimpleCloudDocumentService {
         fileId: fileId,
       );
     } on GoogleDriveAuthException catch (error) {
-      throw CloudSimpleDocumentException(error.message);
+      throw CloudDocumentException(error.message);
     } on GoogleDriveSyncException catch (error) {
-      throw CloudSimpleDocumentException(error.message);
+      throw CloudDocumentException(error.message);
     } finally {
       client.close();
     }
@@ -603,7 +600,7 @@ class SimpleCloudDocumentService {
         relativePath: relativePath,
       );
     } on WebDavException catch (error) {
-      throw CloudSimpleDocumentException(error.message);
+      throw CloudDocumentException(error.message);
     }
   }
 
@@ -612,7 +609,7 @@ class SimpleCloudDocumentService {
     required String fileName,
     required Uint8List bytes,
     required String outputMimeType,
-    required SimpleSheetData simpleData,
+    required SheetData sheetData,
   }) async {
     final client = await _googleDriveAuthService.getAuthenticatedClient();
     try {
@@ -621,7 +618,7 @@ class SimpleCloudDocumentService {
           ? await _googleDriveSyncService.updateGoogleSheet(
               authenticatedClient: client,
               fileId: existingFile.id,
-              data: simpleData,
+              data: sheetData,
             )
           : existingFile.mimeType != outputMimeType
           ? await _googleDriveSyncService.createSyncFile(
@@ -644,9 +641,9 @@ class SimpleCloudDocumentService {
         modifiedTime: metadata.modifiedTime,
       );
     } on GoogleDriveAuthException catch (error) {
-      throw CloudSimpleDocumentException(error.message);
+      throw CloudDocumentException(error.message);
     } on GoogleDriveSyncException catch (error) {
-      throw CloudSimpleDocumentException(error.message);
+      throw CloudDocumentException(error.message);
     } finally {
       client.close();
     }
@@ -673,7 +670,7 @@ class SimpleCloudDocumentService {
         mimeType: outputMimeType,
       );
     } on WebDavException catch (error) {
-      throw CloudSimpleDocumentException(error.message);
+      throw CloudDocumentException(error.message);
     }
     return CloudFileMetadata(
       provider: CloudSyncProvider.webDav,

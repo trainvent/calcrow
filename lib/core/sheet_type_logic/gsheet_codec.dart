@@ -9,7 +9,7 @@ class GSheetCodec {
   static const String googleSheetsMimeType =
       'application/vnd.google-apps.spreadsheet';
 
-  static SimpleSheetData parse({
+  static SheetData parse({
     required Uint8List bytes,
     required String fileName,
     required String? path,
@@ -21,10 +21,10 @@ class GSheetCodec {
       path: path,
       now: now,
     );
-    return SimpleSheetData(
+    return SheetData(
       fileName: parsed.fileName,
       path: parsed.path,
-      format: SimpleFileFormat.gsheet,
+      format: SheetFileFormat.gsheet,
       headers: parsed.headers,
       valueTypes: parsed.valueTypes,
       readOnlyColumns: parsed.readOnlyColumns,
@@ -41,12 +41,12 @@ class GSheetCodec {
     );
   }
 
-  static Uint8List buildBytes(SimpleSheetData data) {
+  static Uint8List buildBytes(SheetData data) {
     return XlsxSheetCodec.buildBytes(
-      SimpleSheetData(
+      SheetData(
         fileName: data.fileName,
         path: data.path,
-        format: SimpleFileFormat.xlsx,
+        format: SheetFileFormat.xlsx,
         headers: data.headers,
         valueTypes: data.valueTypes,
         readOnlyColumns: data.readOnlyColumns,

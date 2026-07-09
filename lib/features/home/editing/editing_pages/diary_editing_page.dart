@@ -24,7 +24,7 @@ class _DiaryEditingModeBehavior extends _EditingModeBehavior {
   @override
   Future<_OpeningSelection?> resolveOpening(
     _EditingPageBaseState state,
-    SimpleSheetData sheetData,
+    SheetData sheetData,
   ) async {
     final selection = state._selectEditorTargetRowForSheetData(sheetData);
     if (!selection.usedDateColumn || !selection.foundMatchingDateRow) {

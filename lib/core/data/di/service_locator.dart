@@ -9,8 +9,8 @@ import '../services/db_service.dart';
 import '../services/google_drive_auth_service.dart';
 import '../services/google_drive_sync_service.dart';
 import '../services/purchases_service.dart';
-import '../services/simple_cloud_document_service.dart';
-import '../services/simple_local_document_service.dart';
+import '../services/cloud_document_service.dart';
+import '../services/local_document_service.dart';
 import '../services/user_repository.dart';
 import '../services/webdav_service.dart';
 
@@ -23,10 +23,11 @@ class ServiceLocator {
   static late final GoogleDriveSyncService googleDriveSyncService;
   static late final WebDavService webDavService;
   static AdsConsentService get adsConsentService => AdsConsentService.instance;
-  static DiagnosticsService get diagnosticsService => DiagnosticsService.instance;
+  static DiagnosticsService get diagnosticsService =>
+      DiagnosticsService.instance;
   static PurchasesService get purchasesService => PurchasesService.instance;
-  static late final SimpleLocalDocumentService simpleLocalDocumentService;
-  static late final SimpleCloudDocumentService simpleCloudDocumentService;
+  static late final LocalDocumentService localDocumentService;
+  static late final CloudDocumentService cloudDocumentService;
   static late final UserRepository userRepository;
   static bool _isSetup = false;
 
@@ -34,7 +35,10 @@ class ServiceLocator {
 
   static void setup() {
     if (_isSetup) return;
-    authService = AuthService(FirebaseAuth.instance, FirebaseFunctions.instance);
+    authService = AuthService(
+      FirebaseAuth.instance,
+      FirebaseFunctions.instance,
+    );
     dbService = DbService(FirebaseFirestore.instance);
     googleDriveAuthService = GoogleDriveAuthService();
     googleDriveSyncService = GoogleDriveSyncService();
@@ -44,8 +48,8 @@ class ServiceLocator {
       dbService: dbService,
       firestore: FirebaseFirestore.instance,
     );
-    simpleLocalDocumentService = SimpleLocalDocumentService();
-    simpleCloudDocumentService = SimpleCloudDocumentService(
+    localDocumentService = LocalDocumentService();
+    cloudDocumentService = CloudDocumentService(
       authService: authService,
       userRepository: userRepository,
       googleDriveAuthService: googleDriveAuthService,

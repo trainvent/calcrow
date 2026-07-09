@@ -7,19 +7,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:calcrow/app/widgets/triangle_loading_indicator.dart';
 import 'package:calcrow/core/data/di/service_locator.dart';
+import 'package:calcrow/core/guessers/field_type_guesser.dart';
 import 'package:calcrow/features/home/editing/advanced/widgets/notes_widget.dart';
 import 'package:calcrow/features/home/editing/advanced/widgets/row_definement_widget.dart';
 import 'package:calcrow/features/home/editing/advanced/widgets/smart_data_widget.dart';
 import 'package:calcrow/features/home/editing/advanced/widgets/wellbeing_widget.dart';
 import 'package:calcrow/features/home/editing/advanced/widgets/workhours_widget.dart';
-import 'package:calcrow/core/data/services/simple_cloud_document_service.dart';
+import 'package:calcrow/core/data/services/cloud_document_service.dart';
 import 'package:calcrow/core/data/services/google_drive_sync_service.dart';
-import 'package:calcrow/core/data/services/simple_sheet_persistence_service.dart';
+import 'package:calcrow/core/data/services/sheet_persistence_service.dart';
 import 'package:calcrow/core/data/services/user_repository.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
-import 'package:calcrow/core/sheet_type_logic/simple_sheet_file_service.dart';
-import 'package:calcrow/core/sheet_type_logic/simple_sheet_logic.dart';
-import 'package:calcrow/core/sheet_type_logic/simple_type_hint_cache.dart';
+import 'package:calcrow/core/sheet_type_logic/sheet_file_service.dart';
+import 'package:calcrow/core/sheet_type_logic/type_hint_cache.dart';
 import 'package:calcrow/features/home/sheet/sheet_preview_store.dart';
 import 'package:calcrow/features/home/editing/widgets/select_time_widget.dart';
 import 'package:calcrow/features/home/editing/widgets/timespan_widget.dart';
@@ -44,16 +44,16 @@ class EditingPageBase extends StatefulWidget {
     this.initialSuccessMessage,
     this.showBackToSelection = false,
     this.onBackToSelection,
-    SimpleSheetPersistenceService? sheetPersistenceService,
+    SheetPersistenceService? sheetPersistenceService,
   }) : _sheetPersistenceService = sheetPersistenceService;
 
-  final SimpleSheetData initialSheetData;
+  final SheetData initialSheetData;
   final EditorDocumentTarget initialDocumentTarget;
   final EditorOpenMode initialOpenMode;
   final String? initialSuccessMessage;
   final bool showBackToSelection;
   final VoidCallback? onBackToSelection;
-  final SimpleSheetPersistenceService? _sheetPersistenceService;
+  final SheetPersistenceService? _sheetPersistenceService;
 
   @override
   State<EditingPageBase> createState() => _EditingPageBaseState();
@@ -83,7 +83,7 @@ abstract class _EditingModeBehavior {
 
   Future<_OpeningSelection?> resolveOpening(
     _EditingPageBaseState state,
-    SimpleSheetData sheetData,
+    SheetData sheetData,
   );
 
   void afterLoaded(_EditingPageBaseState state) {}
@@ -135,8 +135,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
     'date',
     'time',
     'duration',
-    'Integer',
-    'Float',
+    'integer',
+    'float',
     'boolean',
     'email',
     'phone',
@@ -166,7 +166,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
   static const double _defaultMoodLevel = 0.45;
   static const double _defaultEnergyLevel = 0.62;
   static const int _previewRowLimit = 100;
-  late final SimpleSheetPersistenceService _sheetPersistenceService;
+  late final SheetPersistenceService _sheetPersistenceService;
 
   final TextEditingController _dateController = TextEditingController(
     text: _formatDate(DateTime.now()),
@@ -189,7 +189,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
   String? _documentImportedFileName;
   String? _documentImportedPath;
   String? _documentImportedSheetName;
-  SimpleFileFormat? _documentImportedFormat;
+  SheetFileFormat? _documentImportedFormat;
   String _documentCsvDelimiter = ',';
   bool _documentHasTypeRow = false;
   bool _documentHasCachedValueTypes = false;
@@ -231,7 +231,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
     _documentOpenMode = widget.initialOpenMode;
     _modeBehavior = _EditingModeBehavior.forOpenMode(_documentOpenMode);
     _sheetPersistenceService =
-        widget._sheetPersistenceService ?? SimpleSheetPersistenceService();
+        widget._sheetPersistenceService ?? SheetPersistenceService();
     _typeTogglePulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 680),
@@ -345,12 +345,12 @@ class _EditingPageBaseState extends State<EditingPageBase>
   }
 
   String _mimeTypeForLocalDocumentOpen() {
-    final format = _documentImportedFormat ?? SimpleFileFormat.csv;
-    return SimpleSheetFileService.mimeTypeForFormat(format);
+    final format = _documentImportedFormat ?? SheetFileFormat.csv;
+    return SheetFileService.mimeTypeForFormat(format);
   }
 
   Future<bool> _loadProfileData(
-    SimpleSheetData sheetData, {
+    SheetData sheetData, {
     EditorDocumentTarget? target,
   }) async {
     final selection = await _resolveOpeningSelection(sheetData);
@@ -391,7 +391,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
   }
 
   Future<void> _rememberOpenConfiguration(
-    SimpleSheetData sheetData, {
+    SheetData sheetData, {
     EditorDocumentTarget? target,
   }) async {
     if (!ServiceLocator.isSetup) return;
@@ -402,13 +402,12 @@ class _EditingPageBaseState extends State<EditingPageBase>
     final fileName = sheetData.fileName.trim().isEmpty
         ? 'document'
         : sheetData.fileName.trim();
-    SimpleRecentOpenConfig? config;
+    RecentOpenConfig? config;
     if (target is CloudEditorDocumentTarget) {
-      config = SimpleRecentOpenConfig(
+      config = RecentOpenConfig(
         source: switch (target.provider) {
-          CloudSyncProvider.googleDrive =>
-            SimpleRecentDocumentSource.googleDrive,
-          CloudSyncProvider.webDav => SimpleRecentDocumentSource.webDav,
+          CloudSyncProvider.googleDrive => RecentDocumentSource.googleDrive,
+          CloudSyncProvider.webDav => RecentDocumentSource.webDav,
         },
         fileName: target.fileName,
         openMode: openMode,
@@ -422,8 +421,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
                   : sheetData.path)
               ?.trim();
       if (path != null && path.isNotEmpty) {
-        config = SimpleRecentOpenConfig(
-          source: SimpleRecentDocumentSource.local,
+        config = RecentOpenConfig(
+          source: RecentDocumentSource.local,
           fileName: fileName,
           openMode: openMode,
           path: path,
@@ -433,7 +432,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
 
     if (config == null) return;
     try {
-      await ServiceLocator.userRepository.rememberSimpleOpenConfig(
+      await ServiceLocator.userRepository.rememberOpenConfig(
         uid: session.uid,
         config: config,
       );
@@ -463,19 +462,19 @@ class _EditingPageBaseState extends State<EditingPageBase>
   }
 
   Future<_OpeningSelection?> _resolveOpeningSelection(
-    SimpleSheetData sheetData,
+    SheetData sheetData,
   ) async {
     return _modeBehavior.resolveOpening(this, sheetData);
   }
 
-  bool _cachedFirstColumnBlocksDateBasedOpening(SimpleSheetData sheetData) {
+  bool _cachedFirstColumnBlocksDateBasedOpening(SheetData sheetData) {
     if (!sheetData.hasCachedValueTypes || sheetData.valueTypes.isEmpty) {
       return false;
     }
     return sheetData.valueTypes.first.trim().toLowerCase() != 'date';
   }
 
-  bool _cachedFirstColumnBlocksTextBasedOpening(SimpleSheetData sheetData) {
+  bool _cachedFirstColumnBlocksTextBasedOpening(SheetData sheetData) {
     if (!sheetData.hasCachedValueTypes || sheetData.valueTypes.isEmpty) {
       return false;
     }
@@ -581,7 +580,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
   }
 
   _EditorTargetSelection _selectEditorTargetRowForSheetData(
-    SimpleSheetData sheetData,
+    SheetData sheetData,
   ) {
     if (sheetData.headers.isEmpty) {
       return const _EditorTargetSelection(
@@ -635,14 +634,12 @@ class _EditingPageBaseState extends State<EditingPageBase>
     );
   }
 
-  List<int> _documentTextSelectableColumnsForSheetData(
-    SimpleSheetData sheetData,
-  ) {
+  List<int> _documentTextSelectableColumnsForSheetData(SheetData sheetData) {
     return _documentTextSelectableColumnsForSheetDataInternal(sheetData);
   }
 
   List<int> _documentTextSelectableColumnsForSheetDataInternal(
-    SimpleSheetData sheetData, {
+    SheetData sheetData, {
     int? excludedColumnIndex,
   }) {
     final indexes = <int>[];
@@ -731,10 +728,10 @@ class _EditingPageBaseState extends State<EditingPageBase>
   }
 
   Future<bool> _saveDocumentRow() =>
-      _saveDocumentRowInternal(mode: SimplePersistMode.safPreferred);
+      _saveDocumentRowInternal(mode: PersistMode.safPreferred);
 
   Future<bool> _saveDocumentRowAsIs() =>
-      _saveDocumentRowInternal(mode: SimplePersistMode.asIs);
+      _saveDocumentRowInternal(mode: PersistMode.asIs);
 
   String? _documentRowValidationError(List<String> row) {
     for (var index = 0; index < _documentHeaders.length; index++) {
@@ -749,24 +746,24 @@ class _EditingPageBaseState extends State<EditingPageBase>
       final type = _documentValueTypes[index];
       final header = _documentHeaders[index];
 
-      if (SimpleSheetLogic.isIntegerType(type) &&
-          !SimpleSheetLogic.looksLikeIntegerValue(value)) {
+      if (FieldTypeGuesser.isIntegerType(type) &&
+          !FieldTypeGuesser.looksLikeIntegerValue(value)) {
         return '$header must be an integer.';
       }
-      if (SimpleSheetLogic.isDecimalType(type) &&
-          !SimpleSheetLogic.looksLikeIntegerValue(value) &&
-          !SimpleSheetLogic.looksLikeDecimalValue(value)) {
+      if (FieldTypeGuesser.isDecimalType(type) &&
+          !FieldTypeGuesser.looksLikeIntegerValue(value) &&
+          !FieldTypeGuesser.looksLikeDecimalValue(value)) {
         return '$header must be a float.';
       }
       if (_isBooleanType(type) &&
-          !SimpleSheetLogic.looksLikeBooleanValue(value)) {
+          !FieldTypeGuesser.looksLikeBooleanValue(value)) {
         return '$header must be TRUE or FALSE.';
       }
       if (type.trim().toLowerCase() == 'date' &&
-          !SimpleSheetLogic.looksLikeDateValue(value)) {
+          !FieldTypeGuesser.looksLikeDateValue(value)) {
         return '$header must be a date.';
       }
-      if (_isTimeType(type) && !SimpleSheetLogic.looksLikeTimeValue(value)) {
+      if (_isTimeType(type) && !FieldTypeGuesser.looksLikeTimeValue(value)) {
         return '$header must be a time.';
       }
       if (_isDurationType(type) && !_looksLikeDurationValue(value)) {
@@ -776,9 +773,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
     return null;
   }
 
-  Future<bool> _saveDocumentRowInternal({
-    required SimplePersistMode mode,
-  }) async {
+  Future<bool> _saveDocumentRowInternal({required PersistMode mode}) async {
     if (!_hasDocumentSchema ||
         _documentControllers.length != _documentHeaders.length) {
       return false;
@@ -926,7 +921,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
     }
   }
 
-  String _saveMessage(SimplePersistResult saveResult) {
+  String _saveMessage(PersistResult saveResult) {
     if (kIsWeb) {
       return 'Row updated. Downloaded updated file as ${saveResult.locationLabel}.';
     }
@@ -1019,8 +1014,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
   }
 
   String _editorTypeOptionFor(String type) {
-    if (SimpleSheetLogic.isIntegerType(type)) return 'Integer';
-    if (SimpleSheetLogic.isDecimalType(type)) return 'Float';
+    if (FieldTypeGuesser.isIntegerType(type)) return 'integer';
+    if (FieldTypeGuesser.isDecimalType(type)) return 'float';
     return type;
   }
 
@@ -1074,7 +1069,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
     final fileName = _documentImportedFileName ?? 'calcrow_sheet';
     try {
       if (target is CloudEditorDocumentTarget) {
-        await ServiceLocator.simpleCloudDocumentService.rememberTypeHints(
+        await ServiceLocator.cloudDocumentService.rememberTypeHints(
           file: CloudFileMetadata(
             provider: target.provider,
             id: target.fileId,
@@ -1086,7 +1081,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
         return;
       }
 
-      await SimpleTypeHintCache.rememberCsvTypes(
+      await TypeHintCache.rememberCsvTypes(
         fileName: fileName,
         path: _documentImportedPath,
         valueTypes: _documentValueTypes,
@@ -1223,7 +1218,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
     );
   }
 
-  bool get _hasUnsavedSimpleRowEdits {
+  bool get _hasUnsavedRowEdits {
     if (!_hasDocumentControllersReady) return false;
     final current = _documentControllers
         .map((controller) => controller.text.trim())
@@ -1234,8 +1229,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
     );
   }
 
-  Future<bool> _confirmReplacingUnsavedSimpleEdits() async {
-    if (!_hasUnsavedSimpleRowEdits) return true;
+  Future<bool> _confirmReplacingUnsavedEdits() async {
+    if (!_hasUnsavedRowEdits) return true;
 
     final choice = await showDialog<_UnsavedEditsChoice>(
       context: context,
@@ -1298,7 +1293,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
     if (!mounted) return false;
     switch (choice) {
       case _UnsavedEditsChoice.save:
-        return _saveDocumentRowInternal(mode: SimplePersistMode.safPreferred);
+        return _saveDocumentRowInternal(mode: PersistMode.safPreferred);
       case _UnsavedEditsChoice.discard:
         return true;
       case _UnsavedEditsChoice.cancel:
@@ -1308,7 +1303,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
   }
 
   Future<void> _createNewTextEntry() async {
-    if (!await _confirmReplacingUnsavedSimpleEdits()) return;
+    if (!await _confirmReplacingUnsavedEdits()) return;
     if (!mounted) return;
 
     final candidateColumns = _documentTextSelectableColumnsForSheetData(
@@ -1340,7 +1335,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
   }
 
   Future<void> _createNewDateOpenEndRow() async {
-    if (!await _confirmReplacingUnsavedSimpleEdits()) return;
+    if (!await _confirmReplacingUnsavedEdits()) return;
     if (!mounted) return;
 
     final dateColumn = _documentDateColumnIndex();
@@ -1363,21 +1358,19 @@ class _EditingPageBaseState extends State<EditingPageBase>
     });
   }
 
-  Future<SimplePersistResult> _persistSheet({
-    required SimplePersistMode mode,
-  }) async {
+  Future<PersistResult> _persistSheet({required PersistMode mode}) async {
     final target = _documentDocumentTarget;
     if (target is CloudEditorDocumentTarget) {
       return _persistCloud(target: target);
     }
     final format = _documentImportedFormat;
-    if (format == SimpleFileFormat.xlsx) {
+    if (format == SheetFileFormat.xlsx) {
       return _persistXlsx(mode: mode);
     }
-    if (format == SimpleFileFormat.ods) {
+    if (format == SheetFileFormat.ods) {
       return _persistOds(mode: mode);
     }
-    if (format == SimpleFileFormat.gsheet) {
+    if (format == SheetFileFormat.gsheet) {
       return _persistCloud(
         target: _documentDocumentTarget as CloudEditorDocumentTarget,
       );
@@ -1385,12 +1378,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
     return _persistCsv(mode: mode);
   }
 
-  Future<SimplePersistResult> _persistCsv({
-    required SimplePersistMode mode,
-  }) async {
-    final bytes = SimpleSheetFileService.buildBytes(
-      _buildSheetDataForPersist(),
-    );
+  Future<PersistResult> _persistCsv({required PersistMode mode}) async {
+    final bytes = SheetFileService.buildBytes(_buildSheetDataForPersist());
     final fileName = _documentSuggestedFileName();
     return _persistBytes(
       bytes: bytes,
@@ -1402,12 +1391,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
     );
   }
 
-  Future<SimplePersistResult> _persistXlsx({
-    required SimplePersistMode mode,
-  }) async {
-    final bytes = SimpleSheetFileService.buildBytes(
-      _buildSheetDataForPersist(),
-    );
+  Future<PersistResult> _persistXlsx({required PersistMode mode}) async {
+    final bytes = SheetFileService.buildBytes(_buildSheetDataForPersist());
 
     final fileName = _documentSuggestedFileName(defaultExtension: 'xlsx');
     return _persistBytes(
@@ -1421,12 +1406,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
     );
   }
 
-  Future<SimplePersistResult> _persistOds({
-    required SimplePersistMode mode,
-  }) async {
-    final bytes = SimpleSheetFileService.buildBytes(
-      _buildSheetDataForPersist(),
-    );
+  Future<PersistResult> _persistOds({required PersistMode mode}) async {
+    final bytes = SheetFileService.buildBytes(_buildSheetDataForPersist());
 
     final fileName = _documentSuggestedFileName(defaultExtension: 'ods');
     return _persistBytes(
@@ -1439,36 +1420,33 @@ class _EditingPageBaseState extends State<EditingPageBase>
     );
   }
 
-  Future<SimplePersistResult> _persistCloud({
+  Future<PersistResult> _persistCloud({
     required CloudEditorDocumentTarget target,
   }) async {
-    final simpleData = _buildSheetDataForPersist();
-    final format = _documentImportedFormat ?? SimpleFileFormat.csv;
+    final sheetData = _buildSheetDataForPersist();
+    final format = _documentImportedFormat ?? SheetFileFormat.csv;
     final bytes = target.mimeType == GoogleDriveSyncService.googleSheetsMimeType
         ? Uint8List(0)
-        : SimpleSheetFileService.buildBytes(simpleData);
+        : SheetFileService.buildBytes(sheetData);
     final mimeType = _mimeTypeForFormat(format);
     final fileName = _documentSuggestedFileName(
-      defaultExtension: SimpleSheetFileService.defaultExtensionForFormat(
-        format,
-      ),
+      defaultExtension: SheetFileService.defaultExtensionForFormat(format),
     );
 
-    final metadata = await ServiceLocator.simpleCloudDocumentService
-        .persistDocument(
-          existingFile: CloudFileMetadata(
-            provider: target.provider,
-            id: target.fileId,
-            name: target.fileName,
-            mimeType: target.mimeType,
-          ),
-          fileName: fileName,
-          bytes: bytes,
-          outputMimeType: mimeType,
-          simpleData: simpleData,
-        );
-    if (format == SimpleFileFormat.csv) {
-      await SimpleTypeHintCache.rememberCsvTypes(
+    final metadata = await ServiceLocator.cloudDocumentService.persistDocument(
+      existingFile: CloudFileMetadata(
+        provider: target.provider,
+        id: target.fileId,
+        name: target.fileName,
+        mimeType: target.mimeType,
+      ),
+      fileName: fileName,
+      bytes: bytes,
+      outputMimeType: mimeType,
+      sheetData: sheetData,
+    );
+    if (format == SheetFileFormat.csv) {
+      await TypeHintCache.rememberCsvTypes(
         fileName: metadata.name,
         path: metadata.id,
         valueTypes: _documentValueTypes,
@@ -1485,9 +1463,9 @@ class _EditingPageBaseState extends State<EditingPageBase>
       );
     });
 
-    return SimplePersistResult(
+    return PersistResult(
       locationLabel:
-          '${ServiceLocator.simpleCloudDocumentService.providerLabel(metadata.provider)} (${metadata.name})',
+          '${ServiceLocator.cloudDocumentService.providerLabel(metadata.provider)} (${metadata.name})',
       overwroteExistingFile: true,
       usedAppDocumentsFallback: false,
       savedPath: metadata.id,
@@ -1495,11 +1473,11 @@ class _EditingPageBaseState extends State<EditingPageBase>
     );
   }
 
-  SimpleSheetData _buildSheetDataForPersist() {
-    return SimpleSheetData(
+  SheetData _buildSheetDataForPersist() {
+    return SheetData(
       fileName: _documentImportedFileName ?? 'calcrow_sheet',
       path: _documentImportedPath,
-      format: _documentImportedFormat ?? SimpleFileFormat.csv,
+      format: _documentImportedFormat ?? SheetFileFormat.csv,
       headers: _documentHeaders,
       valueTypes: _documentValueTypes,
       readOnlyColumns: _documentReadOnlyColumns,
@@ -1515,21 +1493,21 @@ class _EditingPageBaseState extends State<EditingPageBase>
     );
   }
 
-  String _mimeTypeForFormat(SimpleFileFormat format) {
-    return SimpleSheetFileService.mimeTypeForFormat(format);
+  String _mimeTypeForFormat(SheetFileFormat format) {
+    return SheetFileService.mimeTypeForFormat(format);
   }
 
-  Future<SimplePersistResult> _persistBytes({
+  Future<PersistResult> _persistBytes({
     required Uint8List bytes,
     required String fileName,
     required XTypeGroup typeGroup,
     required String mimeType,
     required String confirmButtonText,
-    required SimplePersistMode mode,
+    required PersistMode mode,
   }) async {
     final preferredSafTreeUri = await _preferredSafTreeUri();
     final result = await _sheetPersistenceService.persistBytes(
-      SimplePersistRequest(
+      PersistRequest(
         bytes: bytes,
         fileName: fileName,
         typeGroup: typeGroup,
@@ -1540,7 +1518,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
         mode: mode,
       ),
     );
-    await SimpleTypeHintCache.rememberCsvTypes(
+    await TypeHintCache.rememberCsvTypes(
       fileName: result.resolvedFileName,
       path: result.savedPath,
       valueTypes: _documentValueTypes,
@@ -1557,11 +1535,11 @@ class _EditingPageBaseState extends State<EditingPageBase>
 
   Future<String?> _preferredSafTreeUri() async {
     if (!ServiceLocator.isSetup) {
-      return SimpleSheetPersistenceService.runtimeSafTreeUri;
+      return SheetPersistenceService.runtimeSafTreeUri;
     }
     final session = ServiceLocator.authService.currentSession;
     if (session == null) {
-      return SimpleSheetPersistenceService.runtimeSafTreeUri;
+      return SheetPersistenceService.runtimeSafTreeUri;
     }
     final settings = await (() async {
       try {
@@ -1571,19 +1549,19 @@ class _EditingPageBaseState extends State<EditingPageBase>
       }
     })();
     if (settings == null) {
-      return SimpleSheetPersistenceService.runtimeSafTreeUri;
+      return SheetPersistenceService.runtimeSafTreeUri;
     }
     final uri = settings.safTreeUri;
     if (uri == null || uri.isEmpty) {
-      return SimpleSheetPersistenceService.runtimeSafTreeUri;
+      return SheetPersistenceService.runtimeSafTreeUri;
     }
     return uri;
   }
 
   String _documentSuggestedFileName({String? defaultExtension}) {
     final current = _documentImportedFileName?.trim();
-    final currentFormat = _documentImportedFormat ?? SimpleFileFormat.csv;
-    if (currentFormat == SimpleFileFormat.gsheet) {
+    final currentFormat = _documentImportedFormat ?? SheetFileFormat.csv;
+    if (currentFormat == SheetFileFormat.gsheet) {
       if (current == null || current.isEmpty) {
         return 'calcrow_sheet';
       }
@@ -1591,7 +1569,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
     }
     final extension =
         defaultExtension ??
-        SimpleSheetFileService.defaultExtensionForFormat(currentFormat);
+        SheetFileService.defaultExtensionForFormat(currentFormat);
     if (current == null || current.isEmpty) {
       return 'calcrow_sheet.$extension';
     }
@@ -1815,12 +1793,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
   }
 
   bool _isDateHeaderName(String header) {
-    final value = header.trim().toLowerCase();
-    return value == 'date' ||
-        value == 'datum' ||
-        value == 'tag' ||
-        value == 'data' ||
-        value == 'fecha';
+    return FieldTypeGuesser.isDateHeaderName(header);
   }
 
   DateTime? _parseDateFromCellValue(String raw) {
@@ -2336,9 +2309,9 @@ class _EditingPageBaseState extends State<EditingPageBase>
         ? 'Editing row ${_documentEditingRowIndex + 1} of ${_documentRows.length}'
         : 'Editing new row at bottom';
     final isSheetDocumentSource =
-        _documentImportedFormat == SimpleFileFormat.xlsx ||
-        _documentImportedFormat == SimpleFileFormat.ods ||
-        _documentImportedFormat == SimpleFileFormat.gsheet;
+        _documentImportedFormat == SheetFileFormat.xlsx ||
+        _documentImportedFormat == SheetFileFormat.ods ||
+        _documentImportedFormat == SheetFileFormat.gsheet;
     final sheetName = _documentImportedSheetName?.trim();
     final activeSheetLabel = isSheetDocumentSource
         ? ((sheetName == null || sheetName.isEmpty) ? 'default' : sheetName)
@@ -2632,7 +2605,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
 
   TextInputType _keyboardForType(String rawType) {
     final type = rawType.trim().toLowerCase();
-    final normalizedType = SimpleSheetLogic.normalizeTypeLabel(rawType);
+    final normalizedType = FieldTypeGuesser.normalizeTypeLabel(rawType);
     if (normalizedType == 'int') {
       return const TextInputType.numberWithOptions(signed: true);
     }
@@ -2664,7 +2637,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
   }
 
   bool _isBooleanType(String rawType) {
-    return SimpleSheetLogic.isBooleanType(rawType);
+    return FieldTypeGuesser.isBooleanType(rawType);
   }
 
   String _initialControllerValue({
@@ -2783,7 +2756,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
     }
 
     final type = rawType.trim().toLowerCase();
-    final normalizedType = SimpleSheetLogic.normalizeTypeLabel(rawType);
+    final normalizedType = FieldTypeGuesser.normalizeTypeLabel(rawType);
     if (normalizedType == 'duration') {
       return 'Minutes or HH:MM:SS';
     }

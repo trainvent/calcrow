@@ -1,14 +1,15 @@
 import 'dart:typed_data';
 
 import 'package:excel/excel.dart' as excel_pkg;
+import 'package:calcrow/core/guessers/field_type_guesser.dart';
 
 import 'sheet_file_models.dart';
-import 'simple_sheet_logic.dart';
+import 'sheet_logic.dart';
 
 class XlsxSheetCodec {
   const XlsxSheetCodec._();
 
-  static SimpleSheetData parse({
+  static SheetData parse({
     required Uint8List bytes,
     required String fileName,
     required String? path,
@@ -38,9 +39,9 @@ class XlsxSheetCodec {
       (maxWidth, row) => row.length > maxWidth ? row.length : maxWidth,
     );
     final normalizedRows = rawRows
-        .map((row) => SimpleSheetLogic.normalizeRowToWidth(row, width))
+        .map((row) => SheetLogic.normalizeRowToWidth(row, width))
         .toList();
-    final tableBounds = SimpleSheetLogic.detectTableBounds(
+    final tableBounds = SheetLogic.detectTableBounds(
       normalizedRows,
       emptyHeaderError: 'First row has no header titles.',
     );
@@ -59,12 +60,12 @@ class XlsxSheetCodec {
               row.skip(tableBounds.startColumnIndex).take(headerCount).toList(),
         )
         .toList();
-    final trimmedRowCount = SimpleSheetLogic.trimTrailingFooterRows(
+    final trimmedRowCount = SheetLogic.trimTrailingFooterRows(
       headers: headers,
       rows: bodyRows,
     );
     final rows = bodyRows.take(trimmedRowCount).toList();
-    final valueTypes = SimpleSheetLogic.inferSimpleTypes(
+    final valueTypes = FieldTypeGuesser.inferTypes(
       headerCount,
       rows.take(20).toList(),
       headers: headers,
@@ -87,7 +88,7 @@ class XlsxSheetCodec {
           readOnlyColumns[col] = true;
           continue;
         }
-        if (SimpleSheetLogic.looksLikeFormulaExpression(
+        if (FieldTypeGuesser.looksLikeFormulaExpression(
           value?.toString() ?? '',
         )) {
           readOnlyColumns[col] = true;
@@ -99,10 +100,10 @@ class XlsxSheetCodec {
       (index) => index,
     ).where((index) => !readOnlyColumns[index]).toList();
 
-    return SimpleSheetData(
+    return SheetData(
       fileName: fileName,
       path: path,
-      format: SimpleFileFormat.xlsx,
+      format: SheetFileFormat.xlsx,
       headers: headers,
       valueTypes: valueTypes,
       readOnlyColumns: readOnlyColumns,
@@ -116,7 +117,7 @@ class XlsxSheetCodec {
     );
   }
 
-  static Uint8List buildBytes(SimpleSheetData data) {
+  static Uint8List buildBytes(SheetData data) {
     final workbook = data.workbook;
     if (workbook == null) {
       throw StateError('No XLSX workbook is loaded.');
@@ -167,7 +168,7 @@ class XlsxSheetCodec {
             rowIndex: dataStartRowIndex + rowIndex,
           ),
         );
-        cell.value = _xlsxCellValueFromSimple(
+        cell.value = _xlsxCellValueFromSheet(
           type: data.valueTypes[col],
           raw: value,
         );
@@ -185,7 +186,7 @@ class XlsxSheetCodec {
 
   static void _restoreReadOnlyFormulas({
     required excel_pkg.Sheet sheet,
-    required SimpleSheetData data,
+    required SheetData data,
   }) {
     for (var col = 0; col < data.headers.length; col++) {
       if (!data.readOnlyColumns[col]) continue;
@@ -317,7 +318,7 @@ class XlsxSheetCodec {
   }
 
   static String _selectBestSheetName(excel_pkg.Excel excel, DateTime now) {
-    return SimpleSheetLogic.selectBestSheetName(
+    return SheetLogic.selectBestSheetName(
       excel.tables.keys,
       now,
       fallback: excel.getDefaultSheet() ?? excel.tables.keys.first,
@@ -352,7 +353,7 @@ class XlsxSheetCodec {
     return value.toString().trim();
   }
 
-  static excel_pkg.CellValue? _xlsxCellValueFromSimple({
+  static excel_pkg.CellValue? _xlsxCellValueFromSheet({
     required String type,
     required String raw,
   }) {
@@ -374,15 +375,15 @@ class XlsxSheetCodec {
         return parsedTime;
       }
     }
-    if (SimpleSheetLogic.isBooleanType(normalizedType) &&
-        SimpleSheetLogic.looksLikeBooleanValue(value)) {
+    if (FieldTypeGuesser.isBooleanType(normalizedType) &&
+        FieldTypeGuesser.looksLikeBooleanValue(value)) {
       return excel_pkg.BoolCellValue(value.toUpperCase() == 'TRUE');
     }
-    if (SimpleSheetLogic.isIntegerType(normalizedType)) {
+    if (FieldTypeGuesser.isIntegerType(normalizedType)) {
       final parsed = int.tryParse(value);
       if (parsed != null) return excel_pkg.IntCellValue(parsed);
     }
-    if (SimpleSheetLogic.isDecimalType(normalizedType)) {
+    if (FieldTypeGuesser.isDecimalType(normalizedType)) {
       final parsed = double.tryParse(value.replaceAll(',', '.'));
       if (parsed != null) return excel_pkg.DoubleCellValue(parsed);
     }

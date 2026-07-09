@@ -2,10 +2,10 @@ import 'dart:typed_data';
 
 import 'package:excel/excel.dart' as excel_pkg;
 
-enum SimpleFileFormat { csv, xlsx, ods, gsheet }
+enum SheetFileFormat { csv, xlsx, ods, gsheet }
 
-class SimpleSheetData {
-  const SimpleSheetData({
+class SheetData {
+  const SheetData({
     required this.fileName,
     required this.path,
     required this.format,
@@ -26,7 +26,7 @@ class SimpleSheetData {
 
   final String fileName;
   final String? path;
-  final SimpleFileFormat format;
+  final SheetFileFormat format;
   final List<String> headers;
   final List<String> valueTypes;
   final List<bool> readOnlyColumns;

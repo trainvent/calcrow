@@ -14,7 +14,7 @@ import 'package:calcrow/core/data/services/auth_service.dart';
 import 'package:calcrow/core/data/services/google_drive_auth_service.dart';
 import 'package:calcrow/core/data/services/google_drive_sync_service.dart';
 import 'package:calcrow/core/data/services/purchases_service.dart';
-import 'package:calcrow/core/data/services/simple_sheet_persistence_service.dart';
+import 'package:calcrow/core/data/services/sheet_persistence_service.dart';
 import 'package:calcrow/core/data/services/user_repository.dart';
 import 'package:calcrow/core/data/services/webdav_service.dart';
 import 'package:calcrow/features/auth/sign_in_sheet.dart';
@@ -36,8 +36,8 @@ class _SettingsTabState extends State<SettingsTab> {
   bool _isOpeningRevenueCat = false;
   bool _isUpdatingSafFolder = false;
   static final SafUtil _safUtil = SafUtil();
-  final SimpleSheetPersistenceService _sheetPersistenceService =
-      SimpleSheetPersistenceService();
+  final SheetPersistenceService _sheetPersistenceService =
+      SheetPersistenceService();
 
   bool get _showSafFolderSettings =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
@@ -378,7 +378,7 @@ class _SettingsTabState extends State<SettingsTab> {
 
   CloudSyncProvider? _selectedCloudProvider(UserSettingsData? settings) {
     if (settings == null) return null;
-    return ServiceLocator.simpleCloudDocumentService.activeProviderFromSettings(
+    return ServiceLocator.cloudDocumentService.activeProviderFromSettings(
       settings,
     );
   }
@@ -432,7 +432,7 @@ class _SettingsTabState extends State<SettingsTab> {
   }
 
   String _cloudProviderLabel(CloudSyncProvider provider) {
-    return ServiceLocator.simpleCloudDocumentService.providerLabel(provider);
+    return ServiceLocator.cloudDocumentService.providerLabel(provider);
   }
 
   String _safFolderSubtitle(UserSettingsData? settings) {
@@ -440,7 +440,7 @@ class _SettingsTabState extends State<SettingsTab> {
       return 'Available on Android only.';
     }
     final uri = settings?.safTreeUri;
-    final runtimeUri = SimpleSheetPersistenceService.runtimeSafTreeUri;
+    final runtimeUri = SheetPersistenceService.runtimeSafTreeUri;
     final effectiveUri = (uri == null || uri.isEmpty) ? runtimeUri : uri;
     if (effectiveUri == null || effectiveUri.isEmpty) {
       return 'No SAF folder configured.';
@@ -1285,7 +1285,7 @@ class _SettingsTabState extends State<SettingsTab> {
         );
         return;
       }
-      SimpleSheetPersistenceService.setRuntimeSafTreeUri(normalizedTreeUri);
+      SheetPersistenceService.setRuntimeSafTreeUri(normalizedTreeUri);
       var syncedToSettings = session == null;
       if (session != null) {
         try {
@@ -1329,7 +1329,7 @@ class _SettingsTabState extends State<SettingsTab> {
       if (session != null) {
         await ServiceLocator.dbService.clearSafFolderUri(uid: session.uid);
       }
-      SimpleSheetPersistenceService.setRuntimeSafTreeUri(null);
+      SheetPersistenceService.setRuntimeSafTreeUri(null);
       if (!mounted) return;
       messenger.showSnackBar(
         const SnackBar(content: Text('SAF folder cleared.')),

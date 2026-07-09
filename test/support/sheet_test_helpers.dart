@@ -5,14 +5,14 @@ import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 
 Uint8List utf8Bytes(String value) => Uint8List.fromList(utf8.encode(value));
 
-SimpleSheetData copySheetData(
-  SimpleSheetData source, {
+SheetData copySheetData(
+  SheetData source, {
   List<String>? headers,
   List<String>? valueTypes,
   List<bool>? readOnlyColumns,
   List<List<String>>? rows,
 }) {
-  return SimpleSheetData(
+  return SheetData(
     fileName: source.fileName,
     path: source.path,
     format: source.format,

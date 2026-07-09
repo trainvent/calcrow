@@ -30,7 +30,7 @@ class _NamelistEditingModeBehavior extends _EditingModeBehavior {
   @override
   Future<_OpeningSelection?> resolveOpening(
     _EditingPageBaseState state,
-    SimpleSheetData sheetData,
+    SheetData sheetData,
   ) async {
     if (state._cachedFirstColumnBlocksTextBasedOpening(sheetData)) {
       state._showCachedTypeMismatchSnackBar(

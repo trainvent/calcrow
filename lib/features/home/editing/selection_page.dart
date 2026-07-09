@@ -8,13 +8,13 @@ import 'package:saf_util/saf_util.dart';
 
 import 'package:calcrow/core/data/di/service_locator.dart';
 import 'package:calcrow/core/data/services/google_drive_sync_service.dart';
-import 'package:calcrow/core/data/services/simple_cloud_document_service.dart';
-import 'package:calcrow/core/data/services/simple_local_document_service.dart';
-import 'package:calcrow/core/data/services/simple_sheet_persistence_service.dart';
+import 'package:calcrow/core/data/services/cloud_document_service.dart';
+import 'package:calcrow/core/data/services/local_document_service.dart';
+import 'package:calcrow/core/data/services/sheet_persistence_service.dart';
 import 'package:calcrow/core/data/services/user_repository.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
-import 'package:calcrow/core/sheet_type_logic/simple_sheet_file_service.dart';
-import 'package:calcrow/core/sheet_type_logic/simple_type_hint_cache.dart';
+import 'package:calcrow/core/sheet_type_logic/sheet_file_service.dart';
+import 'package:calcrow/core/sheet_type_logic/type_hint_cache.dart';
 
 import 'create_doc_page.dart';
 import 'editing_pages/editing_page_base.dart';
@@ -55,13 +55,13 @@ class _SelectionPageState extends State<SelectionPage> {
 
   static final SafUtil _safUtil = SafUtil();
 
-  final SimpleSheetPersistenceService _sheetPersistenceService =
-      SimpleSheetPersistenceService();
+  final SheetPersistenceService _sheetPersistenceService =
+      SheetPersistenceService();
 
   EditorOpenMode _documentOpenMode = EditorOpenMode.dateBasedOpenEnd;
   _SetupAction _documentSetupAction = _SetupAction.open;
   _DocumentSource _documentDocumentSource = _DocumentSource.local;
-  LocalSimpleDocumentSelection? _selectedLocalDocument;
+  LocalDocumentSelection? _selectedLocalDocument;
   String? _documentImportedFileName;
   String? _documentImportedPath;
   Uint8List? _documentImportedSourceBytes;
@@ -103,13 +103,13 @@ class _SelectionPageState extends State<SelectionPage> {
     }
   }
 
-  Future<SimpleSheetData> _parseSimpleSheetData({
+  Future<SheetData> _parseSheetData({
     required Uint8List bytes,
     required String fileName,
     required String? path,
     String? mimeType,
   }) async {
-    return SimpleSheetFileService.parse(
+    return SheetFileService.parse(
       bytes: bytes,
       fileName: fileName,
       path: path,
@@ -118,7 +118,7 @@ class _SelectionPageState extends State<SelectionPage> {
   }
 
   Future<void> _pushEditor({
-    required SimpleSheetData sheetData,
+    required SheetData sheetData,
     required EditorDocumentTarget target,
     String? successMessage,
   }) async {
@@ -139,7 +139,7 @@ class _SelectionPageState extends State<SelectionPage> {
   }
 
   Widget _buildEditingPage({
-    required SimpleSheetData sheetData,
+    required SheetData sheetData,
     required EditorDocumentTarget target,
     String? successMessage,
   }) {
@@ -169,7 +169,7 @@ class _SelectionPageState extends State<SelectionPage> {
   }
 
   bool _handleCachedTypeMismatchBeforeOpening({
-    required SimpleSheetData sheetData,
+    required SheetData sheetData,
     required EditorDocumentTarget target,
   }) {
     if (!sheetData.hasCachedValueTypes || sheetData.valueTypes.isEmpty) {
@@ -193,7 +193,7 @@ class _SelectionPageState extends State<SelectionPage> {
   }
 
   void _showCachedTypeMismatchSnackBar({
-    required SimpleSheetData sheetData,
+    required SheetData sheetData,
     required EditorDocumentTarget target,
     required String message,
   }) {
@@ -219,7 +219,7 @@ class _SelectionPageState extends State<SelectionPage> {
   }
 
   Future<void> _confirmClearCachedTypeHints(
-    SimpleSheetData sheetData,
+    SheetData sheetData,
     EditorDocumentTarget target,
   ) async {
     if (!mounted) return;
@@ -261,11 +261,11 @@ class _SelectionPageState extends State<SelectionPage> {
   }
 
   Future<void> _clearCachedTypeHintsForSheet(
-    SimpleSheetData sheetData,
+    SheetData sheetData,
     EditorDocumentTarget target,
   ) async {
     if (target is CloudEditorDocumentTarget) {
-      await ServiceLocator.simpleCloudDocumentService.clearTypeHints(
+      await ServiceLocator.cloudDocumentService.clearTypeHints(
         file: CloudFileMetadata(
           provider: target.provider,
           id: target.fileId,
@@ -275,7 +275,7 @@ class _SelectionPageState extends State<SelectionPage> {
       );
       return;
     }
-    await SimpleTypeHintCache.clearCsvTypes(
+    await TypeHintCache.clearCsvTypes(
       fileName: sheetData.fileName,
       path: sheetData.path,
     );
@@ -286,7 +286,7 @@ class _SelectionPageState extends State<SelectionPage> {
     setState(() => _activeEditor = null);
   }
 
-  Future<void> _chooseLocalDocumentForSimple() async {
+  Future<void> _chooseLocalDocument() async {
     if (!_supportsLocalFileEditing) return;
     if (_isChoosingLocalDocument || _isOpeningDocument) return;
     setState(() {
@@ -295,8 +295,8 @@ class _SelectionPageState extends State<SelectionPage> {
       _isChoosingLocalDocument = true;
     });
     try {
-      final selection = await ServiceLocator.simpleLocalDocumentService
-          .pickDocumentForSimpleEditor(
+      final selection = await ServiceLocator.localDocumentService
+          .pickDocumentForEditor(
             acceptedTypeGroups: _localDocumentTypeGroups,
             readXFilePath: _readXFilePath,
           );
@@ -307,7 +307,7 @@ class _SelectionPageState extends State<SelectionPage> {
           content: Text('Selected local document ${selection.fileName}.'),
         ),
       );
-    } on LocalSimpleDocumentException catch (error) {
+    } on LocalDocumentException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
@@ -327,7 +327,7 @@ class _SelectionPageState extends State<SelectionPage> {
     }
   }
 
-  void _cacheSelectedLocalDocument(LocalSimpleDocumentSelection selection) {
+  void _cacheSelectedLocalDocument(LocalDocumentSelection selection) {
     _selectedLocalDocument = selection;
     _documentImportedFileName = selection.fileName;
     _documentImportedPath = selection.existingPath;
@@ -335,21 +335,21 @@ class _SelectionPageState extends State<SelectionPage> {
     _rememberLocalDocumentForReopen = true;
   }
 
-  Future<void> _openOrChooseLocalDocumentForSimple() async {
+  Future<void> _openOrChooseLocalDocument() async {
     if (!_supportsLocalFileEditing) return;
     if (!_hasRememberedLocalDocument) {
-      await _importLocalDocumentForSimple();
+      await _importLocalDocument();
       return;
     }
 
     await _runWithDocumentOpeningIndicator(() async {
       try {
-        final result = await ServiceLocator.simpleLocalDocumentService
-            .reopenDocumentForSimpleEditor(
+        final result = await ServiceLocator.localDocumentService
+            .reopenDocumentForEditor(
               fileName: _documentImportedFileName!,
               existingPath: _documentImportedPath,
               cachedBytes: _documentImportedSourceBytes,
-              parseSheetData: _parseSimpleSheetData,
+              parseSheetData: _parseSheetData,
             );
         if (!mounted) return;
         await _pushEditor(
@@ -357,7 +357,7 @@ class _SelectionPageState extends State<SelectionPage> {
           target: LocalEditorDocumentTarget(existingPath: result.existingPath),
           successMessage: 'Opened local document ${result.sheetData.fileName}.',
         );
-      } on LocalSimpleDocumentException {
+      } on LocalDocumentException {
         if (!mounted) return;
         setState(() => _rememberLocalDocumentForReopen = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -367,44 +367,44 @@ class _SelectionPageState extends State<SelectionPage> {
             ),
           ),
         );
-        await _importLocalDocumentForSimple();
+        await _importLocalDocument();
       } catch (_) {
         if (!mounted) return;
         setState(() => _rememberLocalDocumentForReopen = false);
-        await _importLocalDocumentForSimple();
+        await _importLocalDocument();
       }
     });
   }
 
-  Future<void> _importLocalDocumentForSimple() async {
+  Future<void> _importLocalDocument() async {
     await _runWithDocumentOpeningIndicator(() async {
       try {
         var selection = _selectedLocalDocument;
         if (selection == null) {
-          selection = await ServiceLocator.simpleLocalDocumentService
-              .pickDocumentForSimpleEditor(
+          selection = await ServiceLocator.localDocumentService
+              .pickDocumentForEditor(
                 acceptedTypeGroups: _localDocumentTypeGroups,
                 readXFilePath: _readXFilePath,
               );
           if (!mounted || selection == null) return;
           _cacheSelectedLocalDocument(selection);
         }
-        final result = await ServiceLocator.simpleLocalDocumentService
-            .openSelectedDocumentForSimpleEditor(
+        final result = await ServiceLocator.localDocumentService
+            .openSelectedDocumentForEditor(
               selection: selection,
-              parseSheetData: _parseSimpleSheetData,
+              parseSheetData: _parseSheetData,
             );
         if (!mounted) return;
 
         final sheetData = result.sheetData;
         final sourceLabel = switch (sheetData.format) {
-          SimpleFileFormat.csv =>
+          SheetFileFormat.csv =>
             'Loaded ${sheetData.fileName} (${sheetData.rows.length} entries).',
-          SimpleFileFormat.xlsx =>
+          SheetFileFormat.xlsx =>
             'Loaded ${sheetData.fileName} (${sheetData.rows.length} entries) from tab ${sheetData.xlsxSheetName ?? 'default'}.${result.hasSafTarget ? ' SAF target ready.' : ' SAF target not detected.'}',
-          SimpleFileFormat.ods =>
+          SheetFileFormat.ods =>
             'Loaded ${sheetData.fileName} (${sheetData.rows.length} entries) from sheet ${sheetData.xlsxSheetName ?? 'default'}.${result.hasSafTarget ? ' SAF target ready.' : ' SAF target not detected.'}',
-          SimpleFileFormat.gsheet =>
+          SheetFileFormat.gsheet =>
             'Loaded Google Sheet ${sheetData.fileName} (${sheetData.rows.length} entries) from tab ${sheetData.xlsxSheetName ?? 'default'}.',
         };
         await _pushEditor(
@@ -412,7 +412,7 @@ class _SelectionPageState extends State<SelectionPage> {
           target: LocalEditorDocumentTarget(existingPath: result.existingPath),
           successMessage: sourceLabel,
         );
-      } on LocalSimpleDocumentException catch (error) {
+      } on LocalDocumentException catch (error) {
         if (!mounted) return;
         ScaffoldMessenger.of(
           context,
@@ -435,8 +435,10 @@ class _SelectionPageState extends State<SelectionPage> {
     var opened = false;
     await _runWithDocumentOpeningIndicator(() async {
       try {
-        final result = await ServiceLocator.simpleCloudDocumentService
-            .openDocument(file: file, parseSheetData: _parseSimpleSheetData);
+        final result = await ServiceLocator.cloudDocumentService.openDocument(
+          file: file,
+          parseSheetData: _parseSheetData,
+        );
         if (!mounted) return;
         opened = true;
         await _pushEditor(
@@ -448,9 +450,9 @@ class _SelectionPageState extends State<SelectionPage> {
             mimeType: result.file.mimeType,
           ),
           successMessage:
-              'Opened ${ServiceLocator.simpleCloudDocumentService.providerLabel(result.file.provider)} document ${result.file.name}.',
+              'Opened ${ServiceLocator.cloudDocumentService.providerLabel(result.file.provider)} document ${result.file.name}.',
         );
-      } on CloudSimpleDocumentException catch (error) {
+      } on CloudDocumentException catch (error) {
         if (!mounted) return;
         ScaffoldMessenger.of(
           context,
@@ -481,7 +483,7 @@ class _SelectionPageState extends State<SelectionPage> {
       final settings = await ServiceLocator.userRepository.getUserSettings(
         session.uid,
       );
-      final selectedFile = ServiceLocator.simpleCloudDocumentService
+      final selectedFile = ServiceLocator.cloudDocumentService
           .selectedSyncFileFromSettings(settings);
       if (selectedFile == null) {
         await _chooseCloudSyncFile(openAfterSelection: true);
@@ -526,10 +528,10 @@ class _SelectionPageState extends State<SelectionPage> {
       final settings = await ServiceLocator.userRepository.getUserSettings(
         session.uid,
       );
-      final provider = ServiceLocator.simpleCloudDocumentService
+      final provider = ServiceLocator.cloudDocumentService
           .activeProviderFromSettings(settings);
       if (provider == null) {
-        throw const CloudSimpleDocumentException(
+        throw const CloudDocumentException(
           'No cloud provider is active. Choose Google Drive or WebDAV in Settings first.',
         );
       }
@@ -539,7 +541,7 @@ class _SelectionPageState extends State<SelectionPage> {
         context: context,
         builder: (context) => _CloudFilePickerDialog(
           provider: provider,
-          selectedFileId: ServiceLocator.simpleCloudDocumentService
+          selectedFileId: ServiceLocator.cloudDocumentService
               .selectedSyncFileFromSettings(settings)
               ?.id,
         ),
@@ -547,9 +549,9 @@ class _SelectionPageState extends State<SelectionPage> {
       if (selection == null) return;
 
       if (selection.createNew) {
-        final createdFile = await ServiceLocator.simpleCloudDocumentService
+        final createdFile = await ServiceLocator.cloudDocumentService
             .createSyncFile(parentFolderId: selection.folderId);
-        await ServiceLocator.simpleCloudDocumentService.setSelectedSyncFile(
+        await ServiceLocator.cloudDocumentService.setSelectedSyncFile(
           file: createdFile,
         );
         if (openAfterSelection) {
@@ -560,25 +562,25 @@ class _SelectionPageState extends State<SelectionPage> {
 
       final selectedFile = selection.file;
       if (selectedFile == null) {
-        await ServiceLocator.simpleCloudDocumentService.clearSelectedSyncFile();
+        await ServiceLocator.cloudDocumentService.clearSelectedSyncFile();
         if (!mounted) return;
         messenger.showSnackBar(
           SnackBar(
             content: Text(
-              '${ServiceLocator.simpleCloudDocumentService.providerLabel(provider)} sync file cleared.',
+              '${ServiceLocator.cloudDocumentService.providerLabel(provider)} sync file cleared.',
             ),
           ),
         );
         return;
       }
 
-      await ServiceLocator.simpleCloudDocumentService.setSelectedSyncFile(
+      await ServiceLocator.cloudDocumentService.setSelectedSyncFile(
         file: selectedFile,
       );
       if (openAfterSelection) {
         await _openCloudDocument(file: selectedFile);
       }
-    } on CloudSimpleDocumentException catch (error) {
+    } on CloudDocumentException catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(content: Text(error.message)));
     } finally {
@@ -587,7 +589,7 @@ class _SelectionPageState extends State<SelectionPage> {
   }
 
   Future<String> _cloudDocumentSubtitle() async {
-    return ServiceLocator.simpleCloudDocumentService.buildSubtitle();
+    return ServiceLocator.cloudDocumentService.buildSubtitle();
   }
 
   Future<_DocumentPromptData> _documentDocumentPromptData() async {
@@ -608,8 +610,9 @@ class _SelectionPageState extends State<SelectionPage> {
     }
     final selectedCloudFile = settings == null
         ? null
-        : ServiceLocator.simpleCloudDocumentService
-              .selectedSyncFileFromSettings(settings);
+        : ServiceLocator.cloudDocumentService.selectedSyncFileFromSettings(
+            settings,
+          );
     final cloudSubtitle = settings == null
         ? 'Connect a cloud provider in Settings first.'
         : await _cloudDocumentSubtitle();
@@ -641,13 +644,13 @@ class _SelectionPageState extends State<SelectionPage> {
     });
     switch (_effectiveDocumentSource) {
       case _DocumentSource.local:
-        await _openOrChooseLocalDocumentForSimple();
+        await _openOrChooseLocalDocument();
       case _DocumentSource.cloud:
         await _openOrChooseCloudSyncFile();
     }
   }
 
-  Future<void> _chooseCloudDocumentForSimple() async {
+  Future<void> _chooseCloudDocument() async {
     setState(() {
       _documentSetupAction = _SetupAction.open;
       _documentDocumentSource = _DocumentSource.cloud;
@@ -663,7 +666,7 @@ class _SelectionPageState extends State<SelectionPage> {
       final settings = await ServiceLocator.userRepository.getUserSettings(
         session.uid,
       );
-      final selectedFile = ServiceLocator.simpleCloudDocumentService
+      final selectedFile = ServiceLocator.cloudDocumentService
           .selectedSyncFileFromSettings(settings);
       if (selectedFile == null) {
         await _chooseCloudSyncFile();
@@ -694,7 +697,7 @@ class _SelectionPageState extends State<SelectionPage> {
       _documentOpenMode = EditorOpenMode.dateBasedOpenEnd;
       _documentSetupAction = _SetupAction.create;
     });
-    final sheetData = SimpleSheetData(
+    final sheetData = SheetData(
       fileName: draft.fileName,
       path: null,
       format: draft.format,
@@ -707,7 +710,7 @@ class _SelectionPageState extends State<SelectionPage> {
       headerRowIndex: 0,
       startColumnIndex: 0,
       xlsxSheetName: null,
-      workbook: draft.format == SimpleFileFormat.xlsx
+      workbook: draft.format == SheetFileFormat.xlsx
           ? excel_pkg.Excel.createExcel()
           : null,
     );
@@ -729,13 +732,13 @@ class _SelectionPageState extends State<SelectionPage> {
     }
   }
 
-  Future<void> _createLocalDocument(SimpleSheetData sheetData) async {
+  Future<void> _createLocalDocument(SheetData sheetData) async {
     try {
-      final bytes = SimpleSheetFileService.buildBytes(sheetData);
+      final bytes = SheetFileService.buildBytes(sheetData);
       final preferredSafTreeUri = await _safTreeUriForNewLocalDocument();
       if (!mounted) return;
       final result = await _sheetPersistenceService.persistBytes(
-        SimplePersistRequest(
+        PersistRequest(
           bytes: bytes,
           fileName: sheetData.fileName,
           typeGroup: _typeGroupForFormat(sheetData.format),
@@ -745,20 +748,20 @@ class _SelectionPageState extends State<SelectionPage> {
           ),
           preferredSafTreeUri: preferredSafTreeUri,
           mode: preferredSafTreeUri == null
-              ? SimplePersistMode.asIs
-              : SimplePersistMode.safPreferred,
+              ? PersistMode.asIs
+              : PersistMode.safPreferred,
         ),
       );
       if (!mounted) return;
 
-      await SimpleTypeHintCache.rememberCsvTypes(
+      await TypeHintCache.rememberCsvTypes(
         fileName: result.resolvedFileName,
         path: result.savedPath,
         valueTypes: sheetData.valueTypes,
       );
 
       await _pushEditor(
-        sheetData: _copySimpleSheetData(
+        sheetData: _copySheetData(
           sheetData,
           fileName: result.resolvedFileName,
           path: result.savedPath,
@@ -791,37 +794,37 @@ class _SelectionPageState extends State<SelectionPage> {
     }
   }
 
-  Future<void> _createCloudDocument(SimpleSheetData sheetData) async {
+  Future<void> _createCloudDocument(SheetData sheetData) async {
     final folder = await _pickCloudCreateFolder();
     if (!mounted || folder == null) return;
 
     await _runWithDocumentOpeningIndicator(() async {
       try {
-        final bytes = SimpleSheetFileService.buildBytes(sheetData);
-        final metadata = await ServiceLocator.simpleCloudDocumentService
+        final bytes = SheetFileService.buildBytes(sheetData);
+        final metadata = await ServiceLocator.cloudDocumentService
             .createDocument(
               fileName: sheetData.fileName,
               bytes: bytes,
               mimeType: _mimeTypeForFormat(sheetData.format),
               parentFolderId: folder.id,
             );
-        await ServiceLocator.simpleCloudDocumentService.setSelectedSyncFile(
+        await ServiceLocator.cloudDocumentService.setSelectedSyncFile(
           file: metadata,
         );
         if (!mounted) return;
 
-        await SimpleTypeHintCache.rememberCsvTypes(
+        await TypeHintCache.rememberCsvTypes(
           fileName: metadata.name,
           path: metadata.id,
           valueTypes: sheetData.valueTypes,
         );
-        await ServiceLocator.simpleCloudDocumentService.rememberTypeHints(
+        await ServiceLocator.cloudDocumentService.rememberTypeHints(
           file: metadata,
           valueTypes: sheetData.valueTypes,
         );
 
         await _pushEditor(
-          sheetData: _copySimpleSheetData(
+          sheetData: _copySheetData(
             sheetData,
             fileName: metadata.name,
             path: null,
@@ -835,7 +838,7 @@ class _SelectionPageState extends State<SelectionPage> {
           ),
           successMessage: 'Created ${metadata.name} in ${folder.name}.',
         );
-      } on CloudSimpleDocumentException catch (error) {
+      } on CloudDocumentException catch (error) {
         if (!mounted) return;
         ScaffoldMessenger.of(
           context,
@@ -865,10 +868,10 @@ class _SelectionPageState extends State<SelectionPage> {
         session.uid,
       );
       if (!mounted) return null;
-      final provider = ServiceLocator.simpleCloudDocumentService
+      final provider = ServiceLocator.cloudDocumentService
           .activeProviderFromSettings(settings);
       if (provider == null) {
-        throw const CloudSimpleDocumentException(
+        throw const CloudDocumentException(
           'No cloud provider is active. Choose Google Drive or WebDAV in Settings first.',
         );
       }
@@ -876,7 +879,7 @@ class _SelectionPageState extends State<SelectionPage> {
         context: context,
         builder: (context) => _CloudFolderPickerDialog(provider: provider),
       );
-    } on CloudSimpleDocumentException catch (error) {
+    } on CloudDocumentException catch (error) {
       if (!mounted) return null;
       ScaffoldMessenger.of(
         context,
@@ -900,7 +903,7 @@ class _SelectionPageState extends State<SelectionPage> {
       session.uid,
     );
     if (!mounted) return;
-    final configs = settings.simpleRecentOpenConfigs;
+    final configs = settings.recentOpenConfigs;
     if (configs.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -910,17 +913,15 @@ class _SelectionPageState extends State<SelectionPage> {
       return;
     }
 
-    final selected = await showDialog<SimpleRecentOpenConfig>(
+    final selected = await showDialog<RecentOpenConfig>(
       context: context,
       builder: (dialogContext) => _RecentConfigDialog(configs: configs),
     );
     if (!mounted || selected == null) return;
-    await _applySimpleRecentOpenConfig(selected);
+    await _applyRecentOpenConfig(selected);
   }
 
-  Future<void> _applySimpleRecentOpenConfig(
-    SimpleRecentOpenConfig config,
-  ) async {
+  Future<void> _applyRecentOpenConfig(RecentOpenConfig config) async {
     final openMode = _documentOpenModeFromName(config.openMode);
     final source = _documentDocumentSourceFromRecent(config.source);
     setState(() {
@@ -942,7 +943,7 @@ class _SelectionPageState extends State<SelectionPage> {
 
     if (source == _DocumentSource.cloud && config.fileId != null) {
       final session = ServiceLocator.authService.currentSession;
-      final provider = config.source == SimpleRecentDocumentSource.googleDrive
+      final provider = config.source == RecentDocumentSource.googleDrive
           ? CloudSyncProvider.googleDrive
           : CloudSyncProvider.webDav;
       if (session != null) {
@@ -951,7 +952,7 @@ class _SelectionPageState extends State<SelectionPage> {
           provider: provider,
         );
       }
-      await ServiceLocator.simpleCloudDocumentService.setSelectedSyncFile(
+      await ServiceLocator.cloudDocumentService.setSelectedSyncFile(
         file: CloudFileMetadata(
           provider: provider,
           id: config.fileId!,
@@ -970,12 +971,12 @@ class _SelectionPageState extends State<SelectionPage> {
   }
 
   _DocumentSource _documentDocumentSourceFromRecent(
-    SimpleRecentDocumentSource source,
+    RecentDocumentSource source,
   ) {
     return switch (source) {
-      SimpleRecentDocumentSource.local => _DocumentSource.local,
-      SimpleRecentDocumentSource.googleDrive ||
-      SimpleRecentDocumentSource.webDav => _DocumentSource.cloud,
+      RecentDocumentSource.local => _DocumentSource.local,
+      RecentDocumentSource.googleDrive ||
+      RecentDocumentSource.webDav => _DocumentSource.cloud,
     };
   }
 
@@ -1083,13 +1084,13 @@ class _SelectionPageState extends State<SelectionPage> {
 
   Future<void> _clearSelectedCloudSyncFile() async {
     try {
-      await ServiceLocator.simpleCloudDocumentService.clearSelectedSyncFile();
+      await ServiceLocator.cloudDocumentService.clearSelectedSyncFile();
       if (!mounted) return;
       setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Remembered cloud sync file cleared.')),
       );
-    } on CloudSimpleDocumentException catch (error) {
+    } on CloudDocumentException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
@@ -1145,11 +1146,11 @@ class _SelectionPageState extends State<SelectionPage> {
 
   Future<String?> _preferredSafTreeUri() async {
     if (!ServiceLocator.isSetup) {
-      return SimpleSheetPersistenceService.runtimeSafTreeUri;
+      return SheetPersistenceService.runtimeSafTreeUri;
     }
     final session = ServiceLocator.authService.currentSession;
     if (session == null) {
-      return SimpleSheetPersistenceService.runtimeSafTreeUri;
+      return SheetPersistenceService.runtimeSafTreeUri;
     }
     final settings = await (() async {
       try {
@@ -1159,22 +1160,22 @@ class _SelectionPageState extends State<SelectionPage> {
       }
     })();
     if (settings == null) {
-      return SimpleSheetPersistenceService.runtimeSafTreeUri;
+      return SheetPersistenceService.runtimeSafTreeUri;
     }
     final uri = settings.safTreeUri;
     if (uri == null || uri.isEmpty) {
-      return SimpleSheetPersistenceService.runtimeSafTreeUri;
+      return SheetPersistenceService.runtimeSafTreeUri;
     }
     return uri;
   }
 
-  SimpleSheetData _copySimpleSheetData(
-    SimpleSheetData data, {
+  SheetData _copySheetData(
+    SheetData data, {
     required String fileName,
     required String? path,
     required Uint8List? sourceBytes,
   }) {
-    return SimpleSheetData(
+    return SheetData(
       fileName: fileName,
       path: path,
       format: data.format,
@@ -1198,37 +1199,37 @@ class _SelectionPageState extends State<SelectionPage> {
     try {
       final path = file.path.trim();
       if (path.isEmpty) return null;
-      if (SimpleSheetPersistenceService.isTemporaryPath(path)) return null;
+      if (SheetPersistenceService.isTemporaryPath(path)) return null;
       return path;
     } catch (_) {
       return null;
     }
   }
 
-  String _mimeTypeForFormat(SimpleFileFormat format) {
-    return SimpleSheetFileService.mimeTypeForFormat(format);
+  String _mimeTypeForFormat(SheetFileFormat format) {
+    return SheetFileService.mimeTypeForFormat(format);
   }
 
-  XTypeGroup _typeGroupForFormat(SimpleFileFormat format) {
+  XTypeGroup _typeGroupForFormat(SheetFileFormat format) {
     switch (format) {
-      case SimpleFileFormat.csv:
+      case SheetFileFormat.csv:
         return _csvTypeGroup;
-      case SimpleFileFormat.xlsx:
-      case SimpleFileFormat.gsheet:
+      case SheetFileFormat.xlsx:
+      case SheetFileFormat.gsheet:
         return _xlsxTypeGroup;
-      case SimpleFileFormat.ods:
+      case SheetFileFormat.ods:
         return _odsTypeGroup;
     }
   }
 
-  String _createConfirmButtonTextForFormat(SimpleFileFormat format) {
+  String _createConfirmButtonTextForFormat(SheetFileFormat format) {
     switch (format) {
-      case SimpleFileFormat.csv:
+      case SheetFileFormat.csv:
         return 'Create CSV';
-      case SimpleFileFormat.xlsx:
-      case SimpleFileFormat.gsheet:
+      case SheetFileFormat.xlsx:
+      case SheetFileFormat.gsheet:
         return 'Create XLSX';
-      case SimpleFileFormat.ods:
+      case SheetFileFormat.ods:
         return 'Create ODS';
     }
   }
@@ -1365,8 +1366,8 @@ class _SelectionPageState extends State<SelectionPage> {
                               _documentSetupAction = _SetupAction.open;
                               _documentDocumentSource = _DocumentSource.local;
                             })
-                          : _chooseLocalDocumentForSimple,
-                      onChooseCloud: _chooseCloudDocumentForSimple,
+                          : _chooseLocalDocument,
+                      onChooseCloud: _chooseCloudDocument,
                       onClearLocal: _forgetRememberedLocalDocument,
                       onClearCloud: _clearSelectedCloudSyncFile,
                     ),
@@ -1466,7 +1467,7 @@ class _DocumentPromptData {
 class _RecentConfigDialog extends StatelessWidget {
   const _RecentConfigDialog({required this.configs});
 
-  final List<SimpleRecentOpenConfig> configs;
+  final List<RecentOpenConfig> configs;
 
   @override
   Widget build(BuildContext context) {
@@ -1499,19 +1500,19 @@ class _RecentConfigDialog extends StatelessWidget {
     );
   }
 
-  static IconData _iconForSource(SimpleRecentDocumentSource source) {
+  static IconData _iconForSource(RecentDocumentSource source) {
     return switch (source) {
-      SimpleRecentDocumentSource.local => Icons.folder_open_rounded,
-      SimpleRecentDocumentSource.googleDrive ||
-      SimpleRecentDocumentSource.webDav => Icons.cloud_outlined,
+      RecentDocumentSource.local => Icons.folder_open_rounded,
+      RecentDocumentSource.googleDrive ||
+      RecentDocumentSource.webDav => Icons.cloud_outlined,
     };
   }
 
-  static String _sourceLabel(SimpleRecentDocumentSource source) {
+  static String _sourceLabel(RecentDocumentSource source) {
     return switch (source) {
-      SimpleRecentDocumentSource.local => 'Local',
-      SimpleRecentDocumentSource.googleDrive => 'Google Drive',
-      SimpleRecentDocumentSource.webDav => 'WebDAV',
+      RecentDocumentSource.local => 'Local',
+      RecentDocumentSource.googleDrive => 'Google Drive',
+      RecentDocumentSource.webDav => 'WebDAV',
     };
   }
 
@@ -1896,13 +1897,13 @@ class _CloudFolderPickerDialogState extends State<_CloudFolderPickerDialog> {
       _errorText = null;
     });
     try {
-      final entries = await ServiceLocator.simpleCloudDocumentService
+      final entries = await ServiceLocator.cloudDocumentService
           .listFolderEntries(folderId: _currentFolderId);
       if (!mounted) return;
       setState(() {
         _entries = entries.where((entry) => entry.isFolder).toList();
       });
-    } on CloudSimpleDocumentException catch (error) {
+    } on CloudDocumentException catch (error) {
       if (!mounted) return;
       setState(() => _errorText = error.message);
     } finally {
@@ -2048,11 +2049,11 @@ class _CloudFilePickerDialogState extends State<_CloudFilePickerDialog> {
       _errorText = null;
     });
     try {
-      final entries = await ServiceLocator.simpleCloudDocumentService
+      final entries = await ServiceLocator.cloudDocumentService
           .listFolderEntries(folderId: _currentFolderId);
       if (!mounted) return;
       setState(() => _entries = entries);
-    } on CloudSimpleDocumentException catch (error) {
+    } on CloudDocumentException catch (error) {
       if (!mounted) return;
       setState(() => _errorText = error.message);
     } finally {

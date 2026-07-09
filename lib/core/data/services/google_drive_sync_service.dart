@@ -200,7 +200,7 @@ class GoogleDriveSyncService {
   Future<GoogleDriveFileMetadata> updateGoogleSheet({
     required http.Client authenticatedClient,
     required String fileId,
-    required SimpleSheetData data,
+    required SheetData data,
   }) async {
     final sheetsApi = sheets.SheetsApi(authenticatedClient);
     final sheetName = data.xlsxSheetName?.trim();
@@ -327,7 +327,7 @@ class GoogleDriveSyncService {
     );
   }
 
-  sheets.ValueRange _headerValueRange(SimpleSheetData data) {
+  sheets.ValueRange _headerValueRange(SheetData data) {
     return sheets.ValueRange(
       range: _rowRangeA1(
         sheetName: data.xlsxSheetName!,
@@ -340,7 +340,7 @@ class GoogleDriveSyncService {
     );
   }
 
-  sheets.ValueRange _typeRowValueRange(SimpleSheetData data) {
+  sheets.ValueRange _typeRowValueRange(SheetData data) {
     return sheets.ValueRange(
       range: _rowRangeA1(
         sheetName: data.xlsxSheetName!,
@@ -353,7 +353,7 @@ class GoogleDriveSyncService {
     );
   }
 
-  List<sheets.ValueRange> _dataValueRanges(SimpleSheetData data) {
+  List<sheets.ValueRange> _dataValueRanges(SheetData data) {
     final requests = <sheets.ValueRange>[];
     final segmentRanges = _editableColumnSegments(data.readOnlyColumns);
     final dataStartRowIndex = data.headerRowIndex + (data.hasTypeRow ? 2 : 1);

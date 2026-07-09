@@ -1,13 +1,12 @@
 import 'dart:convert';
 
+import 'package:calcrow/core/guessers/field_type_guesser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'simple_sheet_logic.dart';
+class TypeHintCache {
+  TypeHintCache._();
 
-class SimpleTypeHintCache {
-  SimpleTypeHintCache._();
-
-  static const String _csvTypeHintsPrefsKey = 'simple_csv_type_hints_v1';
+  static const String _csvTypeHintsPrefsKey = 'csv_type_hints_v1';
 
   static Future<void> rememberCsvTypes({
     required String fileName,
@@ -15,7 +14,7 @@ class SimpleTypeHintCache {
     required List<String> valueTypes,
   }) async {
     final normalizedTypes = valueTypes
-        .map(SimpleSheetLogic.displayTypeLabel)
+        .map(FieldTypeGuesser.displayTypeLabel)
         .where((type) => type.isNotEmpty)
         .toList(growable: false);
     if (normalizedTypes.isEmpty) return;
@@ -41,7 +40,7 @@ class SimpleTypeHintCache {
     if (raw is! List) return null;
     final types = raw
         .whereType<String>()
-        .map(SimpleSheetLogic.displayTypeLabel)
+        .map(FieldTypeGuesser.displayTypeLabel)
         .where((type) => type.isNotEmpty)
         .toList(growable: false);
     return types.isEmpty ? null : types;

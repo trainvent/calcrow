@@ -2,10 +2,11 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
+import 'package:calcrow/core/guessers/field_type_guesser.dart';
 import 'package:xml/xml.dart';
 
 import 'sheet_file_models.dart';
-import 'simple_sheet_logic.dart';
+import 'sheet_logic.dart';
 
 Map<String, Object?> parseOdsSheetDataTransfer(Map<String, Object?> message) {
   final bytes = message['bytes'];
@@ -24,10 +25,10 @@ Map<String, Object?> parseOdsSheetDataTransfer(Map<String, Object?> message) {
         ? DateTime.fromMillisecondsSinceEpoch(nowMilliseconds)
         : null,
   );
-  return simpleSheetDataToTransfer(parsed);
+  return sheetDataToTransfer(parsed);
 }
 
-Map<String, Object?> simpleSheetDataToTransfer(SimpleSheetData data) {
+Map<String, Object?> sheetDataToTransfer(SheetData data) {
   return <String, Object?>{
     'fileName': data.fileName,
     'path': data.path,
@@ -45,14 +46,13 @@ Map<String, Object?> simpleSheetDataToTransfer(SimpleSheetData data) {
   };
 }
 
-SimpleSheetData simpleSheetDataFromTransfer(Map<String, Object?> message) {
-  final formatName =
-      (message['format'] as String?) ?? SimpleFileFormat.csv.name;
-  final format = SimpleFileFormat.values.firstWhere(
+SheetData sheetDataFromTransfer(Map<String, Object?> message) {
+  final formatName = (message['format'] as String?) ?? SheetFileFormat.csv.name;
+  final format = SheetFileFormat.values.firstWhere(
     (candidate) => candidate.name == formatName,
-    orElse: () => SimpleFileFormat.csv,
+    orElse: () => SheetFileFormat.csv,
   );
-  return SimpleSheetData(
+  return SheetData(
     fileName: (message['fileName'] as String?) ?? 'calcrow_sheet',
     path: message['path'] as String?,
     format: format,
@@ -97,7 +97,7 @@ class OdsSheetCodec {
   static const String _nsCalcExt =
       'urn:org:documentfoundation:names:experimental:calc:xmlns:calcext:1.0';
 
-  static SimpleSheetData parse({
+  static SheetData parse({
     required Uint8List bytes,
     required String fileName,
     required String? path,
@@ -149,7 +149,7 @@ class OdsSheetCodec {
       (maxWidth, row) => row.length > maxWidth ? row.length : maxWidth,
     );
     final normalizedRows = rawRows
-        .map((row) => SimpleSheetLogic.normalizeRowToWidth(row, width))
+        .map((row) => SheetLogic.normalizeRowToWidth(row, width))
         .toList();
     final normalizedReadOnly = rawReadOnlyRows
         .map((row) => _normalizeReadOnlyRow(row, width))
@@ -174,7 +174,7 @@ class OdsSheetCodec {
         .skip(1)
         .map((row) => row.take(headerCount).toList())
         .toList();
-    final trimmedRowCount = SimpleSheetLogic.trimTrailingFooterRows(
+    final trimmedRowCount = SheetLogic.trimTrailingFooterRows(
       headers: headers,
       rows: bodyRows,
     );
@@ -187,7 +187,7 @@ class OdsSheetCodec {
       }
       return false;
     });
-    final valueTypes = SimpleSheetLogic.inferSimpleTypes(
+    final valueTypes = FieldTypeGuesser.inferTypes(
       headerCount,
       rows.take(20).toList(),
       headers: headers,
@@ -197,10 +197,10 @@ class OdsSheetCodec {
       (index) => index,
     ).where((index) => !readOnlyColumns[index]).toList();
 
-    return SimpleSheetData(
+    return SheetData(
       fileName: fileName,
       path: path,
-      format: SimpleFileFormat.ods,
+      format: SheetFileFormat.ods,
       headers: headers,
       valueTypes: valueTypes,
       readOnlyColumns: readOnlyColumns,
@@ -211,7 +211,7 @@ class OdsSheetCodec {
     );
   }
 
-  static Uint8List buildBytes(SimpleSheetData data) {
+  static Uint8List buildBytes(SheetData data) {
     final sourceBytes = data.sourceBytes;
     if (sourceBytes == null || sourceBytes.isEmpty) {
       throw StateError('No ODS source document is loaded.');
@@ -593,8 +593,8 @@ class OdsSheetCodec {
       }
     }
 
-    if (SimpleSheetLogic.isIntegerType(normalizedType) ||
-        SimpleSheetLogic.isDecimalType(normalizedType)) {
+    if (FieldTypeGuesser.isIntegerType(normalizedType) ||
+        FieldTypeGuesser.isDecimalType(normalizedType)) {
       final parsed = double.tryParse(value.replaceAll(',', '.'));
       if (parsed != null) {
         _setAttribute(
@@ -623,8 +623,8 @@ class OdsSheetCodec {
       }
     }
 
-    if (SimpleSheetLogic.isBooleanType(normalizedType) &&
-        SimpleSheetLogic.looksLikeBooleanValue(value)) {
+    if (FieldTypeGuesser.isBooleanType(normalizedType) &&
+        FieldTypeGuesser.looksLikeBooleanValue(value)) {
       final boolValue = value.trim().toUpperCase() == 'TRUE';
       _setAttribute(
         cell,
@@ -741,7 +741,7 @@ class OdsSheetCodec {
         .map((table) => _attribute(table, 'name', namespace: _nsTable) ?? '')
         .toList(growable: false);
     final fallback = _attribute(tables.first, 'name', namespace: _nsTable);
-    return SimpleSheetLogic.selectBestSheetName(names, now, fallback: fallback);
+    return SheetLogic.selectBestSheetName(names, now, fallback: fallback);
   }
 
   static _OdsTimeParts? _parseTimeParts(String value) {

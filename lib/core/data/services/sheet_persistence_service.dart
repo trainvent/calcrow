@@ -5,10 +5,10 @@ import 'package:path_provider/path_provider.dart';
 import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
 
-enum SimplePersistMode { safPreferred, asIs }
+enum PersistMode { safPreferred, asIs }
 
-class SimplePersistRequest {
-  const SimplePersistRequest({
+class PersistRequest {
+  const PersistRequest({
     required this.bytes,
     required this.fileName,
     required this.typeGroup,
@@ -16,7 +16,7 @@ class SimplePersistRequest {
     required this.confirmButtonText,
     this.existingPath,
     this.preferredSafTreeUri,
-    this.mode = SimplePersistMode.safPreferred,
+    this.mode = PersistMode.safPreferred,
   });
 
   final Uint8List bytes;
@@ -26,11 +26,11 @@ class SimplePersistRequest {
   final String confirmButtonText;
   final String? existingPath;
   final String? preferredSafTreeUri;
-  final SimplePersistMode mode;
+  final PersistMode mode;
 }
 
-class SimplePersistResult {
-  const SimplePersistResult({
+class PersistResult {
+  const PersistResult({
     required this.locationLabel,
     required this.overwroteExistingFile,
     required this.usedAppDocumentsFallback,
@@ -45,8 +45,8 @@ class SimplePersistResult {
   final String resolvedFileName;
 }
 
-class SimpleSheetPersistenceService {
-  SimpleSheetPersistenceService({SafStream? safStream, SafUtil? safUtil})
+class SheetPersistenceService {
+  SheetPersistenceService({SafStream? safStream, SafUtil? safUtil})
     : _safStream = safStream ?? SafStream(),
       _safUtil = safUtil ?? SafUtil();
 
@@ -133,7 +133,7 @@ class SimpleSheetPersistenceService {
     return null;
   }
 
-  Future<SimplePersistResult> persistBytes(SimplePersistRequest request) async {
+  Future<PersistResult> persistBytes(PersistRequest request) async {
     final output = XFile.fromData(
       request.bytes,
       name: request.fileName,
@@ -145,7 +145,7 @@ class SimpleSheetPersistenceService {
         existingPath.isNotEmpty &&
         !isTemporaryPath(existingPath);
     if (canOverwriteExisting &&
-        request.mode == SimplePersistMode.safPreferred &&
+        request.mode == PersistMode.safPreferred &&
         _isAndroidSafDocumentUri(existingPath)) {
       final safSaved = await _tryOverwriteWithSaf(
         existingPath: existingPath,
@@ -154,7 +154,7 @@ class SimpleSheetPersistenceService {
         mimeType: request.mimeType,
       );
       if (safSaved != null) {
-        return SimplePersistResult(
+        return PersistResult(
           locationLabel: _displayLocationLabel(
             path: safSaved.path,
             fallbackName: request.fileName,
@@ -167,7 +167,7 @@ class SimpleSheetPersistenceService {
       }
     }
 
-    if (request.mode == SimplePersistMode.safPreferred) {
+    if (request.mode == PersistMode.safPreferred) {
       if (!_isAndroidPlatform) {
         throw StateError('SAF save is not supported on this platform.');
       }
@@ -206,7 +206,7 @@ class SimpleSheetPersistenceService {
     if (canOverwriteExisting) {
       try {
         await output.saveTo(existingPath);
-        return SimplePersistResult(
+        return PersistResult(
           locationLabel: existingPath,
           overwroteExistingFile: true,
           usedAppDocumentsFallback: false,
@@ -217,7 +217,7 @@ class SimpleSheetPersistenceService {
         // Fall through to save dialog.
       }
     }
-    if (_isAndroidPlatform && request.mode == SimplePersistMode.asIs) {
+    if (_isAndroidPlatform && request.mode == PersistMode.asIs) {
       final androidSafSaved = await _saveWithAndroidSafPicker(
         bytes: request.bytes,
         fileName: request.fileName,
@@ -247,7 +247,7 @@ class SimpleSheetPersistenceService {
         throw StateError('Save picker is unavailable on this platform.');
       }
       await output.saveTo(fallbackPath);
-      return SimplePersistResult(
+      return PersistResult(
         locationLabel: fallbackPath,
         overwroteExistingFile: false,
         usedAppDocumentsFallback: true,
@@ -271,7 +271,7 @@ class SimpleSheetPersistenceService {
       throw StateError('Could not write to the selected Android document.');
     }
     await output.saveTo(location.path);
-    return SimplePersistResult(
+    return PersistResult(
       locationLabel: kIsWeb
           ? request.fileName
           : _displayLocationLabel(
@@ -355,7 +355,7 @@ class SimpleSheetPersistenceService {
     return null;
   }
 
-  Future<SimplePersistResult?> _writeViaSafDocumentUri({
+  Future<PersistResult?> _writeViaSafDocumentUri({
     required String documentUri,
     required Uint8List bytes,
     required String fileName,
@@ -377,7 +377,7 @@ class SimpleSheetPersistenceService {
       final uriString = newFile.uri.toString();
       final resolvedFileName = (newFile.fileName ?? targetFileName).trim();
       final savedPath = uriString.isEmpty ? documentUri : uriString;
-      return SimplePersistResult(
+      return PersistResult(
         locationLabel: _displayLocationLabel(
           path: savedPath,
           fallbackName: targetFileName,
@@ -424,7 +424,7 @@ class SimpleSheetPersistenceService {
     }
   }
 
-  Future<SimplePersistResult?> _writeViaSafTreeUri({
+  Future<PersistResult?> _writeViaSafTreeUri({
     required String treeUri,
     required Uint8List bytes,
     required String fileName,
@@ -440,7 +440,7 @@ class SimpleSheetPersistenceService {
       );
       final uriString = newFile.uri.toString();
       final resolvedFileName = (newFile.fileName ?? fileName).trim();
-      return SimplePersistResult(
+      return PersistResult(
         locationLabel: resolvedFileName.isEmpty ? fileName : resolvedFileName,
         overwroteExistingFile: true,
         usedAppDocumentsFallback: false,
@@ -454,7 +454,7 @@ class SimpleSheetPersistenceService {
     }
   }
 
-  Future<SimplePersistResult?> _saveWithAndroidSafPicker({
+  Future<PersistResult?> _saveWithAndroidSafPicker({
     required Uint8List bytes,
     required String fileName,
     required String mimeType,

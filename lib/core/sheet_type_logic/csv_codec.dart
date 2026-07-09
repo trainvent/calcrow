@@ -1,14 +1,16 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'simple_type_hint_cache.dart';
+import 'package:calcrow/core/guessers/field_type_guesser.dart';
+
+import 'type_hint_cache.dart';
 import 'sheet_file_models.dart';
-import 'simple_sheet_logic.dart';
+import 'sheet_logic.dart';
 
 class CsvSheetCodec {
   const CsvSheetCodec._();
 
-  static Future<SimpleSheetData> parse({
+  static Future<SheetData> parse({
     required Uint8List bytes,
     required String fileName,
     required String? path,
@@ -33,7 +35,7 @@ class CsvSheetCodec {
     final parsedRows = rawLines
         .map((line) => _splitCsvLine(line, delimiter: delimiter))
         .toList();
-    final tableBounds = SimpleSheetLogic.detectTableBounds(
+    final tableBounds = SheetLogic.detectTableBounds(
       parsedRows,
       emptyHeaderError: 'CSV header row is empty.',
     );
@@ -48,7 +50,7 @@ class CsvSheetCodec {
         : null;
     final secondLineValues = typeRowIndex == null
         ? const <String>[]
-        : SimpleSheetLogic.normalizeRowToWidth(
+        : SheetLogic.normalizeRowToWidth(
             parsedRows[typeRowIndex]
                 .skip(tableBounds.startColumnIndex)
                 .take(tableBounds.columnCount)
@@ -60,7 +62,7 @@ class CsvSheetCodec {
     final rows = parsedRows
         .skip(dataStartRowIndex)
         .map(
-          (row) => SimpleSheetLogic.normalizeRowToWidth(
+          (row) => SheetLogic.normalizeRowToWidth(
             row
                 .skip(tableBounds.startColumnIndex)
                 .take(tableBounds.columnCount)
@@ -75,24 +77,21 @@ class CsvSheetCodec {
     );
     final cachedTypes = tableBounds.hasTypeRow
         ? null
-        : await SimpleTypeHintCache.readCsvTypes(
-            fileName: fileName,
-            path: path,
-          );
+        : await TypeHintCache.readCsvTypes(fileName: fileName, path: path);
     final typeInference = tableBounds.hasTypeRow
         ? _buildTypeInferenceFromTypeRow(
             headerCount: tableBounds.columnCount,
             secondLineValues: secondLineValues,
           )
         : cachedTypes != null && cachedTypes.length == tableBounds.columnCount
-        ? List<SimpleSheetTypeInference>.generate(
+        ? List<FieldTypeInference>.generate(
             tableBounds.columnCount,
-            (index) => SimpleSheetTypeInference(
+            (index) => FieldTypeInference(
               type: cachedTypes[index],
               confirmedFromData: true,
             ),
           )
-        : _inferSimpleTypes(
+        : _inferTypes(
             headers: headers,
             rows: rows.take(20).toList(),
             readOnlyColumns: readOnlyColumns,
@@ -108,10 +107,10 @@ class CsvSheetCodec {
             return !typeInference[index].confirmedFromData;
           }).toList();
 
-    return SimpleSheetData(
+    return SheetData(
       fileName: fileName,
       path: path,
-      format: SimpleFileFormat.csv,
+      format: SheetFileFormat.csv,
       headers: headers,
       valueTypes: typeInference.map((item) => item.type).toList(),
       readOnlyColumns: readOnlyColumns,
@@ -129,7 +128,7 @@ class CsvSheetCodec {
     );
   }
 
-  static Uint8List buildBytes(SimpleSheetData sheetData) {
+  static Uint8List buildBytes(SheetData sheetData) {
     final delimiter = sheetData.csvDelimiter;
     final originalContent = sheetData.sourceBytes == null
         ? null
@@ -169,7 +168,7 @@ class CsvSheetCodec {
     final dataStartRowIndex =
         sheetData.headerRowIndex + (sheetData.hasTypeRow ? 2 : 1);
     for (var rowIndex = 0; rowIndex < sheetData.rows.length; rowIndex++) {
-      final normalized = SimpleSheetLogic.normalizeRowToWidth(
+      final normalized = SheetLogic.normalizeRowToWidth(
         sheetData.rows[rowIndex],
         sheetData.headers.length,
       );
@@ -269,27 +268,27 @@ class CsvSheetCodec {
     return count;
   }
 
-  static List<SimpleSheetTypeInference> _buildTypeInferenceFromTypeRow({
+  static List<FieldTypeInference> _buildTypeInferenceFromTypeRow({
     required int headerCount,
     required List<String> secondLineValues,
   }) {
-    return List<SimpleSheetTypeInference>.generate(
+    return List<FieldTypeInference>.generate(
       headerCount,
-      (index) => SimpleSheetTypeInference(
+      (index) => FieldTypeInference(
         type: index < secondLineValues.length
-            ? SimpleSheetLogic.displayTypeLabel(secondLineValues[index])
+            ? FieldTypeGuesser.displayTypeLabel(secondLineValues[index])
             : 'text',
         confirmedFromData: true,
       ),
     );
   }
 
-  static List<SimpleSheetTypeInference> _inferSimpleTypes({
+  static List<FieldTypeInference> _inferTypes({
     required List<String> headers,
     required List<List<String>> rows,
     required List<bool> readOnlyColumns,
   }) {
-    return SimpleSheetLogic.inferSimpleTypeDetails(
+    return FieldTypeGuesser.inferTypeDetails(
       headers: headers,
       rows: rows,
       readOnlyColumns: readOnlyColumns,
@@ -300,7 +299,7 @@ class CsvSheetCodec {
     final readOnly = List<bool>.filled(width, false);
     for (final row in rows) {
       for (var index = 0; index < width && index < row.length; index++) {
-        if (SimpleSheetLogic.looksLikeFormulaExpression(row[index])) {
+        if (FieldTypeGuesser.looksLikeFormulaExpression(row[index])) {
           readOnly[index] = true;
         }
       }

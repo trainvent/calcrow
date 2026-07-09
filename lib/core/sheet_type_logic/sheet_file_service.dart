@@ -8,13 +8,13 @@ import 'csv_codec.dart';
 import 'gsheet_codec.dart';
 import 'ods_codec.dart';
 import 'sheet_file_models.dart';
-import 'simple_type_hint_cache.dart';
+import 'type_hint_cache.dart';
 import 'xlsx_codec.dart';
 
-class SimpleSheetFileService {
-  const SimpleSheetFileService._();
+class SheetFileService {
+  const SheetFileService._();
 
-  static Future<SimpleSheetData> parse({
+  static Future<SheetData> parse({
     required Uint8List bytes,
     required String fileName,
     required String? path,
@@ -27,17 +27,17 @@ class SimpleSheetFileService {
       mimeType: mimeType,
     );
     switch (format) {
-      case SimpleFileFormat.csv:
+      case SheetFileFormat.csv:
         return await CsvSheetCodec.parse(
           bytes: bytes,
           fileName: fileName,
           path: path,
         );
-      case SimpleFileFormat.xlsx:
+      case SheetFileFormat.xlsx:
         return await _applyCachedTypeHints(
           XlsxSheetCodec.parse(bytes: bytes, fileName: fileName, path: path),
         );
-      case SimpleFileFormat.ods:
+      case SheetFileFormat.ods:
         final transfer = await Isolate.run<Map<String, Object?>>(
           () => parseOdsSheetDataTransfer(<String, Object?>{
             'bytes': bytes,
@@ -46,10 +46,8 @@ class SimpleSheetFileService {
             'nowMillisecondsSinceEpoch': DateTime.now().millisecondsSinceEpoch,
           }),
         );
-        return await _applyCachedTypeHints(
-          simpleSheetDataFromTransfer(transfer),
-        );
-      case SimpleFileFormat.gsheet:
+        return await _applyCachedTypeHints(sheetDataFromTransfer(transfer));
+      case SheetFileFormat.gsheet:
         return await _applyCachedTypeHints(
           GSheetCodec.parse(
             bytes: bytes,
@@ -61,18 +59,16 @@ class SimpleSheetFileService {
     }
   }
 
-  static Future<SimpleSheetData> _applyCachedTypeHints(
-    SimpleSheetData data,
-  ) async {
+  static Future<SheetData> _applyCachedTypeHints(SheetData data) async {
     if (data.pendingTypeSelectionColumns.isEmpty) return data;
-    final cachedTypes = await SimpleTypeHintCache.readCsvTypes(
+    final cachedTypes = await TypeHintCache.readCsvTypes(
       fileName: data.fileName,
       path: data.path,
     );
     if (cachedTypes == null || cachedTypes.length != data.headers.length) {
       return data;
     }
-    return SimpleSheetData(
+    return SheetData(
       fileName: data.fileName,
       path: data.path,
       format: data.format,
@@ -92,7 +88,7 @@ class SimpleSheetFileService {
     );
   }
 
-  static SimpleFileFormat detectFormat({
+  static SheetFileFormat detectFormat({
     required String fileName,
     required String? path,
     required Uint8List bytes,
@@ -100,16 +96,16 @@ class SimpleSheetFileService {
   }) {
     final normalizedMimeType = mimeType?.trim().toLowerCase();
     if (normalizedMimeType == GSheetCodec.googleSheetsMimeType) {
-      return SimpleFileFormat.gsheet;
+      return SheetFileFormat.gsheet;
     }
     final normalizedName = fileName.trim().toLowerCase();
     final normalizedPath = path?.trim().toLowerCase();
     final extensionSource = normalizedName.isNotEmpty
         ? normalizedName
         : (normalizedPath ?? '');
-    if (extensionSource.endsWith('.csv')) return SimpleFileFormat.csv;
-    if (extensionSource.endsWith('.xlsx')) return SimpleFileFormat.xlsx;
-    if (extensionSource.endsWith('.ods')) return SimpleFileFormat.ods;
+    if (extensionSource.endsWith('.csv')) return SheetFileFormat.csv;
+    if (extensionSource.endsWith('.xlsx')) return SheetFileFormat.xlsx;
+    if (extensionSource.endsWith('.ods')) return SheetFileFormat.ods;
     if (extensionSource.endsWith('.xls')) {
       throw UnsupportedError(
         'Legacy .xls files are not supported yet. Use .xlsx, .ods, or .csv.',
@@ -121,7 +117,7 @@ class SimpleSheetFileService {
         final archive = ZipDecoder().decodeBytes(bytes, verify: false);
         if (archive.findFile('xl/workbook.xml') != null ||
             archive.files.any((file) => file.name.startsWith('xl/'))) {
-          return SimpleFileFormat.xlsx;
+          return SheetFileFormat.xlsx;
         }
         final mimetypeFile = archive.findFile('mimetype');
         final mimetype = mimetypeFile == null
@@ -135,7 +131,7 @@ class SimpleSheetFileService {
                   .toLowerCase();
         if (mimetype == 'application/vnd.oasis.opendocument.spreadsheet' ||
             archive.findFile('content.xml') != null) {
-          return SimpleFileFormat.ods;
+          return SheetFileFormat.ods;
         }
       } catch (_) {
         throw UnsupportedError(
@@ -147,44 +143,44 @@ class SimpleSheetFileService {
       );
     }
 
-    return SimpleFileFormat.csv;
+    return SheetFileFormat.csv;
   }
 
-  static Uint8List buildBytes(SimpleSheetData data) {
+  static Uint8List buildBytes(SheetData data) {
     switch (data.format) {
-      case SimpleFileFormat.csv:
+      case SheetFileFormat.csv:
         return CsvSheetCodec.buildBytes(data);
-      case SimpleFileFormat.xlsx:
+      case SheetFileFormat.xlsx:
         return XlsxSheetCodec.buildBytes(data);
-      case SimpleFileFormat.ods:
+      case SheetFileFormat.ods:
         return OdsSheetCodec.buildBytes(data);
-      case SimpleFileFormat.gsheet:
+      case SheetFileFormat.gsheet:
         return GSheetCodec.buildBytes(data);
     }
   }
 
-  static String mimeTypeForFormat(SimpleFileFormat format) {
+  static String mimeTypeForFormat(SheetFileFormat format) {
     switch (format) {
-      case SimpleFileFormat.csv:
+      case SheetFileFormat.csv:
         return 'text/csv';
-      case SimpleFileFormat.xlsx:
+      case SheetFileFormat.xlsx:
         return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-      case SimpleFileFormat.ods:
+      case SheetFileFormat.ods:
         return 'application/vnd.oasis.opendocument.spreadsheet';
-      case SimpleFileFormat.gsheet:
+      case SheetFileFormat.gsheet:
         return GSheetCodec.googleSheetsMimeType;
     }
   }
 
-  static String defaultExtensionForFormat(SimpleFileFormat format) {
+  static String defaultExtensionForFormat(SheetFileFormat format) {
     switch (format) {
-      case SimpleFileFormat.csv:
+      case SheetFileFormat.csv:
         return 'csv';
-      case SimpleFileFormat.xlsx:
+      case SheetFileFormat.xlsx:
         return 'xlsx';
-      case SimpleFileFormat.ods:
+      case SheetFileFormat.ods:
         return 'ods';
-      case SimpleFileFormat.gsheet:
+      case SheetFileFormat.gsheet:
         return 'xlsx';
     }
   }

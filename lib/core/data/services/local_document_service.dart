@@ -4,30 +4,30 @@ import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
 
 import '../../sheet_type_logic/sheet_file_models.dart';
-import 'simple_sheet_persistence_service.dart';
+import 'sheet_persistence_service.dart';
 
-typedef ParseSimpleSheetData =
-    Future<SimpleSheetData> Function({
+typedef ParseSheetData =
+    Future<SheetData> Function({
       required Uint8List bytes,
       required String fileName,
       required String? path,
       String? mimeType,
     });
 
-class LocalSimpleDocumentOpenResult {
-  const LocalSimpleDocumentOpenResult({
+class LocalDocumentOpenResult {
+  const LocalDocumentOpenResult({
     required this.sheetData,
     required this.existingPath,
     required this.hasSafTarget,
   });
 
-  final SimpleSheetData sheetData;
+  final SheetData sheetData;
   final String? existingPath;
   final bool hasSafTarget;
 }
 
-class LocalSimpleDocumentSelection {
-  const LocalSimpleDocumentSelection({
+class LocalDocumentSelection {
+  const LocalDocumentSelection({
     required this.fileName,
     required this.bytes,
     required this.existingPath,
@@ -40,21 +40,20 @@ class LocalSimpleDocumentSelection {
   final bool hasSafTarget;
 }
 
-class SimpleLocalDocumentService {
-  SimpleLocalDocumentService({
+class LocalDocumentService {
+  LocalDocumentService({
     SafStream? safStream,
     SafUtil? safUtil,
-    SimpleSheetPersistenceService? persistenceService,
+    SheetPersistenceService? persistenceService,
   }) : _safStream = safStream ?? SafStream(),
        _safUtil = safUtil ?? SafUtil(),
-       _persistenceService =
-           persistenceService ?? SimpleSheetPersistenceService();
+       _persistenceService = persistenceService ?? SheetPersistenceService();
 
   final SafStream _safStream;
   final SafUtil _safUtil;
-  final SimpleSheetPersistenceService _persistenceService;
+  final SheetPersistenceService _persistenceService;
 
-  Future<LocalSimpleDocumentSelection?> pickDocumentForSimpleEditor({
+  Future<LocalDocumentSelection?> pickDocumentForEditor({
     required List<XTypeGroup> acceptedTypeGroups,
     required String? Function(XFile file) readXFilePath,
   }) async {
@@ -93,9 +92,7 @@ class SimpleLocalDocumentService {
     }
 
     if (bytes.isEmpty) {
-      throw const LocalSimpleDocumentException(
-        'Could not read document content.',
-      );
+      throw const LocalDocumentException('Could not read document content.');
     }
 
     final hasSafTarget =
@@ -103,7 +100,7 @@ class SimpleLocalDocumentService {
         defaultTargetPlatform == TargetPlatform.android &&
         sourcePath != null &&
         _persistenceService.canUseDirectSafUri(sourcePath);
-    return LocalSimpleDocumentSelection(
+    return LocalDocumentSelection(
       fileName: fileName,
       bytes: bytes,
       existingPath: sourcePath,
@@ -111,25 +108,25 @@ class SimpleLocalDocumentService {
     );
   }
 
-  Future<LocalSimpleDocumentOpenResult?> openDocumentForSimpleEditor({
+  Future<LocalDocumentOpenResult?> openDocumentForEditor({
     required List<XTypeGroup> acceptedTypeGroups,
-    required ParseSimpleSheetData parseSheetData,
+    required ParseSheetData parseSheetData,
     required String? Function(XFile file) readXFilePath,
   }) async {
-    final selection = await pickDocumentForSimpleEditor(
+    final selection = await pickDocumentForEditor(
       acceptedTypeGroups: acceptedTypeGroups,
       readXFilePath: readXFilePath,
     );
     if (selection == null) return null;
-    return openSelectedDocumentForSimpleEditor(
+    return openSelectedDocumentForEditor(
       selection: selection,
       parseSheetData: parseSheetData,
     );
   }
 
-  Future<LocalSimpleDocumentOpenResult> openSelectedDocumentForSimpleEditor({
-    required LocalSimpleDocumentSelection selection,
-    required ParseSimpleSheetData parseSheetData,
+  Future<LocalDocumentOpenResult> openSelectedDocumentForEditor({
+    required LocalDocumentSelection selection,
+    required ParseSheetData parseSheetData,
   }) async {
     final sheetData = await parseSheetData(
       bytes: selection.bytes,
@@ -137,18 +134,18 @@ class SimpleLocalDocumentService {
       path: selection.existingPath,
       mimeType: null,
     );
-    return LocalSimpleDocumentOpenResult(
+    return LocalDocumentOpenResult(
       sheetData: sheetData,
       existingPath: selection.existingPath,
       hasSafTarget: selection.hasSafTarget,
     );
   }
 
-  Future<LocalSimpleDocumentOpenResult> reopenDocumentForSimpleEditor({
+  Future<LocalDocumentOpenResult> reopenDocumentForEditor({
     required String fileName,
     required String? existingPath,
     required Uint8List? cachedBytes,
-    required ParseSimpleSheetData parseSheetData,
+    required ParseSheetData parseSheetData,
   }) async {
     final normalizedPath = existingPath?.trim();
     final normalizedName = fileName.trim().isEmpty
@@ -167,7 +164,7 @@ class SimpleLocalDocumentService {
     }
 
     if (bytes.isEmpty) {
-      throw const LocalSimpleDocumentException(
+      throw const LocalDocumentException(
         'Could not reopen the remembered local document.',
       );
     }
@@ -183,7 +180,7 @@ class SimpleLocalDocumentService {
         defaultTargetPlatform == TargetPlatform.android &&
         normalizedPath != null &&
         _persistenceService.canUseDirectSafUri(normalizedPath);
-    return LocalSimpleDocumentOpenResult(
+    return LocalDocumentOpenResult(
       sheetData: sheetData,
       existingPath: normalizedPath,
       hasSafTarget: hasSafTarget,
@@ -191,8 +188,8 @@ class SimpleLocalDocumentService {
   }
 }
 
-class LocalSimpleDocumentException implements Exception {
-  const LocalSimpleDocumentException(this.message);
+class LocalDocumentException implements Exception {
+  const LocalDocumentException(this.message);
 
   final String message;
 

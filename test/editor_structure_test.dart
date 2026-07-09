@@ -1,4 +1,4 @@
-import 'package:calcrow/core/data/services/simple_sheet_persistence_service.dart';
+import 'package:calcrow/core/data/services/sheet_persistence_service.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/features/home/editing/selection_page.dart';
 import 'package:calcrow/features/home/editing/editing_pages/editing_page_base.dart';
@@ -74,7 +74,7 @@ void main() {
               existingPath: '/tmp/worklog.csv',
             ),
             initialOpenMode: EditorOpenMode.dateBasedOpenEnd,
-            sheetPersistenceService: _FakeSimpleSheetPersistenceService(),
+            sheetPersistenceService: _FakeSheetPersistenceService(),
           ),
         ),
       ),
@@ -106,7 +106,7 @@ void main() {
               existingPath: '/tmp/worklog.csv',
             ),
             initialOpenMode: EditorOpenMode.dateBasedOpenEnd,
-            sheetPersistenceService: _FakeSimpleSheetPersistenceService(),
+            sheetPersistenceService: _FakeSheetPersistenceService(),
           ),
         ),
       ),
@@ -142,7 +142,7 @@ void main() {
               existingPath: '/tmp/time-only.csv',
             ),
             initialOpenMode: EditorOpenMode.dateBasedOpenEnd,
-            sheetPersistenceService: _FakeSimpleSheetPersistenceService(),
+            sheetPersistenceService: _FakeSheetPersistenceService(),
           ),
         ),
       ),
@@ -180,7 +180,7 @@ void main() {
               existingPath: '/tmp/people.csv',
             ),
             initialOpenMode: EditorOpenMode.textBased,
-            sheetPersistenceService: _FakeSimpleSheetPersistenceService(),
+            sheetPersistenceService: _FakeSheetPersistenceService(),
           ),
         ),
       ),
@@ -215,7 +215,7 @@ void main() {
               existingPath: '/tmp/non-date-first.csv',
             ),
             initialOpenMode: EditorOpenMode.dateBasedOpenEnd,
-            sheetPersistenceService: _FakeSimpleSheetPersistenceService(),
+            sheetPersistenceService: _FakeSheetPersistenceService(),
           ),
         ),
       ),
@@ -242,7 +242,7 @@ void main() {
               existingPath: '/tmp/non-text-first.csv',
             ),
             initialOpenMode: EditorOpenMode.textBased,
-            sheetPersistenceService: _FakeSimpleSheetPersistenceService(),
+            sheetPersistenceService: _FakeSheetPersistenceService(),
           ),
         ),
       ),
@@ -270,7 +270,7 @@ void main() {
               existingPath: '/tmp/worklog.csv',
             ),
             initialOpenMode: EditorOpenMode.dateBasedOpenEnd,
-            sheetPersistenceService: _FakeSimpleSheetPersistenceService(),
+            sheetPersistenceService: _FakeSheetPersistenceService(),
           ),
         ),
       ),
@@ -300,7 +300,7 @@ void main() {
               existingPath: '/tmp/people.csv',
             ),
             initialOpenMode: EditorOpenMode.textBased,
-            sheetPersistenceService: _FakeSimpleSheetPersistenceService(),
+            sheetPersistenceService: _FakeSheetPersistenceService(),
           ),
         ),
       ),
@@ -362,11 +362,11 @@ class _EmbeddedEditorHarnessState extends State<_EmbeddedEditorHarness> {
   }
 }
 
-SimpleSheetData _worklogSheetData() {
-  return const SimpleSheetData(
+SheetData _worklogSheetData() {
+  return const SheetData(
     fileName: 'worklog.csv',
     path: '/tmp/worklog.csv',
-    format: SimpleFileFormat.csv,
+    format: SheetFileFormat.csv,
     headers: <String>['Date', 'Start', 'End', 'Pause', 'Notes'],
     valueTypes: <String>['date', 'time', 'time', 'duration', 'text'],
     readOnlyColumns: <bool>[true, false, false, false, false],
@@ -378,12 +378,12 @@ SimpleSheetData _worklogSheetData() {
   );
 }
 
-SimpleSheetData _timeOnlySheetData() {
+SheetData _timeOnlySheetData() {
   final today = _todayIsoDate();
-  return SimpleSheetData(
+  return SheetData(
     fileName: 'time-only.csv',
     path: '/tmp/time-only.csv',
-    format: SimpleFileFormat.csv,
+    format: SheetFileFormat.csv,
     headers: const <String>['Date', 'Start', 'End'],
     valueTypes: const <String>['date', 'time', 'time'],
     readOnlyColumns: const <bool>[true, false, false],
@@ -398,11 +398,11 @@ SimpleSheetData _timeOnlySheetData() {
   );
 }
 
-SimpleSheetData _namelistSheetData() {
-  return const SimpleSheetData(
+SheetData _namelistSheetData() {
+  return const SheetData(
     fileName: 'people.csv',
     path: '/tmp/people.csv',
-    format: SimpleFileFormat.csv,
+    format: SheetFileFormat.csv,
     headers: <String>['Name', 'Score'],
     valueTypes: <String>['text', 'number'],
     readOnlyColumns: <bool>[false, false],
@@ -417,12 +417,12 @@ SimpleSheetData _namelistSheetData() {
   );
 }
 
-SimpleSheetData _cachedNonDateFirstColumnSheetData() {
+SheetData _cachedNonDateFirstColumnSheetData() {
   final today = _todayIsoDate();
-  return SimpleSheetData(
+  return SheetData(
     fileName: 'non-date-first.csv',
     path: '/tmp/non-date-first.csv',
-    format: SimpleFileFormat.csv,
+    format: SheetFileFormat.csv,
     headers: const <String>['Name', 'Entry Date'],
     valueTypes: const <String>['text', 'date'],
     readOnlyColumns: const <bool>[false, false],
@@ -437,12 +437,12 @@ SimpleSheetData _cachedNonDateFirstColumnSheetData() {
   );
 }
 
-SimpleSheetData _cachedNonTextFirstColumnSheetData() {
+SheetData _cachedNonTextFirstColumnSheetData() {
   final today = _todayIsoDate();
-  return SimpleSheetData(
+  return SheetData(
     fileName: 'non-text-first.csv',
     path: '/tmp/non-text-first.csv',
-    format: SimpleFileFormat.csv,
+    format: SheetFileFormat.csv,
     headers: const <String>['Entry Date', 'Name'],
     valueTypes: const <String>['date', 'text'],
     readOnlyColumns: const <bool>[false, false],
@@ -464,10 +464,10 @@ String _todayIsoDate() {
       '${now.day.toString().padLeft(2, '0')}';
 }
 
-class _FakeSimpleSheetPersistenceService extends SimpleSheetPersistenceService {
+class _FakeSheetPersistenceService extends SheetPersistenceService {
   @override
-  Future<SimplePersistResult> persistBytes(SimplePersistRequest request) async {
-    return SimplePersistResult(
+  Future<PersistResult> persistBytes(PersistRequest request) async {
+    return PersistResult(
       locationLabel: request.existingPath ?? '/tmp/worklog.csv',
       overwroteExistingFile: true,
       usedAppDocumentsFallback: false,
