@@ -137,6 +137,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
     'duration',
     'integer',
     'float',
+    'money',
     'boolean',
     'email',
     'phone',
@@ -755,6 +756,11 @@ class _EditingPageBaseState extends State<EditingPageBase>
           !FieldTypeGuesser.looksLikeDecimalValue(value)) {
         return '$header must be a float.';
       }
+      if (FieldTypeGuesser.isMoneyType(type) &&
+          !FieldTypeGuesser.looksLikeIntegerValue(value) &&
+          !FieldTypeGuesser.looksLikeDecimalValue(value)) {
+        return '$header must be a money amount.';
+      }
       if (_isBooleanType(type) &&
           !FieldTypeGuesser.looksLikeBooleanValue(value)) {
         return '$header must be TRUE or FALSE.';
@@ -989,11 +995,64 @@ class _EditingPageBaseState extends State<EditingPageBase>
     setState(() {});
   }
 
+  Future<String?> _pickCurrencyCode(String initialCurrencyCode) {
+    final selectedCurrencyCode = FieldTypeGuesser.normalizeCurrencyCode(
+      initialCurrencyCode,
+    );
+    return showDialog<String>(
+      context: context,
+      builder: (context) {
+        return SimpleDialog(
+          title: const Text('Select currency'),
+          children: FieldTypeGuesser.currencyCodes
+              .map(
+                (currencyCode) => SimpleDialogOption(
+                  onPressed: () => Navigator.of(context).pop(currencyCode),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(currencyCode)),
+                      if (currencyCode == selectedCurrencyCode)
+                        const Icon(Icons.check_rounded),
+                    ],
+                  ),
+                ),
+              )
+              .toList(),
+        );
+      },
+    );
+  }
+
+  Future<void> _handlePendingTypeChanged(
+    int columnIndex,
+    String nextType,
+  ) async {
+    if (columnIndex < 0 || columnIndex >= _documentValueTypes.length) return;
+    if (nextType == 'money' &&
+        !(columnIndex == 0 && _modeBehavior.requiredFirstColumnType != null)) {
+      final selectedCurrencyCode = await _pickCurrencyCode(
+        FieldTypeGuesser.currencyCodeFromType(_documentValueTypes[columnIndex]),
+      );
+      if (!mounted || selectedCurrencyCode == null) return;
+      _updatePendingType(
+        columnIndex,
+        FieldTypeGuesser.moneyType(selectedCurrencyCode),
+      );
+      return;
+    }
+    _updatePendingType(columnIndex, nextType);
+  }
+
   void _updatePendingType(int columnIndex, String nextType) {
     final nextTypes = List<String>.from(_documentValueTypes);
     if (columnIndex < 0 || columnIndex >= nextTypes.length) return;
     if (columnIndex == 0 && _modeBehavior.requiredFirstColumnType != null) {
       nextType = _modeBehavior.requiredFirstColumnType!;
+    }
+    if (nextType == 'money') {
+      nextType = FieldTypeGuesser.moneyType(
+        FieldTypeGuesser.currencyCodeFromType(nextTypes[columnIndex]),
+      );
     }
     nextTypes[columnIndex] = nextType;
     setState(() {
@@ -1014,9 +1073,18 @@ class _EditingPageBaseState extends State<EditingPageBase>
   }
 
   String _editorTypeOptionFor(String type) {
+    if (FieldTypeGuesser.isMoneyType(type)) return 'money';
     if (FieldTypeGuesser.isIntegerType(type)) return 'integer';
     if (FieldTypeGuesser.isDecimalType(type)) return 'float';
     return type;
+  }
+
+  String _editorTypeLabelFor(String type) {
+    if (FieldTypeGuesser.isMoneyType(type)) {
+      final currencyCode = FieldTypeGuesser.currencyCodeFromType(type);
+      return 'money ($currencyCode)';
+    }
+    return _editorTypeOptionFor(type);
   }
 
   void _confirmPendingTypes() {
@@ -2400,39 +2468,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
                   ),
                   const SizedBox(height: 12),
                   ...validPendingTypeSelectionColumns.map((index) {
-                    final header = _documentHeaders[index];
-                    final currentType = _editorTypeOptionFor(
-                      _documentValueTypes[index],
-                    );
-                    final typeOptions = _modeBehavior.typeOptionsForColumn(
-                      this,
-                      index,
-                    );
-                    final selectedType = typeOptions.contains(currentType)
-                        ? currentType
-                        : typeOptions.first;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: DropdownButtonFormField<String>(
-                        key: ValueKey<String>(
-                          'field-type-options-$index-${typeOptions.join(',')}',
-                        ),
-                        initialValue: selectedType,
-                        decoration: InputDecoration(labelText: header),
-                        items: typeOptions
-                            .map(
-                              (type) => DropdownMenuItem<String>(
-                                value: type,
-                                child: Text(type),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) {
-                          if (value == null) return;
-                          _updatePendingType(index, value);
-                        },
-                      ),
-                    );
+                    return _buildPendingTypeSelector(index);
                   }),
                   Align(
                     alignment: Alignment.centerRight,
@@ -2473,7 +2509,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
                   final isDurationField =
                       _isDurationType(type) || _isTimespanField(header);
                   final keyboardType = _keyboardForType(type);
-                  final helperType = _editorTypeOptionFor(type);
+                  final helperType = _editorTypeLabelFor(type);
                   final helperText = _showFieldTypes
                       ? 'Type: $helperType${isReadOnly ? ' (fixed)' : ''}'
                       : null;
@@ -2603,13 +2639,52 @@ class _EditingPageBaseState extends State<EditingPageBase>
     );
   }
 
+  Widget _buildPendingTypeSelector(int index) {
+    final header = _documentHeaders[index];
+    final currentType = _editorTypeOptionFor(_documentValueTypes[index]);
+    final typeOptions = _modeBehavior.typeOptionsForColumn(this, index);
+    final selectedType = typeOptions.contains(currentType)
+        ? currentType
+        : typeOptions.first;
+    final typeDropdown = DropdownButtonFormField<String>(
+      key: ValueKey<String>(
+        'field-type-options-$index-${typeOptions.join(',')}',
+      ),
+      initialValue: selectedType,
+      decoration: InputDecoration(labelText: header),
+      items: typeOptions
+          .map(
+            (type) => DropdownMenuItem<String>(
+              value: type,
+              child: Text(
+                type == 'money'
+                    ? FieldTypeGuesser.isMoneyType(_documentValueTypes[index])
+                          ? _editorTypeLabelFor(_documentValueTypes[index])
+                          : 'money'
+                    : type,
+              ),
+            ),
+          )
+          .toList(),
+      onChanged: (value) async {
+        if (value == null) return;
+        await _handlePendingTypeChanged(index, value);
+      },
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: typeDropdown,
+    );
+  }
+
   TextInputType _keyboardForType(String rawType) {
     final type = rawType.trim().toLowerCase();
     final normalizedType = FieldTypeGuesser.normalizeTypeLabel(rawType);
     if (normalizedType == 'int') {
       return const TextInputType.numberWithOptions(signed: true);
     }
-    if (normalizedType == 'float') {
+    if (normalizedType == 'float' || normalizedType == 'money') {
       return const TextInputType.numberWithOptions(decimal: true);
     }
     if (type.contains('mail')) {
@@ -2773,6 +2848,9 @@ class _EditingPageBaseState extends State<EditingPageBase>
       return 'e.g. 123';
     }
     if (normalizedType == 'float') {
+      return 'e.g. 123.45 or 123,45';
+    }
+    if (normalizedType == 'money') {
       return 'e.g. 123.45 or 123,45';
     }
     if (type.contains('email')) {

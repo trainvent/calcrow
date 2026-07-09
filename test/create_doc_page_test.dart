@@ -96,6 +96,8 @@ void main() {
     expect(find.text('Customer'), findsOneWidget);
     expect(find.text('Workhours'), findsOneWidget);
     expect(find.text('Expenses'), findsOneWidget);
+    expect(find.text('money (USD)'), findsOneWidget);
+    expect(find.text('Currency'), findsNothing);
     expect(find.text('Work done'), findsOneWidget);
     expect(find.text('Notes'), findsOneWidget);
   });

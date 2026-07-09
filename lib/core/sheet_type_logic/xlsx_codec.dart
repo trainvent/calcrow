@@ -172,6 +172,7 @@ class XlsxSheetCodec {
           type: data.valueTypes[col],
           raw: value,
         );
+        _applyMoneyStyle(cell: cell, type: data.valueTypes[col], raw: value);
       }
     }
 
@@ -383,11 +384,30 @@ class XlsxSheetCodec {
       final parsed = int.tryParse(value);
       if (parsed != null) return excel_pkg.IntCellValue(parsed);
     }
+    if (FieldTypeGuesser.isMoneyType(normalizedType)) {
+      final parsed = double.tryParse(value.replaceAll(',', '.'));
+      if (parsed != null) return excel_pkg.DoubleCellValue(parsed);
+    }
     if (FieldTypeGuesser.isDecimalType(normalizedType)) {
       final parsed = double.tryParse(value.replaceAll(',', '.'));
       if (parsed != null) return excel_pkg.DoubleCellValue(parsed);
     }
     return excel_pkg.TextCellValue(value);
+  }
+
+  static void _applyMoneyStyle({
+    required excel_pkg.Data cell,
+    required String type,
+    required String raw,
+  }) {
+    if (!FieldTypeGuesser.isMoneyType(type)) return;
+    if (raw.trim().isEmpty) return;
+    final currencyCode = FieldTypeGuesser.currencyCodeFromType(type);
+    cell.cellStyle = (cell.cellStyle ?? excel_pkg.CellStyle()).copyWith(
+      numberFormat: excel_pkg.CustomNumericNumFormat(
+        formatCode: '"$currencyCode" #,##0.00;[Red]-"$currencyCode" #,##0.00',
+      ),
+    );
   }
 
   static DateTime? _parseDate(String value) {

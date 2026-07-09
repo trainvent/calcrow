@@ -539,6 +539,13 @@ class OdsSheetCodec {
     _setAttribute(cell, 'value', null, namespace: _nsOffice, prefix: 'office');
     _setAttribute(
       cell,
+      'currency',
+      null,
+      namespace: _nsOffice,
+      prefix: 'office',
+    );
+    _setAttribute(
+      cell,
       'time-value',
       null,
       namespace: _nsOffice,
@@ -615,6 +622,43 @@ class OdsSheetCodec {
           cell,
           'value',
           parsed.toString(),
+          namespace: _nsOffice,
+          prefix: 'office',
+        );
+        _setTextValue(cell, value);
+        return;
+      }
+    }
+
+    if (FieldTypeGuesser.isMoneyType(normalizedType)) {
+      final parsed = double.tryParse(value.replaceAll(',', '.'));
+      if (parsed != null) {
+        final currencyCode = FieldTypeGuesser.currencyCodeFromType(type);
+        _setAttribute(
+          cell,
+          'value-type',
+          'currency',
+          namespace: _nsOffice,
+          prefix: 'office',
+        );
+        _setAttribute(
+          cell,
+          'value-type',
+          'currency',
+          namespace: _nsCalcExt,
+          prefix: 'calcext',
+        );
+        _setAttribute(
+          cell,
+          'value',
+          parsed.toString(),
+          namespace: _nsOffice,
+          prefix: 'office',
+        );
+        _setAttribute(
+          cell,
+          'currency',
+          currencyCode,
           namespace: _nsOffice,
           prefix: 'office',
         );

@@ -29,6 +29,9 @@ void main() {
       expect(FieldTypeGuesser.looksLikeBooleanValue('TRUE'), isTrue);
       expect(FieldTypeGuesser.looksLikeBooleanValue('FALSE'), isTrue);
       expect(FieldTypeGuesser.looksLikeBooleanValue('yes'), isFalse);
+      expect(FieldTypeGuesser.normalizeTypeLabel('money:EUR'), 'money');
+      expect(FieldTypeGuesser.displayTypeLabel('money:EUR'), 'money:EUR');
+      expect(FieldTypeGuesser.currencyCodeFromType('money:eur'), 'EUR');
     });
 
     test('header guesses use field-aware tokens', () {
@@ -38,6 +41,8 @@ void main() {
       expect(FieldTypeGuesser.typeFromHeader('Hours'), 'float');
       expect(FieldTypeGuesser.typeFromHeader('Sets'), 'int');
       expect(FieldTypeGuesser.typeFromHeader('RSVP'), 'boolean');
+      expect(FieldTypeGuesser.typeFromHeader('Amount'), 'money');
+      expect(FieldTypeGuesser.typeFromHeader('Expenses'), 'money');
     });
   });
 
@@ -148,6 +153,22 @@ void main() {
       final reparsed = await parseCsvBytes(CsvSheetCodec.buildBytes(parsed));
       expect(reparsed.valueTypes, ['date', 'boolean', 'text']);
       expect(reparsed.rows, parsed.rows);
+    });
+
+    test('CSV money fields preserve selected currency', () async {
+      final parsed = await parseCsv(
+        'Date;Amount;Notes\n'
+        'date;money:EUR;text\n'
+        '2026-05-11;42,50;paid\n',
+      );
+
+      expect(parsed.valueTypes, ['date', 'money:EUR', 'text']);
+
+      final reparsed = await parseCsvBytes(CsvSheetCodec.buildBytes(parsed));
+      expect(reparsed.valueTypes, ['date', 'money:EUR', 'text']);
+      expect(reparsed.rows, [
+        ['2026-05-11', '42,50', 'paid'],
+      ]);
     });
   });
 
@@ -289,6 +310,35 @@ void main() {
       expect(reparsed.rows, [
         ['2026-05-11', 'TRUE', 'confirmed'],
         ['2026-05-12', 'FALSE', 'declined'],
+      ]);
+    });
+
+    test('XLSX money fields are written as formatted numeric cells', () {
+      final draft = SheetData(
+        fileName: 'invoices.xlsx',
+        path: null,
+        format: SheetFileFormat.xlsx,
+        headers: const <String>['Date', 'Amount', 'Notes'],
+        valueTypes: const <String>['date', 'money:EUR', 'text'],
+        readOnlyColumns: List<bool>.filled(3, false),
+        rows: const <List<String>>[
+          <String>['2026-05-11', '42.50', 'paid'],
+        ],
+        workbook: excel_pkg.Excel.createExcel(),
+      );
+
+      final bytes = XlsxSheetCodec.buildBytes(draft);
+      final workbook = excel_pkg.Excel.decodeBytes(bytes);
+      final sheet = workbook.tables[workbook.getDefaultSheet()]!;
+      final amountCell = sheet.rows[1][1]!;
+
+      expect(amountCell.value, const excel_pkg.DoubleCellValue(42.5));
+      expect(amountCell.cellStyle?.numberFormat.formatCode, contains('EUR'));
+
+      final reparsed = parseXlsx(bytes);
+      expect(reparsed.valueTypes, ['date', 'money:USD', 'text']);
+      expect(reparsed.rows, [
+        ['2026-05-11', '42,5', 'paid'],
       ]);
     });
   });

@@ -1,6 +1,17 @@
 class FieldTypeGuesser {
   const FieldTypeGuesser._();
 
+  static const String defaultCurrencyCode = 'USD';
+  static const List<String> currencyCodes = <String>[
+    'USD',
+    'EUR',
+    'GBP',
+    'CHF',
+    'JPY',
+    'CAD',
+    'AUD',
+  ];
+
   static List<FieldTypeInference> inferTypeDetails({
     required List<String> headers,
     required List<List<String>> rows,
@@ -23,13 +34,20 @@ class FieldTypeGuesser {
         final value = row[index].trim();
         if (value.isEmpty) continue;
         if (looksLikeFormulaExpression(value)) continue;
-        return FieldTypeInference(
-          type: typeFromValue(value),
-          confirmedFromData: true,
-        );
+        final valueType = typeFromValue(value);
+        if (headerGuess == 'money' &&
+            (valueType == 'int' || valueType == 'float')) {
+          return FieldTypeInference(
+            type: moneyType(defaultCurrencyCode),
+            confirmedFromData: false,
+          );
+        }
+        return FieldTypeInference(type: valueType, confirmedFromData: true);
       }
       return FieldTypeInference(
-        type: headerGuess ?? 'text',
+        type: headerGuess == 'money'
+            ? moneyType(defaultCurrencyCode)
+            : headerGuess ?? 'text',
         confirmedFromData: false,
       );
     });
@@ -51,13 +69,21 @@ class FieldTypeGuesser {
         if (index >= row.length) continue;
         final value = row[index].trim();
         if (value.isEmpty) continue;
-        return typeFromValue(value);
+        final valueType = typeFromValue(value);
+        if (headerGuess == 'money' &&
+            (valueType == 'int' || valueType == 'float')) {
+          return moneyType(defaultCurrencyCode);
+        }
+        return valueType;
       }
-      return headerGuess ?? 'text';
+      return headerGuess == 'money'
+          ? moneyType(defaultCurrencyCode)
+          : headerGuess ?? 'text';
     });
   }
 
   static String typeFromValue(String value) {
+    if (looksLikeMoneyValue(value)) return moneyType(defaultCurrencyCode);
     if (looksLikeDateValue(value)) return 'date';
     if (looksLikeTimeValue(value)) return 'time';
     if (looksLikeBooleanValue(value)) return 'boolean';
@@ -112,16 +138,46 @@ class FieldTypeGuesser {
     ])) {
       return 'int';
     }
+    if (_hasAnyToken(tokens, const <String>[
+          'amount',
+          'price',
+          'cost',
+          'costs',
+          'expense',
+          'expenses',
+          'money',
+          'currency',
+          'total',
+          'subtotal',
+          'fee',
+          'fees',
+          'budget',
+          'revenue',
+          'income',
+          'payment',
+          'payments',
+          'salary',
+          'wage',
+          'lohn',
+          'verdienst',
+        ]) ||
+        _containsAny(value, const <String>[
+          r'$',
+          '€',
+          '£',
+          '¥',
+          ' usd',
+          ' eur',
+          ' gbp',
+          ' chf',
+        ])) {
+      return 'money';
+    }
     if (_containsAny(value, const <String>[
       'hour',
       'stunden',
       'decimal',
       'float',
-      'wage',
-      'lohn',
-      'verdienst',
-      'amount',
-      'price',
       'distance',
     ])) {
       return 'float';
@@ -134,6 +190,7 @@ class FieldTypeGuesser {
 
   static String normalizeTypeLabel(String raw) {
     final type = raw.trim().toLowerCase();
+    if (isMoneyType(type)) return 'money';
     if (type.contains('date')) return 'date';
     if (type.contains('duration') || type.contains('timespan')) {
       return 'duration';
@@ -156,7 +213,47 @@ class FieldTypeGuesser {
     final normalizedType = normalizeTypeLabel(rawType);
     if (normalizedType == 'int') return 'integer';
     if (normalizedType == 'float') return 'float';
+    if (normalizedType == 'money') {
+      return moneyType(currencyCodeFromType(rawType));
+    }
     return normalizedType;
+  }
+
+  static bool isMoneyType(String rawType) {
+    final type = rawType.trim().toLowerCase();
+    if (type == 'money' || type == 'currency') return true;
+    if (type.startsWith('money:') || type.startsWith('currency:')) return true;
+    return type.contains('money') || type.contains('currency');
+  }
+
+  static String moneyType(String currencyCode) {
+    return 'money:${normalizeCurrencyCode(currencyCode)}';
+  }
+
+  static String normalizeCurrencyCode(String rawCurrencyCode) {
+    final normalized = rawCurrencyCode.trim().toUpperCase();
+    if (currencyCodes.contains(normalized)) return normalized;
+    return defaultCurrencyCode;
+  }
+
+  static String currencyCodeFromType(String rawType) {
+    final type = rawType.trim();
+    final separated = RegExp(
+      r'^(?:money|currency)\s*[:/ -]\s*([a-zA-Z]{3})$',
+      caseSensitive: false,
+    ).firstMatch(type);
+    if (separated != null) {
+      return normalizeCurrencyCode(separated.group(1)!);
+    }
+    final upper = type.toUpperCase();
+    for (final currencyCode in currencyCodes) {
+      if (RegExp(
+        r'(^|[^A-Z])' + currencyCode + r'([^A-Z]|$)',
+      ).hasMatch(upper)) {
+        return currencyCode;
+      }
+    }
+    return defaultCurrencyCode;
   }
 
   static bool isIntegerType(String rawType) {
@@ -204,6 +301,19 @@ class FieldTypeGuesser {
     return RegExp(r'^[+-]?\d+[.,]\d+$').hasMatch(value.trim());
   }
 
+  static bool looksLikeMoneyValue(String value) {
+    final compact = value.trim();
+    if (compact.isEmpty) return false;
+    return RegExp(
+          r'^(?:[$€£¥]\s*)?[+-]?\d+(?:[.,]\d{1,2})?\s*(?:[$€£¥]|USD|EUR|GBP|CHF|JPY|CAD|AUD)?$',
+          caseSensitive: false,
+        ).hasMatch(compact) &&
+        RegExp(
+          r'[$€£¥]|USD|EUR|GBP|CHF|JPY|CAD|AUD',
+          caseSensitive: false,
+        ).hasMatch(compact);
+  }
+
   static bool looksLikeFormulaExpression(String value) {
     final compact = value.trim();
     if (compact.isEmpty) return false;
@@ -220,6 +330,7 @@ class FieldTypeGuesser {
       nonEmptyCount++;
       if (looksLikeDateValue(value) ||
           looksLikeTimeValue(value) ||
+          looksLikeMoneyValue(value) ||
           looksLikeBooleanValue(value) ||
           looksLikeDecimalValue(value) ||
           looksLikeIntegerValue(value)) {
@@ -276,10 +387,10 @@ class FieldTypeGuesser {
     if (type.contains('float')) return true;
     if (type.contains('number')) return true;
     if (type.contains('num')) return true;
-    if (type.contains('text')) return true;
-    if (type.contains('string')) return true;
     if (type.contains('currency')) return true;
     if (type.contains('money')) return true;
+    if (type.contains('text')) return true;
+    if (type.contains('string')) return true;
     if (type.contains('email')) return true;
     if (type.contains('phone')) return true;
     return false;

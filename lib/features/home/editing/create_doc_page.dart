@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:calcrow/app/widgets/templates_dialogue.dart';
+import 'package:calcrow/core/guessers/field_type_guesser.dart';
 import 'package:calcrow/core/sheet_type_logic/field_type.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_service.dart';
@@ -111,7 +112,11 @@ class _CreateDocPageState extends State<CreateDocPage> {
         ..clear()
         ..addAll(
           template.columns.map(
-            (column) => _ColumnDraft(header: column.header, type: column.type),
+            (column) => _ColumnDraft(
+              header: column.header,
+              type: column.type,
+              currencyCode: column.currencyCode,
+            ),
           ),
         );
       _isArranging = false;
@@ -127,7 +132,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
         .toList();
     final valueTypes = _columns
         .where((column) => column.headerController.text.trim().isNotEmpty)
-        .map((column) => column.type.value)
+        .map(_valueTypeForColumn)
         .toList();
 
     if (headers.isEmpty) {
@@ -152,6 +157,13 @@ class _CreateDocPageState extends State<CreateDocPage> {
         valueTypes: valueTypes,
       ),
     );
+  }
+
+  String _valueTypeForColumn(_ColumnDraft column) {
+    if (column.type == FieldType.money) {
+      return FieldTypeGuesser.moneyType(column.currencyCode);
+    }
+    return column.type.value;
   }
 
   String _fileNameWithFormat(String value, SheetFileFormat format) {
@@ -184,6 +196,66 @@ class _CreateDocPageState extends State<CreateDocPage> {
     }
   }
 
+  Future<String?> _pickCurrencyCode(String initialCurrencyCode) {
+    final selectedCurrencyCode = FieldTypeGuesser.normalizeCurrencyCode(
+      initialCurrencyCode,
+    );
+    return showDialog<String>(
+      context: context,
+      builder: (context) {
+        return SimpleDialog(
+          title: const Text('Select currency'),
+          children: FieldTypeGuesser.currencyCodes
+              .map(
+                (currencyCode) => SimpleDialogOption(
+                  onPressed: () => Navigator.of(context).pop(currencyCode),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(currencyCode)),
+                      if (currencyCode == selectedCurrencyCode)
+                        const Icon(Icons.check_rounded),
+                    ],
+                  ),
+                ),
+              )
+              .toList(),
+        );
+      },
+    );
+  }
+
+  Future<void> _handleColumnTypeChanged(
+    _ColumnDraft column,
+    FieldType nextType,
+  ) async {
+    var nextCurrencyCode = column.currencyCode;
+    if (nextType == FieldType.money) {
+      final selectedCurrencyCode = await _pickCurrencyCode(nextCurrencyCode);
+      if (!mounted) return;
+      if (selectedCurrencyCode == null && column.type != FieldType.money) {
+        return;
+      }
+      nextCurrencyCode = selectedCurrencyCode ?? nextCurrencyCode;
+    }
+    setState(() {
+      column.type = nextType;
+      column.currencyCode = FieldTypeGuesser.normalizeCurrencyCode(
+        nextCurrencyCode,
+      );
+      _errorText = null;
+    });
+  }
+
+  String _typeLabelForColumn(FieldType type, _ColumnDraft column) {
+    if (type == FieldType.money) {
+      final currencyCode = FieldTypeGuesser.normalizeCurrencyCode(
+        column.currencyCode,
+      );
+      return 'money ($currencyCode)';
+    }
+    return type.value;
+  }
+
   Widget _buildColumnEditor(int index) {
     final column = _columns[index];
     final headerField = TextField(
@@ -202,16 +274,13 @@ class _CreateDocPageState extends State<CreateDocPage> {
           .map(
             (type) => DropdownMenuItem<FieldType>(
               value: type,
-              child: Text(type.value),
+              child: Text(_typeLabelForColumn(type, column)),
             ),
           )
           .toList(),
-      onChanged: (value) {
+      onChanged: (value) async {
         if (value == null) return;
-        setState(() {
-          column.type = value;
-          _errorText = null;
-        });
+        await _handleColumnTypeChanged(column, value);
       },
     );
     final removeButton = IconButton(
@@ -392,11 +461,16 @@ class _CreateDocPageState extends State<CreateDocPage> {
 }
 
 class _ColumnDraft {
-  _ColumnDraft({required String header, required this.type})
-    : headerController = TextEditingController(text: header);
+  _ColumnDraft({
+    required String header,
+    required this.type,
+    String currencyCode = FieldTypeGuesser.defaultCurrencyCode,
+  }) : currencyCode = FieldTypeGuesser.normalizeCurrencyCode(currencyCode),
+       headerController = TextEditingController(text: header);
 
   final TextEditingController headerController;
   FieldType type;
+  String currencyCode;
 
   void dispose() {
     headerController.dispose();

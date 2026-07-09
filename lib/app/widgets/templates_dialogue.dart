@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:calcrow/core/guessers/field_type_guesser.dart';
 import 'package:calcrow/core/sheet_type_logic/field_type.dart';
 
 const documentTemplates = <DocumentTemplate>[
@@ -51,7 +52,7 @@ const documentTemplates = <DocumentTemplate>[
       TemplateColumn(header: 'Date', type: FieldType.date),
       TemplateColumn(header: 'Customer', type: FieldType.text),
       TemplateColumn(header: 'Workhours', type: FieldType.float),
-      TemplateColumn(header: 'Expenses', type: FieldType.float),
+      TemplateColumn(header: 'Expenses', type: FieldType.money),
       TemplateColumn(header: 'Work done', type: FieldType.text),
       TemplateColumn(header: 'Notes', type: FieldType.text),
     ],
@@ -89,7 +90,7 @@ const documentTemplates = <DocumentTemplate>[
       TemplateColumn(header: 'Date', type: FieldType.date),
       TemplateColumn(header: 'Client', type: FieldType.text),
       TemplateColumn(header: 'Invoice', type: FieldType.text),
-      TemplateColumn(header: 'Amount', type: FieldType.float),
+      TemplateColumn(header: 'Amount', type: FieldType.money),
       TemplateColumn(header: 'Status', type: FieldType.text),
     ],
   ),
@@ -110,10 +111,15 @@ class DocumentTemplate {
 }
 
 class TemplateColumn {
-  const TemplateColumn({required this.header, required this.type});
+  const TemplateColumn({
+    required this.header,
+    required this.type,
+    this.currencyCode = FieldTypeGuesser.defaultCurrencyCode,
+  });
 
   final String header;
   final FieldType type;
+  final String currencyCode;
 }
 
 class TemplatesDialogue extends StatelessWidget {
@@ -278,6 +284,8 @@ class _TemplateFieldPreview extends StatelessWidget {
       case FieldType.integer:
       case FieldType.float:
         return Icons.pin_outlined;
+      case FieldType.money:
+        return Icons.attach_money_rounded;
       case FieldType.boolean:
         return Icons.toggle_on_outlined;
       case FieldType.email:

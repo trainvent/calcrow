@@ -5,6 +5,7 @@ enum FieldType {
   duration('duration'),
   integer('integer'),
   float('float'),
+  money('money'),
   boolean('boolean'),
   email('email'),
   phone('phone');
@@ -20,13 +21,19 @@ enum FieldType {
     duration,
     integer,
     float,
+    money,
     boolean,
     email,
     phone,
   ];
 
   static FieldType fromString(String rawType) {
-    switch (rawType.trim().toLowerCase()) {
+    final normalizedType = rawType.trim().toLowerCase();
+    if (normalizedType.startsWith('money:') ||
+        normalizedType.startsWith('currency:')) {
+      return money;
+    }
+    switch (normalizedType) {
       case 'date':
         return date;
       case 'time':
@@ -42,6 +49,9 @@ enum FieldType {
       case 'double':
       case 'decimal':
         return float;
+      case 'money':
+      case 'currency':
+        return money;
       case 'boolean':
       case 'bool':
         return boolean;
