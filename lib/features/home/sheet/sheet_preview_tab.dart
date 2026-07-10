@@ -115,7 +115,7 @@ class _SheetPreviewTabState extends State<SheetPreviewTab> {
                     ),
                   ] else
                     Text(
-                      'No file loaded yet. Import/create from the Today tab.',
+                      'No file selected yet.',
                       style: theme.textTheme.bodyLarge,
                     ),
                   const SizedBox(height: 12),
