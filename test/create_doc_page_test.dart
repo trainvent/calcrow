@@ -38,6 +38,7 @@ void main() {
 
     expect(find.text('CSV'), findsNothing);
     expect(find.text('XLSX'), findsOneWidget);
+    expect(_fileNameSuffix(tester), '_2026.xlsx');
 
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
@@ -60,6 +61,7 @@ void main() {
 
     await tester.tap(find.text('Open creator'));
     await tester.pumpAndSettle();
+    expect(_fileNameSuffix(tester), '_2026.csv');
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 
@@ -189,6 +191,11 @@ void main() {
     expect(find.text('Work done'), findsOneWidget);
     expect(find.text('Notes'), findsOneWidget);
   });
+}
+
+String? _fileNameSuffix(WidgetTester tester) {
+  final field = tester.widget<TextField>(find.byType(TextField).first);
+  return field.decoration?.suffixText;
 }
 
 Future<void> _pumpDraftHost(

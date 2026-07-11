@@ -257,6 +257,16 @@ class _CreateDocPageState extends State<CreateDocPage> {
     return '${resolvedBaseName}_$yearSuffix.$extension';
   }
 
+  String _fileNameSuffixForFormat(String value, SheetFileFormat format) {
+    final extension = _extensionForFormat(format);
+    final yearSuffix = widget.initialSetup?.fileNameYearSuffixFor(format);
+    final baseName = _baseFileName(value);
+    if (yearSuffix == null || baseName.endsWith('_$yearSuffix')) {
+      return '.$extension';
+    }
+    return '_$yearSuffix.$extension';
+  }
+
   String _baseFileName(String value) {
     return value.trim().replaceFirst(
       RegExp(r'\.(csv|xlsx|ods)$', caseSensitive: false),
@@ -276,9 +286,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
         selection: TextSelection.collapsed(offset: normalized.length),
       );
     }
-    if (_errorText != null) {
-      setState(() => _errorText = null);
-    }
+    setState(() => _errorText = null);
   }
 
   Future<String?> _pickCurrencyCode(String initialCurrencyCode) {
@@ -438,7 +446,10 @@ class _CreateDocPageState extends State<CreateDocPage> {
                       controller: _fileNameController,
                       decoration: InputDecoration(
                         labelText: 'File name',
-                        suffixText: '.${_extensionForFormat(_format)}',
+                        suffixText: _fileNameSuffixForFormat(
+                          _fileNameController.text,
+                          _format,
+                        ),
                       ),
                       onChanged: _handleFileNameChanged,
                     ),
