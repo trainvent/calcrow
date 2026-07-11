@@ -255,7 +255,6 @@ void main() {
         buildNamedWorkbookBytes({
           'June': [
             ['Date', 'Start', 'End', 'Pause', 'Notes'],
-            ['date', 'time', 'time', 'duration', 'text'],
             ['2026-06-28', '09:00:00', '17:00:00', '00:30:00', 'old month'],
           ],
         }),
@@ -268,6 +267,7 @@ void main() {
       expect(parsed.valueTypes, ['date', 'time', 'time', 'duration', 'text']);
       expect(parsed.rows, isEmpty);
       expect(parsed.workbook?.tables.containsKey('July'), isTrue);
+      expect(parsed.workbook?.tables['July']?.rows.length, 1);
 
       final reparsed = parseXlsx(
         XlsxSheetCodec.buildBytes(
@@ -311,6 +311,72 @@ void main() {
           ),
         ),
       );
+    });
+
+    test('XLSX yearly logbook creates a current year sheet on open', () {
+      final parsed = parseXlsx(
+        buildNamedWorkbookBytes({
+          '2026': [
+            ['Date', 'Start', 'End', 'Pause', 'Notes'],
+            ['2026-12-28', '09:00:00', '17:00:00', '00:30:00', 'old year'],
+          ],
+        }),
+        fileName: 'calcrow_sheet.xlsx',
+        now: DateTime(2027, 1, 3),
+      );
+
+      expect(parsed.xlsxSheetName, '2027');
+      expect(parsed.headers, ['Date', 'Start', 'End', 'Pause', 'Notes']);
+      expect(parsed.valueTypes, ['date', 'time', 'time', 'duration', 'text']);
+      expect(parsed.rows, isEmpty);
+      expect(parsed.workbook?.tables.containsKey('2027'), isTrue);
+      expect(parsed.workbook?.tables['2027']?.rows.length, 1);
+
+      final reparsed = parseXlsx(
+        XlsxSheetCodec.buildBytes(
+          copySheetData(
+            parsed,
+            rows: const <List<String>>[
+              <String>[
+                '2027-01-03',
+                '09:00:00',
+                '17:00:00',
+                '00:30:00',
+                'new year',
+              ],
+            ],
+          ),
+        ),
+        fileName: 'calcrow_sheet.xlsx',
+        now: DateTime(2027, 1, 3),
+      );
+
+      expect(reparsed.xlsxSheetName, '2027');
+      expect(reparsed.rows, [
+        ['2027-01-03', '09:00:00', '17:00:00', '00:30:00', 'new year'],
+      ]);
+    });
+
+    test('XLSX yearly logbook opens the current year sheet when present', () {
+      final parsed = parseXlsx(
+        buildNamedWorkbookBytes({
+          '2026': [
+            ['Date', 'Notes'],
+            ['2026-12-28', 'old year'],
+          ],
+          '2027': [
+            ['Date', 'Notes'],
+            ['2027-01-03', 'current year'],
+          ],
+        }),
+        fileName: 'calcrow_sheet.xlsx',
+        now: DateTime(2027, 1, 3),
+      );
+
+      expect(parsed.xlsxSheetName, '2027');
+      expect(parsed.rows, [
+        ['2027-01-03', 'current year'],
+      ]);
     });
 
     test('XLSX can be built from a fresh sheet draft', () {

@@ -2374,8 +2374,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
             .toList();
     final hasPendingTypeSelection = validPendingTypeSelectionColumns.isNotEmpty;
     final targetLabel = isEditingExisting
-        ? 'Editing row ${_documentEditingRowIndex + 1} of ${_documentRows.length}'
-        : 'Editing new row at bottom';
+        ? 'row ${_documentEditingRowIndex + 1}'
+        : 'new row';
     final isSheetDocumentSource =
         _documentImportedFormat == SheetFileFormat.xlsx ||
         _documentImportedFormat == SheetFileFormat.ods ||

@@ -87,9 +87,9 @@ void main() {
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Editing row 1 of 1'), findsOneWidget);
+    expect(find.textContaining('row 1'), findsOneWidget);
     expect(find.text('steady'), findsOneWidget);
-    expect(find.textContaining('Editing new row at bottom'), findsNothing);
+    expect(find.textContaining('new row'), findsNothing);
   });
 
   testWidgets('new open-ended row warns before replacing edits', (
@@ -166,7 +166,7 @@ void main() {
     SheetPreviewStore.pickRow(1);
     await tester.pump();
 
-    expect(find.textContaining('Editing row 2 of 2'), findsOneWidget);
+    expect(find.textContaining('row 2'), findsOneWidget);
     expect(find.text('11:00'), findsOneWidget);
   });
 
@@ -199,7 +199,7 @@ void main() {
     SheetPreviewStore.pickRow(1);
     await tester.pump();
 
-    expect(find.textContaining('Editing row 2 of 2'), findsOneWidget);
+    expect(find.textContaining('row 2'), findsOneWidget);
     expect(find.text('Bob'), findsOneWidget);
   });
 

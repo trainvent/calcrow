@@ -36,6 +36,20 @@ class XlsxSheetCodec {
       );
     }
 
+    final currentYearSheetName = _currentYearSheetNameForYearlyLogbook(
+      excel,
+      fileName: fileName,
+      now: effectiveNow,
+    );
+    if (currentYearSheetName != null) {
+      return _parseSheet(
+        excel: excel,
+        fileName: fileName,
+        path: path,
+        sheetName: currentYearSheetName,
+      );
+    }
+
     final sheetName = _selectBestSheetName(excel, effectiveNow);
     return _parseSheet(
       excel: excel,
@@ -177,8 +191,43 @@ class XlsxSheetCodec {
     );
     final monthSheetName = _monthName(now.month);
     final monthSheet = excel[monthSheetName];
+    _copySheetStructure(source: source, target: monthSheet);
+    excel.setDefaultSheet(monthSheetName);
+    return monthSheetName;
+  }
+
+  static String? _currentYearSheetNameForYearlyLogbook(
+    excel_pkg.Excel excel, {
+    required String fileName,
+    required DateTime now,
+  }) {
+    if (_monthlyLogbookYear(fileName) != null) return null;
+
+    final existing = _findYearSheetName(excel.tables.keys, now.year);
+    if (existing != null) return existing;
+
+    final sourceSheetName = _latestYearSheetName(excel.tables.keys);
+    if (sourceSheetName == null) return null;
+
+    final source = _parseSheet(
+      excel: excel,
+      fileName: fileName,
+      path: null,
+      sheetName: sourceSheetName,
+    );
+    final yearSheetName = now.year.toString();
+    final yearSheet = excel[yearSheetName];
+    _copySheetStructure(source: source, target: yearSheet);
+    excel.setDefaultSheet(yearSheetName);
+    return yearSheetName;
+  }
+
+  static void _copySheetStructure({
+    required SheetData source,
+    required excel_pkg.Sheet target,
+  }) {
     for (var col = 0; col < source.headers.length; col++) {
-      monthSheet
+      target
           .cell(
             excel_pkg.CellIndex.indexByColumnRow(
               columnIndex: source.startColumnIndex + col,
@@ -189,22 +238,6 @@ class XlsxSheetCodec {
         source.headers[col],
       );
     }
-    if (source.hasTypeRow) {
-      for (var col = 0; col < source.valueTypes.length; col++) {
-        monthSheet
-            .cell(
-              excel_pkg.CellIndex.indexByColumnRow(
-                columnIndex: source.startColumnIndex + col,
-                rowIndex: source.headerRowIndex + 1,
-              ),
-            )
-            .value = excel_pkg.TextCellValue(
-          source.valueTypes[col],
-        );
-      }
-    }
-    excel.setDefaultSheet(monthSheetName);
-    return monthSheetName;
   }
 
   static int? _monthlyLogbookYear(String fileName) {
@@ -233,6 +266,30 @@ class XlsxSheetCodec {
       }
     }
     return null;
+  }
+
+  static String? _findYearSheetName(Iterable<String> names, int year) {
+    final expected = year.toString();
+    for (final name in names) {
+      if (name.trim() == expected) return name;
+    }
+    return null;
+  }
+
+  static String? _latestYearSheetName(Iterable<String> names) {
+    String? latestName;
+    int? latestYear;
+    for (final name in names) {
+      final match = RegExp(r'^\s*(\d{4})\s*$').firstMatch(name);
+      if (match == null) continue;
+      final year = int.tryParse(match.group(1)!);
+      if (year == null) continue;
+      if (latestYear == null || year > latestYear) {
+        latestYear = year;
+        latestName = name;
+      }
+    }
+    return latestName;
   }
 
   static String _monthName(int month) {
