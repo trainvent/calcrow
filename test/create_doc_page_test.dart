@@ -4,6 +4,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('plain create setup defaults to CSV without sheet separation', (
+    tester,
+  ) async {
+    DocumentDraft? result;
+    await _pumpDraftHost(tester, onDraft: (draft) => result = draft);
+
+    await tester.tap(find.text('Open creator'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    expect(result?.fileName, 'calcrow_sheet.csv');
+    expect(result?.format, SheetFileFormat.csv);
+    expect(result?.xlsxSheetName, isNull);
+  });
+
   testWidgets('monthly XLSX setup uses current month sheet and year filename', (
     tester,
   ) async {
@@ -19,6 +35,10 @@ void main() {
 
     await tester.tap(find.text('Open creator'));
     await tester.pumpAndSettle();
+
+    expect(find.text('CSV'), findsNothing);
+    expect(find.text('XLSX'), findsOneWidget);
+
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 
@@ -27,7 +47,7 @@ void main() {
     expect(result?.xlsxSheetName, 'July');
   });
 
-  testWidgets('yearly XLSX setup uses current year sheet', (tester) async {
+  testWidgets('yearly setup defaults to a single-year CSV', (tester) async {
     DocumentDraft? result;
     await _pumpDraftHost(
       tester,
@@ -39,6 +59,29 @@ void main() {
     );
 
     await tester.tap(find.text('Open creator'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    expect(result?.fileName, 'calcrow_sheet_2026.csv');
+    expect(result?.format, SheetFileFormat.csv);
+    expect(result?.xlsxSheetName, isNull);
+  });
+
+  testWidgets('yearly setup can use XLSX for year sheets', (tester) async {
+    DocumentDraft? result;
+    await _pumpDraftHost(
+      tester,
+      onDraft: (draft) => result = draft,
+      initialSetup: CreateDocInitialSetup(
+        separation: LogbookSeparation.yearly,
+        createdAt: DateTime(2026, 7, 11),
+      ),
+    );
+
+    await tester.tap(find.text('Open creator'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('XLSX'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
@@ -151,7 +194,7 @@ void main() {
 Future<void> _pumpDraftHost(
   WidgetTester tester, {
   required ValueChanged<DocumentDraft?> onDraft,
-  required CreateDocInitialSetup initialSetup,
+  CreateDocInitialSetup? initialSetup,
 }) {
   return tester.pumpWidget(
     MaterialApp(

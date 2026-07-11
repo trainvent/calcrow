@@ -724,7 +724,7 @@ class _SelectionPageState extends State<SelectionPage> {
                 leading: const Icon(Icons.calendar_month_outlined),
                 title: const Text('Monthly'),
                 subtitle: Text(
-                  'Start with ${monthlySetup.xlsxSheetName} and save as calcrow_sheet_${createdAt.year}.xlsx.',
+                  'Uses a multi-sheet format such as XLSX. Starts with ${monthlySetup.xlsxSheetName}.',
                 ),
               ),
             ),
@@ -735,7 +735,9 @@ class _SelectionPageState extends State<SelectionPage> {
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.calendar_today_outlined),
                 title: const Text('Yearly'),
-                subtitle: Text('Start with ${yearlySetup.xlsxSheetName}.'),
+                subtitle: Text(
+                  'CSV saves one year. XLSX can keep separate year tabs. Starts with ${yearlySetup.xlsxSheetName}.',
+                ),
               ),
             ),
           ],

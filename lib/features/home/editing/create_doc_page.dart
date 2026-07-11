@@ -50,11 +50,25 @@ class CreateDocInitialSetup {
   }
 
   int? get fileNameYearSuffix {
-    return switch (separation) {
-      LogbookSeparation.monthly => createdAt.year,
-      LogbookSeparation.yearly => null,
+    return fileNameYearSuffixFor(SheetFileFormat.xlsx);
+  }
+
+  int? fileNameYearSuffixFor(SheetFileFormat format) {
+    return switch ((separation, format)) {
+      (LogbookSeparation.monthly, SheetFileFormat.xlsx) => createdAt.year,
+      (LogbookSeparation.yearly, SheetFileFormat.csv) => createdAt.year,
+      _ => null,
     };
   }
+
+  SheetFileFormat get initialFormat {
+    return switch (separation) {
+      LogbookSeparation.monthly => SheetFileFormat.xlsx,
+      LogbookSeparation.yearly => SheetFileFormat.csv,
+    };
+  }
+
+  bool get allowsCsv => separation != LogbookSeparation.monthly;
 
   static String _monthName(int month) {
     return const <String>[
@@ -92,9 +106,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
   @override
   void initState() {
     super.initState();
-    _format = widget.initialSetup == null
-        ? SheetFileFormat.csv
-        : SheetFileFormat.xlsx;
+    _format = widget.initialSetup?.initialFormat ?? SheetFileFormat.csv;
   }
 
   @override
@@ -141,6 +153,10 @@ class _CreateDocPageState extends State<CreateDocPage> {
 
   void _setFormat(SheetFileFormat format) {
     if (format == _format || format == SheetFileFormat.ods) return;
+    if (format == SheetFileFormat.csv &&
+        widget.initialSetup?.allowsCsv == false) {
+      return;
+    }
     setState(() {
       _format = format;
       _errorText = null;
@@ -208,9 +224,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
         fileName: _fileNameWithFormat(
           _fileNameController.text,
           _format,
-          yearSuffix: _format == SheetFileFormat.xlsx
-              ? widget.initialSetup?.fileNameYearSuffix
-              : null,
+          yearSuffix: widget.initialSetup?.fileNameYearSuffixFor(_format),
         ),
         format: _format,
         headers: headers,
@@ -430,18 +444,19 @@ class _CreateDocPageState extends State<CreateDocPage> {
                     ),
                     const SizedBox(height: 16),
                     SegmentedButton<SheetFileFormat>(
-                      segments: const <ButtonSegment<SheetFileFormat>>[
-                        ButtonSegment<SheetFileFormat>(
-                          value: SheetFileFormat.csv,
-                          label: Text('CSV'),
-                          icon: Icon(Icons.table_rows_outlined),
-                        ),
-                        ButtonSegment<SheetFileFormat>(
+                      segments: <ButtonSegment<SheetFileFormat>>[
+                        if (widget.initialSetup?.allowsCsv != false)
+                          const ButtonSegment<SheetFileFormat>(
+                            value: SheetFileFormat.csv,
+                            label: Text('CSV'),
+                            icon: Icon(Icons.table_rows_outlined),
+                          ),
+                        const ButtonSegment<SheetFileFormat>(
                           value: SheetFileFormat.xlsx,
                           label: Text('XLSX'),
                           icon: Icon(Icons.grid_on_rounded),
                         ),
-                        ButtonSegment<SheetFileFormat>(
+                        const ButtonSegment<SheetFileFormat>(
                           value: SheetFileFormat.ods,
                           label: Text('ODS later'),
                           icon: Icon(Icons.pending_outlined),
