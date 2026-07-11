@@ -681,8 +681,17 @@ class _SelectionPageState extends State<SelectionPage> {
       _documentOpenMode = EditorOpenMode.dateBasedOpenEnd;
       _documentSetupAction = _SetupAction.create;
     });
+    final createdAt = DateTime.now();
+    final separation = await _pickLogbookSeparation(createdAt);
+    if (!mounted || separation == null) return;
+    final initialSetup = CreateDocInitialSetup(
+      separation: separation,
+      createdAt: createdAt,
+    );
     final draft = await Navigator.of(context).push<DocumentDraft>(
-      MaterialPageRoute(builder: (context) => const CreateDocPage()),
+      MaterialPageRoute(
+        builder: (context) => CreateDocPage(initialSetup: initialSetup),
+      ),
     );
     if (!mounted) return;
     if (draft == null) {
@@ -690,6 +699,49 @@ class _SelectionPageState extends State<SelectionPage> {
       return;
     }
     await _createDocumentFromDraft(draft);
+  }
+
+  Future<LogbookSeparation?> _pickLogbookSeparation(DateTime createdAt) {
+    final monthlySetup = CreateDocInitialSetup(
+      separation: LogbookSeparation.monthly,
+      createdAt: createdAt,
+    );
+    final yearlySetup = CreateDocInitialSetup(
+      separation: LogbookSeparation.yearly,
+      createdAt: createdAt,
+    );
+    return showDialog<LogbookSeparation>(
+      context: context,
+      builder: (context) {
+        return SimpleDialog(
+          title: const Text('Sheet separation'),
+          children: [
+            SimpleDialogOption(
+              onPressed: () =>
+                  Navigator.of(context).pop(LogbookSeparation.monthly),
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.calendar_month_outlined),
+                title: const Text('Monthly'),
+                subtitle: Text(
+                  'Start with ${monthlySetup.xlsxSheetName} and save as calcrow_sheet_${createdAt.year}.xlsx.',
+                ),
+              ),
+            ),
+            SimpleDialogOption(
+              onPressed: () =>
+                  Navigator.of(context).pop(LogbookSeparation.yearly),
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.calendar_today_outlined),
+                title: const Text('Yearly'),
+                subtitle: Text('Start with ${yearlySetup.xlsxSheetName}.'),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _createDocumentFromDraft(DocumentDraft draft) async {
@@ -709,10 +761,8 @@ class _SelectionPageState extends State<SelectionPage> {
       hasTypeRow: false,
       headerRowIndex: 0,
       startColumnIndex: 0,
-      xlsxSheetName: null,
-      workbook: draft.format == SheetFileFormat.xlsx
-          ? excel_pkg.Excel.createExcel()
-          : null,
+      xlsxSheetName: draft.xlsxSheetName,
+      workbook: _workbookForDraft(draft),
     );
     final destination = await showDialog<_CreateDestination>(
       context: context,
@@ -968,6 +1018,23 @@ class _SelectionPageState extends State<SelectionPage> {
       (candidate) => candidate.name == name,
       orElse: () => EditorOpenMode.dateBased,
     );
+  }
+
+  excel_pkg.Excel? _workbookForDraft(DocumentDraft draft) {
+    if (draft.format != SheetFileFormat.xlsx) return null;
+
+    final workbook = excel_pkg.Excel.createExcel();
+    final sheetName = draft.xlsxSheetName?.trim();
+    if (sheetName == null || sheetName.isEmpty) {
+      return workbook;
+    }
+
+    final defaultSheet = workbook.getDefaultSheet();
+    if (defaultSheet != null && defaultSheet != sheetName) {
+      workbook.rename(defaultSheet, sheetName);
+    }
+    workbook.setDefaultSheet(sheetName);
+    return workbook;
   }
 
   _DocumentSource _documentDocumentSourceFromRecent(
@@ -1378,7 +1445,6 @@ class _SelectionPageState extends State<SelectionPage> {
                         _documentSetupAction = _SetupAction.create;
                         _documentOpenMode = EditorOpenMode.dateBasedOpenEnd;
                       }),
-                      onCreate: _createDocument,
                     ),
                   ],
                 );
@@ -1649,15 +1715,10 @@ class _ChooseDocumentCard extends StatelessWidget {
 }
 
 class _CreateDocumentCard extends StatelessWidget {
-  const _CreateDocumentCard({
-    required this.selected,
-    required this.onSelected,
-    required this.onCreate,
-  });
+  const _CreateDocumentCard({required this.selected, required this.onSelected});
 
   final bool selected;
   final VoidCallback onSelected;
-  final VoidCallback onCreate;
 
   @override
   Widget build(BuildContext context) {
@@ -1699,7 +1760,7 @@ class _CreateDocumentCard extends StatelessWidget {
                 title: 'Create New',
                 subtitle: 'Define columns and field types for a fresh sheet.',
                 icon: Icons.add_circle_outline_rounded,
-                onTap: onCreate,
+                onTap: onSelected,
               ),
             ],
           ),

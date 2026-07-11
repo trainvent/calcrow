@@ -12,19 +12,66 @@ class DocumentDraft {
     required this.format,
     required this.headers,
     required this.valueTypes,
+    this.xlsxSheetName,
   });
 
   final String fileName;
   final SheetFileFormat format;
   final List<String> headers;
   final List<String> valueTypes;
+  final String? xlsxSheetName;
 }
 
 class CreateDocPage extends StatefulWidget {
-  const CreateDocPage({super.key});
+  const CreateDocPage({super.key, this.initialSetup});
+
+  final CreateDocInitialSetup? initialSetup;
 
   @override
   State<CreateDocPage> createState() => _CreateDocPageState();
+}
+
+enum LogbookSeparation { monthly, yearly }
+
+class CreateDocInitialSetup {
+  const CreateDocInitialSetup({
+    required this.separation,
+    required this.createdAt,
+  });
+
+  final LogbookSeparation separation;
+  final DateTime createdAt;
+
+  String get xlsxSheetName {
+    return switch (separation) {
+      LogbookSeparation.monthly => _monthName(createdAt.month),
+      LogbookSeparation.yearly => createdAt.year.toString(),
+    };
+  }
+
+  int? get fileNameYearSuffix {
+    return switch (separation) {
+      LogbookSeparation.monthly => createdAt.year,
+      LogbookSeparation.yearly => null,
+    };
+  }
+
+  static String _monthName(int month) {
+    return const <String>[
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ][month - 1];
+  }
 }
 
 class _CreateDocPageState extends State<CreateDocPage> {
@@ -38,9 +85,17 @@ class _CreateDocPageState extends State<CreateDocPage> {
     _ColumnDraft(header: 'Pause', type: FieldType.duration),
     _ColumnDraft(header: 'Notes', type: FieldType.text),
   ];
-  SheetFileFormat _format = SheetFileFormat.csv;
+  late SheetFileFormat _format;
   bool _isArranging = false;
   String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    _format = widget.initialSetup == null
+        ? SheetFileFormat.csv
+        : SheetFileFormat.xlsx;
+  }
 
   @override
   void dispose() {
@@ -124,8 +179,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
     });
   }
 
-  void _submit() {
-    final fileName = _fileNameWithFormat(_fileNameController.text, _format);
+  Future<void> _submit() async {
     final headers = _columns
         .map((column) => column.headerController.text.trim())
         .where((header) => header.isNotEmpty)
@@ -151,10 +205,19 @@ class _CreateDocPageState extends State<CreateDocPage> {
 
     Navigator.of(context).pop(
       DocumentDraft(
-        fileName: fileName,
+        fileName: _fileNameWithFormat(
+          _fileNameController.text,
+          _format,
+          yearSuffix: _format == SheetFileFormat.xlsx
+              ? widget.initialSetup?.fileNameYearSuffix
+              : null,
+        ),
         format: _format,
         headers: headers,
         valueTypes: valueTypes,
+        xlsxSheetName: _format == SheetFileFormat.xlsx
+            ? widget.initialSetup?.xlsxSheetName
+            : null,
       ),
     );
   }
@@ -166,10 +229,18 @@ class _CreateDocPageState extends State<CreateDocPage> {
     return column.type.value;
   }
 
-  String _fileNameWithFormat(String value, SheetFileFormat format) {
+  String _fileNameWithFormat(
+    String value,
+    SheetFileFormat format, {
+    int? yearSuffix,
+  }) {
     final extension = _extensionForFormat(format);
     final baseName = _baseFileName(value);
-    return '${baseName.isEmpty ? 'calcrow_sheet' : baseName}.$extension';
+    final resolvedBaseName = baseName.isEmpty ? 'calcrow_sheet' : baseName;
+    if (yearSuffix == null || resolvedBaseName.endsWith('_$yearSuffix')) {
+      return '$resolvedBaseName.$extension';
+    }
+    return '${resolvedBaseName}_$yearSuffix.$extension';
   }
 
   String _baseFileName(String value) {

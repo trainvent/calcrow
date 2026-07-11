@@ -250,6 +250,69 @@ void main() {
       ]);
     });
 
+    test('XLSX monthly logbook creates a current month sheet on open', () {
+      final parsed = parseXlsx(
+        buildNamedWorkbookBytes({
+          'June': [
+            ['Date', 'Start', 'End', 'Pause', 'Notes'],
+            ['date', 'time', 'time', 'duration', 'text'],
+            ['2026-06-28', '09:00:00', '17:00:00', '00:30:00', 'old month'],
+          ],
+        }),
+        fileName: 'calcrow_sheet_2026.xlsx',
+        now: DateTime(2026, 7, 11),
+      );
+
+      expect(parsed.xlsxSheetName, 'July');
+      expect(parsed.headers, ['Date', 'Start', 'End', 'Pause', 'Notes']);
+      expect(parsed.valueTypes, ['date', 'time', 'time', 'duration', 'text']);
+      expect(parsed.rows, isEmpty);
+      expect(parsed.workbook?.tables.containsKey('July'), isTrue);
+
+      final reparsed = parseXlsx(
+        XlsxSheetCodec.buildBytes(
+          copySheetData(
+            parsed,
+            rows: const <List<String>>[
+              <String>[
+                '2026-07-11',
+                '09:00:00',
+                '17:00:00',
+                '00:30:00',
+                'new month',
+              ],
+            ],
+          ),
+        ),
+        fileName: 'calcrow_sheet_2026.xlsx',
+        now: DateTime(2026, 7, 11),
+      );
+
+      expect(reparsed.xlsxSheetName, 'July');
+      expect(reparsed.rows, [
+        ['2026-07-11', '09:00:00', '17:00:00', '00:30:00', 'new month'],
+      ]);
+    });
+
+    test('XLSX monthly logbook refuses a different year suffix', () {
+      expect(
+        () => parseXlsx(
+          buildWorkbookBytes([
+            ['Date', 'Notes'],
+          ]),
+          fileName: 'calcrow_sheet_2026.xlsx',
+          now: DateTime(2027, 1, 1),
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('Create or open a 2027 logbook'),
+          ),
+        ),
+      );
+    });
+
     test('XLSX can be built from a fresh sheet draft', () {
       final workbook = excel_pkg.Excel.createExcel();
       final draft = SheetData(
@@ -357,25 +420,36 @@ Future<SheetData> parseCsvBytes(Uint8List bytes) {
 }
 
 Uint8List buildWorkbookBytes(List<List<String>> rows) {
+  return buildNamedWorkbookBytes({'Sheet1': rows});
+}
+
+Uint8List buildNamedWorkbookBytes(Map<String, List<List<String>>> sheets) {
   final workbook = excel_pkg.Excel.createExcel();
-  final sheetName = workbook.getDefaultSheet() ?? 'Sheet1';
-  final sheet = workbook[sheetName];
-  for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-    for (
-      var columnIndex = 0;
-      columnIndex < rows[rowIndex].length;
-      columnIndex++
-    ) {
-      sheet
-          .cell(
-            excel_pkg.CellIndex.indexByColumnRow(
-              columnIndex: columnIndex,
-              rowIndex: rowIndex,
-            ),
-          )
-          .value = excel_pkg.TextCellValue(
-        rows[rowIndex][columnIndex],
-      );
+  final defaultSheetName = workbook.getDefaultSheet();
+  var firstSheet = true;
+  for (final entry in sheets.entries) {
+    final sheetName = entry.key;
+    if (firstSheet &&
+        defaultSheetName != null &&
+        defaultSheetName != sheetName) {
+      workbook.rename(defaultSheetName, sheetName);
+    }
+    firstSheet = false;
+    final sheet = workbook[sheetName];
+    for (var rowIndex = 0; rowIndex < entry.value.length; rowIndex++) {
+      final row = entry.value[rowIndex];
+      for (var columnIndex = 0; columnIndex < row.length; columnIndex++) {
+        sheet
+            .cell(
+              excel_pkg.CellIndex.indexByColumnRow(
+                columnIndex: columnIndex,
+                rowIndex: rowIndex,
+              ),
+            )
+            .value = excel_pkg.TextCellValue(
+          row[columnIndex],
+        );
+      }
     }
   }
 
@@ -384,10 +458,15 @@ Uint8List buildWorkbookBytes(List<List<String>> rows) {
   return Uint8List.fromList(encoded!);
 }
 
-SheetData parseXlsx(Uint8List bytes) {
+SheetData parseXlsx(
+  Uint8List bytes, {
+  String fileName = 'sample.xlsx',
+  DateTime? now,
+}) {
   return XlsxSheetCodec.parse(
     bytes: bytes,
-    fileName: 'sample.xlsx',
+    fileName: fileName,
     path: '/tmp/sample.xlsx',
+    now: now,
   );
 }

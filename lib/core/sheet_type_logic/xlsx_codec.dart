@@ -15,12 +15,42 @@ class XlsxSheetCodec {
     required String? path,
     DateTime? now,
   }) {
+    final effectiveNow = now ?? DateTime.now();
+    _checkMonthlyLogbookYear(fileName: fileName, now: effectiveNow);
     final excel = excel_pkg.Excel.decodeBytes(bytes);
     if (excel.tables.isEmpty) {
       throw const FormatException('The selected XLSX has no sheets.');
     }
 
-    final sheetName = _selectBestSheetName(excel, now ?? DateTime.now());
+    final currentMonthSheetName = _currentMonthSheetNameForMonthlyLogbook(
+      excel,
+      fileName: fileName,
+      now: effectiveNow,
+    );
+    if (currentMonthSheetName != null) {
+      return _parseSheet(
+        excel: excel,
+        fileName: fileName,
+        path: path,
+        sheetName: currentMonthSheetName,
+      );
+    }
+
+    final sheetName = _selectBestSheetName(excel, effectiveNow);
+    return _parseSheet(
+      excel: excel,
+      fileName: fileName,
+      path: path,
+      sheetName: sheetName,
+    );
+  }
+
+  static SheetData _parseSheet({
+    required excel_pkg.Excel excel,
+    required String fileName,
+    required String? path,
+    required String sheetName,
+  }) {
     final sheet = excel.tables[sheetName];
     if (sheet == null || sheet.rows.isEmpty) {
       throw const FormatException('The selected XLSX sheet is empty.');
@@ -115,6 +145,129 @@ class XlsxSheetCodec {
       xlsxSheetName: sheetName,
       workbook: excel,
     );
+  }
+
+  static void _checkMonthlyLogbookYear({
+    required String fileName,
+    required DateTime now,
+  }) {
+    final year = _monthlyLogbookYear(fileName);
+    if (year == null || year == now.year) return;
+    throw FormatException(
+      'This logbook is for $year. Create or open a ${now.year} logbook instead.',
+    );
+  }
+
+  static String? _currentMonthSheetNameForMonthlyLogbook(
+    excel_pkg.Excel excel, {
+    required String fileName,
+    required DateTime now,
+  }) {
+    if (_monthlyLogbookYear(fileName) == null) return null;
+
+    final existing = _findMonthSheetName(excel.tables.keys, now.month);
+    if (existing != null) return existing;
+
+    final sourceSheetName = _selectBestSheetName(excel, now);
+    final source = _parseSheet(
+      excel: excel,
+      fileName: fileName,
+      path: null,
+      sheetName: sourceSheetName,
+    );
+    final monthSheetName = _monthName(now.month);
+    final monthSheet = excel[monthSheetName];
+    for (var col = 0; col < source.headers.length; col++) {
+      monthSheet
+          .cell(
+            excel_pkg.CellIndex.indexByColumnRow(
+              columnIndex: source.startColumnIndex + col,
+              rowIndex: source.headerRowIndex,
+            ),
+          )
+          .value = excel_pkg.TextCellValue(
+        source.headers[col],
+      );
+    }
+    if (source.hasTypeRow) {
+      for (var col = 0; col < source.valueTypes.length; col++) {
+        monthSheet
+            .cell(
+              excel_pkg.CellIndex.indexByColumnRow(
+                columnIndex: source.startColumnIndex + col,
+                rowIndex: source.headerRowIndex + 1,
+              ),
+            )
+            .value = excel_pkg.TextCellValue(
+          source.valueTypes[col],
+        );
+      }
+    }
+    excel.setDefaultSheet(monthSheetName);
+    return monthSheetName;
+  }
+
+  static int? _monthlyLogbookYear(String fileName) {
+    final match = RegExp(
+      r'_(\d{4})(?:\.[^.]+)?$',
+      caseSensitive: false,
+    ).firstMatch(fileName.trim());
+    if (match == null) return null;
+    return int.tryParse(match.group(1)!);
+  }
+
+  static String? _findMonthSheetName(Iterable<String> names, int month) {
+    final candidates = <String>{
+      _monthName(month),
+      ..._monthTokens(month),
+    }.map((value) => value.toLowerCase()).toSet();
+    for (final name in names) {
+      if (candidates.contains(name.trim().toLowerCase())) {
+        return name;
+      }
+    }
+    for (final name in names) {
+      final lowered = name.trim().toLowerCase();
+      if (candidates.any(lowered.contains)) {
+        return name;
+      }
+    }
+    return null;
+  }
+
+  static String _monthName(int month) {
+    return const <String>[
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ][month - 1];
+  }
+
+  static Iterable<String> _monthTokens(int month) {
+    const names = <int, List<String>>{
+      1: <String>['jan', 'januar'],
+      2: <String>['feb', 'februar'],
+      3: <String>['mar', 'maerz', 'marz'],
+      4: <String>['apr'],
+      5: <String>['may', 'mai'],
+      6: <String>['jun', 'juni'],
+      7: <String>['jul', 'juli'],
+      8: <String>['aug'],
+      9: <String>['sep'],
+      10: <String>['oct', 'oktober', 'okt'],
+      11: <String>['nov'],
+      12: <String>['dec', 'dezember', 'dez'],
+    };
+    return names[month] ?? const <String>[];
   }
 
   static Uint8List buildBytes(SheetData data) {

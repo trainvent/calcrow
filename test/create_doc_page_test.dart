@@ -1,8 +1,53 @@
 import 'package:calcrow/features/home/editing/create_doc_page.dart';
+import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('monthly XLSX setup uses current month sheet and year filename', (
+    tester,
+  ) async {
+    DocumentDraft? result;
+    await _pumpDraftHost(
+      tester,
+      onDraft: (draft) => result = draft,
+      initialSetup: CreateDocInitialSetup(
+        separation: LogbookSeparation.monthly,
+        createdAt: DateTime(2026, 7, 11),
+      ),
+    );
+
+    await tester.tap(find.text('Open creator'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    expect(result?.fileName, 'calcrow_sheet_2026.xlsx');
+    expect(result?.format, SheetFileFormat.xlsx);
+    expect(result?.xlsxSheetName, 'July');
+  });
+
+  testWidgets('yearly XLSX setup uses current year sheet', (tester) async {
+    DocumentDraft? result;
+    await _pumpDraftHost(
+      tester,
+      onDraft: (draft) => result = draft,
+      initialSetup: CreateDocInitialSetup(
+        separation: LogbookSeparation.yearly,
+        createdAt: DateTime(2026, 7, 11),
+      ),
+    );
+
+    await tester.tap(find.text('Open creator'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    expect(result?.fileName, 'calcrow_sheet.xlsx');
+    expect(result?.format, SheetFileFormat.xlsx);
+    expect(result?.xlsxSheetName, '2026');
+  });
+
   testWidgets('template picker preconfigures the create document form', (
     tester,
   ) async {
@@ -101,4 +146,35 @@ void main() {
     expect(find.text('Work done'), findsOneWidget);
     expect(find.text('Notes'), findsOneWidget);
   });
+}
+
+Future<void> _pumpDraftHost(
+  WidgetTester tester, {
+  required ValueChanged<DocumentDraft?> onDraft,
+  required CreateDocInitialSetup initialSetup,
+}) {
+  return tester.pumpWidget(
+    MaterialApp(
+      home: Builder(
+        builder: (context) {
+          return Scaffold(
+            body: Center(
+              child: FilledButton(
+                onPressed: () async {
+                  final draft = await Navigator.of(context).push<DocumentDraft>(
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          CreateDocPage(initialSetup: initialSetup),
+                    ),
+                  );
+                  onDraft(draft);
+                },
+                child: const Text('Open creator'),
+              ),
+            ),
+          );
+        },
+      ),
+    ),
+  );
 }
