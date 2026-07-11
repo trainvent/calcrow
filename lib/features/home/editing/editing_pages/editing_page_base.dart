@@ -23,6 +23,7 @@ import 'package:calcrow/core/sheet_type_logic/type_hint_cache.dart';
 import 'package:calcrow/features/home/sheet/sheet_preview_store.dart';
 import 'package:calcrow/features/home/editing/widgets/select_time_widget.dart';
 import 'package:calcrow/features/home/editing/widgets/timespan_widget.dart';
+import 'package:calcrow/app/widgets/type_dropdown_list.dart';
 import 'package:open_filex/open_filex.dart';
 
 part 'diary_editing_page.dart';
@@ -2646,36 +2647,32 @@ class _EditingPageBaseState extends State<EditingPageBase>
     final selectedType = typeOptions.contains(currentType)
         ? currentType
         : typeOptions.first;
-    final typeDropdown = DropdownButtonFormField<String>(
+    final typeDropdown = TypeDropdownList<String>(
       key: ValueKey<String>(
         'field-type-options-$index-${typeOptions.join(',')}',
       ),
       initialValue: selectedType,
-      decoration: InputDecoration(labelText: header),
-      items: typeOptions
-          .map(
-            (type) => DropdownMenuItem<String>(
-              value: type,
-              child: Text(
-                type == 'money'
-                    ? FieldTypeGuesser.isMoneyType(_documentValueTypes[index])
-                          ? _editorTypeLabelFor(_documentValueTypes[index])
-                          : 'money'
-                    : type,
-              ),
-            ),
-          )
-          .toList(),
-      onChanged: (value) async {
-        if (value == null) return;
-        await _handlePendingTypeChanged(index, value);
-      },
+      labelText: header,
+      options: typeOptions,
+      labelFor: (type) => _pendingTypeLabel(index: index, type: type),
+      iconFor: TypeDropdownList.iconForTypeLabel,
+      onChanged: (value) => _handlePendingTypeChanged(index, value),
     );
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: typeDropdown,
     );
+  }
+
+  String _pendingTypeLabel({required int index, required String type}) {
+    if (type == 'money') {
+      if (FieldTypeGuesser.isMoneyType(_documentValueTypes[index])) {
+        return _editorTypeLabelFor(_documentValueTypes[index]);
+      }
+      return 'money';
+    }
+    return type;
   }
 
   TextInputType _keyboardForType(String rawType) {

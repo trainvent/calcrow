@@ -34,6 +34,7 @@ class _SettingsTabState extends State<SettingsTab> {
   bool _isLinkingGoogle = false;
   bool _isLinkingWebDav = false;
   bool _isOpeningRevenueCat = false;
+  bool _isChangingPassword = false;
   bool _isUpdatingSafFolder = false;
   static final SafUtil _safUtil = SafUtil();
   final SheetPersistenceService _sheetPersistenceService =
@@ -222,37 +223,10 @@ class _SettingsTabState extends State<SettingsTab> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      Card(
-                        child: Column(
-                          children: [
-                            ListTile(
-                              leading: const Icon(
-                                Icons.workspace_premium_outlined,
-                              ),
-                              title: const Text('Entitlement'),
-                              subtitle: Text(
-                                settings?.isPro == true
-                                    ? 'Pro enabled.'
-                                    : 'Open subscription and purchase options.',
-                              ),
-                              trailing: _isOpeningRevenueCat
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.chevron_right_rounded),
-                              onTap: _isOpeningRevenueCat
-                                  ? null
-                                  : () => _openRevenueCatEntitlementFlow(
-                                      session: session,
-                                      isPro: settings?.isPro == true,
-                                    ),
-                            ),
-                            if (_showSafFolderSettings) ...[
-                              const Divider(height: 1),
+                      if (_showSafFolderSettings) ...[
+                        Card(
+                          child: Column(
+                            children: [
                               ListTile(
                                 leading: const Icon(
                                   Icons.folder_special_outlined,
@@ -295,23 +269,57 @@ class _SettingsTabState extends State<SettingsTab> {
                                   ),
                                 ),
                             ],
-                            // const Divider(height: 1),
-                            // SwitchListTile(
-                            //   secondary: const Icon(Icons.tune_rounded),
-                            //   title: const Text('Advanced features'),
-                            //   subtitle: const Text(
-                            //     'Paused for this release while the advanced layout is rebuilt.',
-                            //   ),
-                            //   value: false,
-                            //   onChanged: null,
-                            // ),
-                          ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
+                        const SizedBox(height: 12),
+                      ],
                       Card(
                         child: Column(
                           children: [
+                            _buildSectionHeader(
+                              context,
+                              title: 'Account Settings',
+                              subtitle:
+                                  'Manage your subscription, privacy, and account access.',
+                            ),
+                            const Divider(height: 1),
+                            ListTile(
+                              leading: const Icon(Icons.alternate_email),
+                              title: const Text('Signed in as'),
+                              subtitle: Text(
+                                session.email.trim().isEmpty
+                                    ? 'No email available.'
+                                    : session.email,
+                              ),
+                            ),
+                            const Divider(height: 1),
+                            ListTile(
+                              leading: const Icon(
+                                Icons.workspace_premium_outlined,
+                              ),
+                              title: const Text('Entitlement'),
+                              subtitle: Text(
+                                settings?.isPro == true
+                                    ? 'Pro enabled.'
+                                    : 'Open subscription and purchase options.',
+                              ),
+                              trailing: _isOpeningRevenueCat
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.chevron_right_rounded),
+                              onTap: _isOpeningRevenueCat
+                                  ? null
+                                  : () => _openRevenueCatEntitlementFlow(
+                                      session: session,
+                                      isPro: settings?.isPro == true,
+                                    ),
+                            ),
+                            const Divider(height: 1),
                             ListTile(
                               leading: const Icon(Icons.privacy_tip_outlined),
                               title: const Text('Data collection'),
@@ -320,6 +328,27 @@ class _SettingsTabState extends State<SettingsTab> {
                               ),
                               trailing: const Icon(Icons.chevron_right_rounded),
                               onTap: _openDataCollectionPage,
+                            ),
+                            const Divider(height: 1),
+                            ListTile(
+                              leading: const Icon(Icons.password_rounded),
+                              title: const Text('Change password'),
+                              subtitle: const Text(
+                                'Send a reset code to your signed-in email.',
+                              ),
+                              trailing: _isChangingPassword
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.chevron_right_rounded),
+                              onTap: _isChangingPassword
+                                  ? null
+                                  : () =>
+                                        _openChangePasswordFlow(session.email),
                             ),
                             const Divider(height: 1),
                             ListTile(
@@ -478,6 +507,98 @@ class _SettingsTabState extends State<SettingsTab> {
         Expanded(child: clearButton),
       ],
     );
+  }
+
+  Future<void> _openChangePasswordFlow(String email) async {
+    final normalizedEmail = email.trim();
+    final messenger = ScaffoldMessenger.of(context);
+    if (normalizedEmail.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('No account email is available.')),
+      );
+      return;
+    }
+
+    setState(() => _isChangingPassword = true);
+    try {
+      await ServiceLocator.authService.sendPasswordResetCode(
+        email: normalizedEmail,
+      );
+    } on AuthServiceException catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text(_readablePasswordResetError(error))),
+      );
+      return;
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Could not send password reset code.')),
+      );
+      return;
+    } finally {
+      if (mounted) {
+        setState(() => _isChangingPassword = false);
+      }
+    }
+
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(content: Text('Password reset code sent to $normalizedEmail.')),
+    );
+    await _showChangePasswordDialog(normalizedEmail);
+  }
+
+  Future<void> _showChangePasswordDialog(String email) async {
+    final didUpdate = await showDialog<bool>(
+      context: context,
+      builder: (context) => _ChangePasswordDialog(
+        email: email,
+        readablePasswordResetError: _readablePasswordResetError,
+      ),
+    );
+
+    if (didUpdate == true && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Password updated.')));
+    }
+  }
+
+  String _readablePasswordResetError(AuthServiceException error) {
+    switch (error.code) {
+      case 'user-not-found':
+        return 'No account found for that email.';
+      case 'not-found':
+        return 'No active reset code was found. Request a new one.';
+      case 'failed-precondition':
+        return 'That reset code is no longer valid. Request a new one.';
+      default:
+        return _readableAuthError(error);
+    }
+  }
+
+  String _readableAuthError(AuthServiceException error) {
+    switch (error.code) {
+      case 'network-request-failed':
+        return 'Network error. Check connection and try again.';
+      case 'invalid-email':
+        return 'Email address format is invalid.';
+      case 'invalid-argument':
+        return 'The code was not accepted. Check it and try again.';
+      case 'weak-password':
+        return 'Password is too weak.';
+      case 'too-many-requests':
+        return 'Too many attempts. Try again later.';
+      default:
+        final message = error.message?.trim();
+        if (message == null ||
+            message.isEmpty ||
+            message.toLowerCase() == 'error') {
+          return 'Authentication failed (${error.code}).';
+        }
+        return '$message (${error.code})';
+    }
   }
 
   Future<void> _toggleGoogleLink({
@@ -1348,6 +1469,170 @@ class _SettingsTabState extends State<SettingsTab> {
 
   Future<void> _openSignInSheet(BuildContext context) async {
     await showSignInSheet<bool>(context);
+  }
+}
+
+class _ChangePasswordDialog extends StatefulWidget {
+  const _ChangePasswordDialog({
+    required this.email,
+    required this.readablePasswordResetError,
+  });
+
+  final String email;
+  final String Function(AuthServiceException error) readablePasswordResetError;
+
+  @override
+  State<_ChangePasswordDialog> createState() => _ChangePasswordDialogState();
+}
+
+class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
+  final TextEditingController _codeController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmController = TextEditingController();
+
+  bool _isSubmitting = false;
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    _passwordController.dispose();
+    _confirmController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_isSubmitting) return;
+
+    final code = _codeController.text.trim();
+    final password = _passwordController.text.trim();
+    final confirm = _confirmController.text.trim();
+    final validationError = _validationError(
+      code: code,
+      password: password,
+      confirm: confirm,
+    );
+
+    if (validationError != null) {
+      setState(() => _errorText = validationError);
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _errorText = null;
+    });
+
+    try {
+      await ServiceLocator.authService.resetPasswordWithCode(
+        email: widget.email,
+        code: code,
+        newPassword: password,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } on AuthServiceException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorText = widget.readablePasswordResetError(error);
+        _isSubmitting = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _errorText = 'Could not reset password right now.';
+        _isSubmitting = false;
+      });
+    }
+  }
+
+  String? _validationError({
+    required String code,
+    required String password,
+    required String confirm,
+  }) {
+    if (code.length != 6) {
+      return 'Enter the 6-digit code.';
+    }
+    if (password.isEmpty || confirm.isEmpty) {
+      return 'New password and confirmation are required.';
+    }
+    if (password.length < 6) {
+      return 'Password must be at least 6 characters.';
+    }
+    if (password != confirm) {
+      return 'Passwords do not match.';
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Change password'),
+      content: SingleChildScrollView(
+        child: AutofillGroup(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Enter the code sent to ${widget.email}.'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _codeController,
+                enabled: !_isSubmitting,
+                keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(labelText: 'Reset code'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _passwordController,
+                enabled: !_isSubmitting,
+                obscureText: true,
+                autofillHints: const [AutofillHints.newPassword],
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(labelText: 'New password'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _confirmController,
+                enabled: !_isSubmitting,
+                obscureText: true,
+                autofillHints: const [AutofillHints.newPassword],
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _submit(),
+                decoration: const InputDecoration(
+                  labelText: 'Confirm new password',
+                ),
+              ),
+              if (_errorText != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  _errorText!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _isSubmitting ? null : _submit,
+          child: _isSubmitting
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Update'),
+        ),
+      ],
+    );
   }
 }
 

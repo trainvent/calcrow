@@ -5,6 +5,7 @@ import 'package:calcrow/core/sheet_type_logic/field_type.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_service.dart';
 import 'package:calcrow/features/home/editing/widgets/moving_tile_widget.dart';
+import 'package:calcrow/app/widgets/type_dropdown_list.dart';
 
 class DocumentDraft {
   const DocumentDraft({
@@ -362,21 +363,13 @@ class _CreateDocPageState extends State<CreateDocPage> {
         }
       },
     );
-    final typeField = DropdownButtonFormField<FieldType>(
+    final typeField = TypeDropdownList<FieldType>(
       initialValue: column.type,
-      decoration: const InputDecoration(labelText: 'Type'),
-      items: FieldType.createOptions
-          .map(
-            (type) => DropdownMenuItem<FieldType>(
-              value: type,
-              child: Text(_typeLabelForColumn(type, column)),
-            ),
-          )
-          .toList(),
-      onChanged: (value) async {
-        if (value == null) return;
-        await _handleColumnTypeChanged(column, value);
-      },
+      labelText: 'Type',
+      options: FieldType.createOptions,
+      labelFor: (type) => _typeLabelForColumn(type, column),
+      iconFor: TypeDropdownList.iconForFieldType,
+      onChanged: (value) => _handleColumnTypeChanged(column, value),
     );
     final removeButton = IconButton(
       tooltip: 'Remove column',
