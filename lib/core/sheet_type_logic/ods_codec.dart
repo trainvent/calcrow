@@ -212,10 +212,9 @@ class OdsSheetCodec {
   }
 
   static Uint8List buildBytes(SheetData data) {
-    final sourceBytes = data.sourceBytes;
-    if (sourceBytes == null || sourceBytes.isEmpty) {
-      throw StateError('No ODS source document is loaded.');
-    }
+    final sourceBytes = data.sourceBytes == null || data.sourceBytes!.isEmpty
+        ? _buildFreshSourceBytes(data)
+        : data.sourceBytes!;
 
     final archive = ZipDecoder().decodeBytes(sourceBytes, verify: true);
     final contentFile = archive.findFile('content.xml');
@@ -280,6 +279,135 @@ class OdsSheetCodec {
       throw StateError('Could not encode ODS document.');
     }
     return Uint8List.fromList(encodedArchive);
+  }
+
+  static Uint8List _buildFreshSourceBytes(SheetData data) {
+    final sheetName = _freshSheetName(data);
+    final contentXml = _freshContentXml(sheetName: sheetName, data: data);
+    final manifestXml = _freshManifestXml();
+    final archive = Archive()
+      ..addFile(
+        ArchiveFile(
+          'mimetype',
+          'application/vnd.oasis.opendocument.spreadsheet'.length,
+          utf8.encode('application/vnd.oasis.opendocument.spreadsheet'),
+        )..compress = false,
+      )
+      ..addFile(
+        ArchiveFile(
+          'content.xml',
+          utf8.encode(contentXml).length,
+          utf8.encode(contentXml),
+        ),
+      )
+      ..addFile(
+        ArchiveFile(
+          'META-INF/manifest.xml',
+          utf8.encode(manifestXml).length,
+          utf8.encode(manifestXml),
+        ),
+      );
+    final encoded = ZipEncoder().encode(archive);
+    if (encoded == null || encoded.isEmpty) {
+      throw StateError('Could not create ODS document.');
+    }
+    return Uint8List.fromList(encoded);
+  }
+
+  static String _freshSheetName(SheetData data) {
+    final preferred = data.xlsxSheetName?.trim();
+    return preferred == null || preferred.isEmpty ? 'Sheet1' : preferred;
+  }
+
+  static String _freshContentXml({
+    required String sheetName,
+    required SheetData data,
+  }) {
+    final builder = XmlBuilder();
+    builder.processing('xml', 'version="1.0" encoding="UTF-8"');
+    builder.element(
+      'office:document-content',
+      attributes: {
+        'xmlns:office': _nsOffice,
+        'xmlns:table': _nsTable,
+        'xmlns:text': _nsText,
+        'xmlns:calcext': _nsCalcExt,
+        'office:version': '1.3',
+      },
+      nest: () {
+        builder.element(
+          'office:body',
+          nest: () {
+            builder.element(
+              'office:spreadsheet',
+              nest: () {
+                builder.element(
+                  'table:table',
+                  attributes: {'table:name': sheetName},
+                  nest: () {
+                    _buildFreshRow(
+                      builder,
+                      data.headers.map((header) => header.trim()).toList(),
+                    );
+                  },
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+    return builder.buildDocument().toXmlString(pretty: false);
+  }
+
+  static void _buildFreshRow(XmlBuilder builder, List<String> values) {
+    builder.element(
+      'table:table-row',
+      nest: () {
+        for (final value in values) {
+          builder.element(
+            'table:table-cell',
+            attributes: {
+              'office:value-type': 'string',
+              'calcext:value-type': 'string',
+            },
+            nest: () {
+              builder.element('text:p', nest: value);
+            },
+          );
+        }
+      },
+    );
+  }
+
+  static String _freshManifestXml() {
+    final builder = XmlBuilder();
+    builder.processing('xml', 'version="1.0" encoding="UTF-8"');
+    builder.element(
+      'manifest:manifest',
+      attributes: {
+        'xmlns:manifest': 'urn:oasis:names:tc:opendocument:xmlns:manifest:1.0',
+        'manifest:version': '1.3',
+      },
+      nest: () {
+        builder.element(
+          'manifest:file-entry',
+          attributes: {
+            'manifest:full-path': '/',
+            'manifest:media-type':
+                'application/vnd.oasis.opendocument.spreadsheet',
+          },
+        );
+        builder.element(
+          'manifest:file-entry',
+          attributes: {
+            'manifest:full-path': 'content.xml',
+            'manifest:media-type': 'text/xml',
+          },
+        );
+      },
+    );
+    return builder.buildDocument().toXmlString(pretty: false);
   }
 
   static XmlElement? _spreadsheetElement(XmlDocument document) {

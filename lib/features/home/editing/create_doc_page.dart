@@ -56,6 +56,7 @@ class CreateDocInitialSetup {
   int? fileNameYearSuffixFor(SheetFileFormat format) {
     return switch ((separation, format)) {
       (LogbookSeparation.monthly, SheetFileFormat.xlsx) => createdAt.year,
+      (LogbookSeparation.monthly, SheetFileFormat.ods) => createdAt.year,
       (LogbookSeparation.yearly, SheetFileFormat.csv) => createdAt.year,
       _ => null,
     };
@@ -152,7 +153,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
   }
 
   void _setFormat(SheetFileFormat format) {
-    if (format == _format || format == SheetFileFormat.ods) return;
+    if (format == _format) return;
     if (format == SheetFileFormat.csv &&
         widget.initialSetup?.allowsCsv == false) {
       return;
@@ -229,7 +230,8 @@ class _CreateDocPageState extends State<CreateDocPage> {
         format: _format,
         headers: headers,
         valueTypes: valueTypes,
-        xlsxSheetName: _format == SheetFileFormat.xlsx
+        xlsxSheetName:
+            _format == SheetFileFormat.xlsx || _format == SheetFileFormat.ods
             ? widget.initialSetup?.xlsxSheetName
             : null,
       ),
@@ -469,9 +471,8 @@ class _CreateDocPageState extends State<CreateDocPage> {
                         ),
                         const ButtonSegment<SheetFileFormat>(
                           value: SheetFileFormat.ods,
-                          label: Text('ODS later'),
-                          icon: Icon(Icons.pending_outlined),
-                          enabled: false,
+                          label: Text('ODS'),
+                          icon: Icon(Icons.grid_view_rounded),
                         ),
                       ],
                       selected: <SheetFileFormat>{_format},

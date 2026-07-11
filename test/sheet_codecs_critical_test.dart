@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:calcrow/core/sheet_type_logic/csv_codec.dart';
+import 'package:calcrow/core/sheet_type_logic/ods_codec.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_service.dart';
 import 'package:calcrow/core/sheet_type_logic/type_hint_cache.dart';
@@ -471,6 +472,55 @@ void main() {
       ]);
     });
   });
+
+  group('ODS codec', () {
+    test('ODS can be built from a fresh sheet draft', () {
+      final draft = SheetData(
+        fileName: 'fresh.ods',
+        path: null,
+        format: SheetFileFormat.ods,
+        headers: const <String>['Date', 'Start', 'End', 'Notes'],
+        valueTypes: const <String>['date', 'time', 'time', 'text'],
+        readOnlyColumns: List<bool>.filled(4, false),
+        rows: const <List<String>>[],
+        xlsxSheetName: 'July',
+      );
+
+      final parsed = parseOds(OdsSheetCodec.buildBytes(draft));
+
+      expect(parsed.headers, ['Date', 'Start', 'End', 'Notes']);
+      expect(parsed.rows, isEmpty);
+      expect(parsed.xlsxSheetName, 'July');
+      expect(parsed.sourceBytes, isNotNull);
+    });
+
+    test('fresh ODS roundtrips the first saved row', () {
+      final draft = SheetData(
+        fileName: 'fresh.ods',
+        path: null,
+        format: SheetFileFormat.ods,
+        headers: const <String>['Date', 'Start', 'End', 'Notes'],
+        valueTypes: const <String>['date', 'time', 'time', 'text'],
+        readOnlyColumns: List<bool>.filled(4, false),
+        rows: const <List<String>>[],
+        xlsxSheetName: 'July',
+      );
+      final parsed = parseOds(OdsSheetCodec.buildBytes(draft));
+      final updated = copySheetData(
+        parsed,
+        rows: const <List<String>>[
+          <String>['2026-07-11', '09:00:00', '17:00:00', 'first row'],
+        ],
+      );
+
+      final reparsed = parseOds(OdsSheetCodec.buildBytes(updated));
+
+      expect(reparsed.headers, ['Date', 'Start', 'End', 'Notes']);
+      expect(reparsed.rows, [
+        ['2026-07-11', '09:00:00', '17:00:00', 'first row'],
+      ]);
+    });
+  });
 }
 
 Future<SheetData> parseCsv(String content) {
@@ -534,5 +584,13 @@ SheetData parseXlsx(
     fileName: fileName,
     path: '/tmp/sample.xlsx',
     now: now,
+  );
+}
+
+SheetData parseOds(Uint8List bytes) {
+  return OdsSheetCodec.parse(
+    bytes: bytes,
+    fileName: 'sample.ods',
+    path: '/tmp/sample.ods',
   );
 }

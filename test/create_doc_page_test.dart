@@ -93,6 +93,32 @@ void main() {
     expect(result?.xlsxSheetName, '2026');
   });
 
+  testWidgets('monthly setup can use ODS for month sheets', (tester) async {
+    DocumentDraft? result;
+    await _pumpDraftHost(
+      tester,
+      onDraft: (draft) => result = draft,
+      initialSetup: CreateDocInitialSetup(
+        separation: LogbookSeparation.monthly,
+        createdAt: DateTime(2026, 7, 11),
+      ),
+    );
+
+    await tester.tap(find.text('Open creator'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ODS'));
+    await tester.pumpAndSettle();
+
+    expect(_fileNameSuffix(tester), '_2026.ods');
+
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    expect(result?.fileName, 'calcrow_sheet_2026.ods');
+    expect(result?.format, SheetFileFormat.ods);
+    expect(result?.xlsxSheetName, 'July');
+  });
+
   testWidgets('template picker preconfigures the create document form', (
     tester,
   ) async {
