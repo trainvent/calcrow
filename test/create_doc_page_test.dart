@@ -1,8 +1,124 @@
 import 'package:calcrow/features/home/editing/create_doc_page.dart';
+import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('plain create setup defaults to CSV without sheet separation', (
+    tester,
+  ) async {
+    DocumentDraft? result;
+    await _pumpDraftHost(tester, onDraft: (draft) => result = draft);
+
+    await tester.tap(find.text('Open creator'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    expect(result?.fileName, 'calcrow_sheet.csv');
+    expect(result?.format, SheetFileFormat.csv);
+    expect(result?.xlsxSheetName, isNull);
+  });
+
+  testWidgets('monthly XLSX setup uses current month sheet and year filename', (
+    tester,
+  ) async {
+    DocumentDraft? result;
+    await _pumpDraftHost(
+      tester,
+      onDraft: (draft) => result = draft,
+      initialSetup: CreateDocInitialSetup(
+        separation: LogbookSeparation.monthly,
+        createdAt: DateTime(2026, 7, 11),
+      ),
+    );
+
+    await tester.tap(find.text('Open creator'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('CSV'), findsNothing);
+    expect(find.text('XLSX'), findsOneWidget);
+    expect(_fileNameSuffix(tester), '_2026.xlsx');
+
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    expect(result?.fileName, 'calcrow_sheet_2026.xlsx');
+    expect(result?.format, SheetFileFormat.xlsx);
+    expect(result?.xlsxSheetName, 'July');
+  });
+
+  testWidgets('yearly setup defaults to a single-year CSV', (tester) async {
+    DocumentDraft? result;
+    await _pumpDraftHost(
+      tester,
+      onDraft: (draft) => result = draft,
+      initialSetup: CreateDocInitialSetup(
+        separation: LogbookSeparation.yearly,
+        createdAt: DateTime(2026, 7, 11),
+      ),
+    );
+
+    await tester.tap(find.text('Open creator'));
+    await tester.pumpAndSettle();
+    expect(_fileNameSuffix(tester), '_2026.csv');
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    expect(result?.fileName, 'calcrow_sheet_2026.csv');
+    expect(result?.format, SheetFileFormat.csv);
+    expect(result?.xlsxSheetName, isNull);
+  });
+
+  testWidgets('yearly setup can use XLSX for year sheets', (tester) async {
+    DocumentDraft? result;
+    await _pumpDraftHost(
+      tester,
+      onDraft: (draft) => result = draft,
+      initialSetup: CreateDocInitialSetup(
+        separation: LogbookSeparation.yearly,
+        createdAt: DateTime(2026, 7, 11),
+      ),
+    );
+
+    await tester.tap(find.text('Open creator'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('XLSX'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    expect(result?.fileName, 'calcrow_sheet.xlsx');
+    expect(result?.format, SheetFileFormat.xlsx);
+    expect(result?.xlsxSheetName, '2026');
+  });
+
+  testWidgets('monthly setup can use ODS for month sheets', (tester) async {
+    DocumentDraft? result;
+    await _pumpDraftHost(
+      tester,
+      onDraft: (draft) => result = draft,
+      initialSetup: CreateDocInitialSetup(
+        separation: LogbookSeparation.monthly,
+        createdAt: DateTime(2026, 7, 11),
+      ),
+    );
+
+    await tester.tap(find.text('Open creator'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ODS'));
+    await tester.pumpAndSettle();
+
+    expect(_fileNameSuffix(tester), '_2026.ods');
+
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    expect(result?.fileName, 'calcrow_sheet_2026.ods');
+    expect(result?.format, SheetFileFormat.ods);
+    expect(result?.xlsxSheetName, 'July');
+  });
+
   testWidgets('template picker preconfigures the create document form', (
     tester,
   ) async {
@@ -101,4 +217,40 @@ void main() {
     expect(find.text('Work done'), findsOneWidget);
     expect(find.text('Notes'), findsOneWidget);
   });
+}
+
+String? _fileNameSuffix(WidgetTester tester) {
+  final field = tester.widget<TextField>(find.byType(TextField).first);
+  return field.decoration?.suffixText;
+}
+
+Future<void> _pumpDraftHost(
+  WidgetTester tester, {
+  required ValueChanged<DocumentDraft?> onDraft,
+  CreateDocInitialSetup? initialSetup,
+}) {
+  return tester.pumpWidget(
+    MaterialApp(
+      home: Builder(
+        builder: (context) {
+          return Scaffold(
+            body: Center(
+              child: FilledButton(
+                onPressed: () async {
+                  final draft = await Navigator.of(context).push<DocumentDraft>(
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          CreateDocPage(initialSetup: initialSetup),
+                    ),
+                  );
+                  onDraft(draft);
+                },
+                child: const Text('Open creator'),
+              ),
+            ),
+          );
+        },
+      ),
+    ),
+  );
 }

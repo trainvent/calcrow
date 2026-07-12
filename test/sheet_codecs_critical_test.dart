@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:calcrow/core/sheet_type_logic/csv_codec.dart';
+import 'package:calcrow/core/sheet_type_logic/ods_codec.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_service.dart';
 import 'package:calcrow/core/sheet_type_logic/type_hint_cache.dart';
@@ -250,6 +251,135 @@ void main() {
       ]);
     });
 
+    test('XLSX monthly logbook creates a current month sheet on open', () {
+      final parsed = parseXlsx(
+        buildNamedWorkbookBytes({
+          'June': [
+            ['Date', 'Start', 'End', 'Pause', 'Notes'],
+            ['2026-06-28', '09:00:00', '17:00:00', '00:30:00', 'old month'],
+          ],
+        }),
+        fileName: 'calcrow_sheet_2026.xlsx',
+        now: DateTime(2026, 7, 11),
+      );
+
+      expect(parsed.xlsxSheetName, 'July');
+      expect(parsed.headers, ['Date', 'Start', 'End', 'Pause', 'Notes']);
+      expect(parsed.valueTypes, ['date', 'time', 'time', 'duration', 'text']);
+      expect(parsed.rows, isEmpty);
+      expect(parsed.workbook?.tables.containsKey('July'), isTrue);
+      expect(parsed.workbook?.tables['July']?.rows.length, 1);
+
+      final reparsed = parseXlsx(
+        XlsxSheetCodec.buildBytes(
+          copySheetData(
+            parsed,
+            rows: const <List<String>>[
+              <String>[
+                '2026-07-11',
+                '09:00:00',
+                '17:00:00',
+                '00:30:00',
+                'new month',
+              ],
+            ],
+          ),
+        ),
+        fileName: 'calcrow_sheet_2026.xlsx',
+        now: DateTime(2026, 7, 11),
+      );
+
+      expect(reparsed.xlsxSheetName, 'July');
+      expect(reparsed.rows, [
+        ['2026-07-11', '09:00:00', '17:00:00', '00:30:00', 'new month'],
+      ]);
+    });
+
+    test('XLSX monthly logbook refuses a different year suffix', () {
+      expect(
+        () => parseXlsx(
+          buildWorkbookBytes([
+            ['Date', 'Notes'],
+          ]),
+          fileName: 'calcrow_sheet_2026.xlsx',
+          now: DateTime(2027, 1, 1),
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('Create or open a 2027 logbook'),
+          ),
+        ),
+      );
+    });
+
+    test('XLSX yearly logbook creates a current year sheet on open', () {
+      final parsed = parseXlsx(
+        buildNamedWorkbookBytes({
+          '2026': [
+            ['Date', 'Start', 'End', 'Pause', 'Notes'],
+            ['2026-12-28', '09:00:00', '17:00:00', '00:30:00', 'old year'],
+          ],
+        }),
+        fileName: 'calcrow_sheet.xlsx',
+        now: DateTime(2027, 1, 3),
+      );
+
+      expect(parsed.xlsxSheetName, '2027');
+      expect(parsed.headers, ['Date', 'Start', 'End', 'Pause', 'Notes']);
+      expect(parsed.valueTypes, ['date', 'time', 'time', 'duration', 'text']);
+      expect(parsed.rows, isEmpty);
+      expect(parsed.workbook?.tables.containsKey('2027'), isTrue);
+      expect(parsed.workbook?.tables['2027']?.rows.length, 1);
+
+      final reparsed = parseXlsx(
+        XlsxSheetCodec.buildBytes(
+          copySheetData(
+            parsed,
+            rows: const <List<String>>[
+              <String>[
+                '2027-01-03',
+                '09:00:00',
+                '17:00:00',
+                '00:30:00',
+                'new year',
+              ],
+            ],
+          ),
+        ),
+        fileName: 'calcrow_sheet.xlsx',
+        now: DateTime(2027, 1, 3),
+      );
+
+      expect(reparsed.xlsxSheetName, '2027');
+      expect(reparsed.rows, [
+        ['2027-01-03', '09:00:00', '17:00:00', '00:30:00', 'new year'],
+      ]);
+    });
+
+    test('XLSX yearly logbook opens the current year sheet when present', () {
+      final parsed = parseXlsx(
+        buildNamedWorkbookBytes({
+          '2026': [
+            ['Date', 'Notes'],
+            ['2026-12-28', 'old year'],
+          ],
+          '2027': [
+            ['Date', 'Notes'],
+            ['2027-01-03', 'current year'],
+          ],
+        }),
+        fileName: 'calcrow_sheet.xlsx',
+        now: DateTime(2027, 1, 3),
+      );
+
+      expect(parsed.xlsxSheetName, '2027');
+      expect(parsed.rows, [
+        ['2027-01-03', 'current year'],
+      ]);
+    });
+
     test('XLSX can be built from a fresh sheet draft', () {
       final workbook = excel_pkg.Excel.createExcel();
       final draft = SheetData(
@@ -342,6 +472,55 @@ void main() {
       ]);
     });
   });
+
+  group('ODS codec', () {
+    test('ODS can be built from a fresh sheet draft', () {
+      final draft = SheetData(
+        fileName: 'fresh.ods',
+        path: null,
+        format: SheetFileFormat.ods,
+        headers: const <String>['Date', 'Start', 'End', 'Notes'],
+        valueTypes: const <String>['date', 'time', 'time', 'text'],
+        readOnlyColumns: List<bool>.filled(4, false),
+        rows: const <List<String>>[],
+        xlsxSheetName: 'July',
+      );
+
+      final parsed = parseOds(OdsSheetCodec.buildBytes(draft));
+
+      expect(parsed.headers, ['Date', 'Start', 'End', 'Notes']);
+      expect(parsed.rows, isEmpty);
+      expect(parsed.xlsxSheetName, 'July');
+      expect(parsed.sourceBytes, isNotNull);
+    });
+
+    test('fresh ODS roundtrips the first saved row', () {
+      final draft = SheetData(
+        fileName: 'fresh.ods',
+        path: null,
+        format: SheetFileFormat.ods,
+        headers: const <String>['Date', 'Start', 'End', 'Notes'],
+        valueTypes: const <String>['date', 'time', 'time', 'text'],
+        readOnlyColumns: List<bool>.filled(4, false),
+        rows: const <List<String>>[],
+        xlsxSheetName: 'July',
+      );
+      final parsed = parseOds(OdsSheetCodec.buildBytes(draft));
+      final updated = copySheetData(
+        parsed,
+        rows: const <List<String>>[
+          <String>['2026-07-11', '09:00:00', '17:00:00', 'first row'],
+        ],
+      );
+
+      final reparsed = parseOds(OdsSheetCodec.buildBytes(updated));
+
+      expect(reparsed.headers, ['Date', 'Start', 'End', 'Notes']);
+      expect(reparsed.rows, [
+        ['2026-07-11', '09:00:00', '17:00:00', 'first row'],
+      ]);
+    });
+  });
 }
 
 Future<SheetData> parseCsv(String content) {
@@ -357,25 +536,36 @@ Future<SheetData> parseCsvBytes(Uint8List bytes) {
 }
 
 Uint8List buildWorkbookBytes(List<List<String>> rows) {
+  return buildNamedWorkbookBytes({'Sheet1': rows});
+}
+
+Uint8List buildNamedWorkbookBytes(Map<String, List<List<String>>> sheets) {
   final workbook = excel_pkg.Excel.createExcel();
-  final sheetName = workbook.getDefaultSheet() ?? 'Sheet1';
-  final sheet = workbook[sheetName];
-  for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-    for (
-      var columnIndex = 0;
-      columnIndex < rows[rowIndex].length;
-      columnIndex++
-    ) {
-      sheet
-          .cell(
-            excel_pkg.CellIndex.indexByColumnRow(
-              columnIndex: columnIndex,
-              rowIndex: rowIndex,
-            ),
-          )
-          .value = excel_pkg.TextCellValue(
-        rows[rowIndex][columnIndex],
-      );
+  final defaultSheetName = workbook.getDefaultSheet();
+  var firstSheet = true;
+  for (final entry in sheets.entries) {
+    final sheetName = entry.key;
+    if (firstSheet &&
+        defaultSheetName != null &&
+        defaultSheetName != sheetName) {
+      workbook.rename(defaultSheetName, sheetName);
+    }
+    firstSheet = false;
+    final sheet = workbook[sheetName];
+    for (var rowIndex = 0; rowIndex < entry.value.length; rowIndex++) {
+      final row = entry.value[rowIndex];
+      for (var columnIndex = 0; columnIndex < row.length; columnIndex++) {
+        sheet
+            .cell(
+              excel_pkg.CellIndex.indexByColumnRow(
+                columnIndex: columnIndex,
+                rowIndex: rowIndex,
+              ),
+            )
+            .value = excel_pkg.TextCellValue(
+          row[columnIndex],
+        );
+      }
     }
   }
 
@@ -384,10 +574,23 @@ Uint8List buildWorkbookBytes(List<List<String>> rows) {
   return Uint8List.fromList(encoded!);
 }
 
-SheetData parseXlsx(Uint8List bytes) {
+SheetData parseXlsx(
+  Uint8List bytes, {
+  String fileName = 'sample.xlsx',
+  DateTime? now,
+}) {
   return XlsxSheetCodec.parse(
     bytes: bytes,
-    fileName: 'sample.xlsx',
+    fileName: fileName,
     path: '/tmp/sample.xlsx',
+    now: now,
+  );
+}
+
+SheetData parseOds(Uint8List bytes) {
+  return OdsSheetCodec.parse(
+    bytes: bytes,
+    fileName: 'sample.ods',
+    path: '/tmp/sample.ods',
   );
 }

@@ -115,7 +115,7 @@ class _SheetPreviewTabState extends State<SheetPreviewTab> {
                     ),
                   ] else
                     Text(
-                      'No file selected yet.',
+                      'No file loaded yet.',
                       style: theme.textTheme.bodyLarge,
                     ),
                   const SizedBox(height: 12),
