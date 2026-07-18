@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:calcrow/l10n/app_localizations.dart';
 
 class MovingTileWidget extends StatelessWidget {
   const MovingTileWidget({
@@ -186,12 +187,12 @@ class _ColumnArrangeControls extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          tooltip: 'Move up',
+          tooltip: context.tr('Move up'),
           onPressed: canMoveUp ? onMoveUp : null,
           icon: const Icon(Icons.keyboard_arrow_up_rounded),
         ),
         IconButton(
-          tooltip: 'Move down',
+          tooltip: context.tr('Move down'),
           onPressed: canMoveDown ? onMoveDown : null,
           icon: const Icon(Icons.keyboard_arrow_down_rounded),
         ),

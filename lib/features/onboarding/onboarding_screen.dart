@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:calcrow/l10n/app_localizations.dart';
 
 import 'package:calcrow/features/auth/sign_in_sheet.dart';
 
@@ -45,7 +46,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (!mounted) return;
     if (done ?? false) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Signed in. Welcome to Calcrow.')),
+        const SnackBar(content: LText('Signed in. Welcome to Calcrow.')),
       );
     }
   }
@@ -106,14 +107,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         curve: Curves.easeOutCubic,
                       );
                     },
-                    child: const Text('Continue'),
+                    child: const LText('Continue'),
                   ),
                 if (isLast)
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: _openAuthSheet,
-                      child: const Text('Sign in or create account'),
+                      child: const LText('Sign in or create account'),
                     ),
                   ),
               ],
@@ -155,9 +156,9 @@ class _OnboardingCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              Text(page.title, style: theme.textTheme.headlineSmall),
+              LText(page.title, style: theme.textTheme.headlineSmall),
               const SizedBox(height: 10),
-              Text(page.body, style: theme.textTheme.bodyLarge),
+              LText(page.body, style: theme.textTheme.bodyLarge),
             ],
           ),
         ),

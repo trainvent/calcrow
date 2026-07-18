@@ -42,7 +42,7 @@ class _LogbookEditingModeBehavior extends _EditingModeBehavior {
     if (!selection.usedDateColumn) {
       ScaffoldMessenger.of(state.context).showSnackBar(
         const SnackBar(
-          content: Text('Date-based open-end needs a detected date column.'),
+          content: LText('Date-based open-end needs a detected date column.'),
         ),
       );
       return null;

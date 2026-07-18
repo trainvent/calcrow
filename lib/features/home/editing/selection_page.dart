@@ -4,6 +4,7 @@ import 'package:excel/excel.dart' as excel_pkg;
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:calcrow/l10n/app_localizations.dart';
 import 'package:saf_util/saf_util.dart';
 
 import 'package:calcrow/core/data/di/service_locator.dart';
@@ -203,9 +204,9 @@ class _SelectionPageState extends State<SelectionPage> {
         margin: const EdgeInsets.all(16),
         content: Row(
           children: [
-            Expanded(child: Text(message, maxLines: 2)),
+            Expanded(child: LText(message, maxLines: 2)),
             IconButton(
-              tooltip: 'Clear cached field types',
+              tooltip: context.tr('Clear cached field types'),
               icon: const Icon(Icons.cleaning_services_rounded),
               onPressed: () {
                 ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -226,20 +227,20 @@ class _SelectionPageState extends State<SelectionPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Clear cached field types?'),
-        content: Text(
+        title: const LText('Clear cached field types?'),
+        content: LText(
           'Clear the remembered field types for ${sheetData.fileName}? '
           'Calcrow will infer or ask for field types the next time you open it.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: const LText('Cancel'),
           ),
           FilledButton.icon(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             icon: const Icon(Icons.cleaning_services_rounded),
-            label: const Text('Clear cache'),
+            label: const LText('Clear cache'),
           ),
         ],
       ),
@@ -250,12 +251,12 @@ class _SelectionPageState extends State<SelectionPage> {
       await _clearCachedTypeHintsForSheet(sheetData, target);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cached field types cleared.')),
+        const SnackBar(content: LText('Cached field types cleared.')),
       );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not clear cached field types: $error')),
+        SnackBar(content: LText('Could not clear cached field types: $error')),
       );
     }
   }
@@ -304,23 +305,23 @@ class _SelectionPageState extends State<SelectionPage> {
       setState(() => _cacheSelectedLocalDocument(selection));
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Selected local document ${selection.fileName}.'),
+          content: LText('Selected local document ${selection.fileName}.'),
         ),
       );
     } on LocalDocumentException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      ).showSnackBar(SnackBar(content: LText(error.message)));
     } on UnsupportedError catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(error.message ?? '$error')));
+      ).showSnackBar(SnackBar(content: LText(error.message ?? '$error')));
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not select document: $error')),
+        SnackBar(content: LText('Could not select document: $error')),
       );
     } finally {
       if (mounted) setState(() => _isChoosingLocalDocument = false);
@@ -362,7 +363,7 @@ class _SelectionPageState extends State<SelectionPage> {
         setState(() => _rememberLocalDocumentForReopen = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
+            content: LText(
               'Could not reopen the remembered local file. Choose it again.',
             ),
           ),
@@ -416,17 +417,17 @@ class _SelectionPageState extends State<SelectionPage> {
         if (!mounted) return;
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.message)));
+        ).showSnackBar(SnackBar(content: LText(error.message)));
       } on UnsupportedError catch (error) {
         if (!mounted) return;
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.message ?? '$error')));
+        ).showSnackBar(SnackBar(content: LText(error.message ?? '$error')));
       } catch (error) {
         if (!mounted) return;
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Import failed: $error')));
+        ).showSnackBar(SnackBar(content: LText('Import failed: $error')));
       }
     });
   }
@@ -456,16 +457,16 @@ class _SelectionPageState extends State<SelectionPage> {
         if (!mounted) return;
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.message)));
+        ).showSnackBar(SnackBar(content: LText(error.message)));
       } on UnsupportedError catch (error) {
         if (!mounted) return;
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.message ?? '$error')));
+        ).showSnackBar(SnackBar(content: LText(error.message ?? '$error')));
       } catch (error) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not open cloud document: $error')),
+          SnackBar(content: LText('Could not open cloud document: $error')),
         );
       }
     });
@@ -494,7 +495,7 @@ class _SelectionPageState extends State<SelectionPage> {
       if (!opened && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
+            content: LText(
               'Could not open saved sync file. Choose another one.',
             ),
           ),
@@ -514,7 +515,7 @@ class _SelectionPageState extends State<SelectionPage> {
     if (session == null) {
       messenger.showSnackBar(
         const SnackBar(
-          content: Text('Connect a cloud provider in Settings first.'),
+          content: LText('Connect a cloud provider in Settings first.'),
         ),
       );
       return;
@@ -566,7 +567,7 @@ class _SelectionPageState extends State<SelectionPage> {
         if (!mounted) return;
         messenger.showSnackBar(
           SnackBar(
-            content: Text(
+            content: LText(
               '${ServiceLocator.cloudDocumentService.providerLabel(provider)} sync file cleared.',
             ),
           ),
@@ -582,7 +583,7 @@ class _SelectionPageState extends State<SelectionPage> {
       }
     } on CloudDocumentException catch (error) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+      messenger.showSnackBar(SnackBar(content: LText(error.message)));
     } finally {
       if (mounted) setState(() => _isChoosingCloudFile = false);
     }
@@ -714,7 +715,7 @@ class _SelectionPageState extends State<SelectionPage> {
       context: context,
       builder: (context) {
         return SimpleDialog(
-          title: const Text('Sheet separation'),
+          title: const LText('Sheet separation'),
           children: [
             SimpleDialogOption(
               onPressed: () =>
@@ -722,8 +723,8 @@ class _SelectionPageState extends State<SelectionPage> {
               child: ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.calendar_month_outlined),
-                title: const Text('Monthly'),
-                subtitle: Text(
+                title: const LText('Monthly'),
+                subtitle: LText(
                   'Uses a multi-sheet format such as XLSX. Starts with ${monthlySetup.xlsxSheetName}.',
                 ),
               ),
@@ -734,8 +735,8 @@ class _SelectionPageState extends State<SelectionPage> {
               child: ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.calendar_today_outlined),
-                title: const Text('Yearly'),
-                subtitle: Text(
+                title: const LText('Yearly'),
+                subtitle: LText(
                   'CSV saves one year. XLSX can keep separate year tabs. Starts with ${yearlySetup.xlsxSheetName}.',
                 ),
               ),
@@ -827,7 +828,7 @@ class _SelectionPageState extends State<SelectionPage> {
       setState(() => _documentSetupAction = _SetupAction.open);
       if (error is StateError && error.message == 'Save canceled.') {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Create document canceled.')),
+          const SnackBar(content: LText('Create document canceled.')),
         );
         return;
       }
@@ -835,13 +836,13 @@ class _SelectionPageState extends State<SelectionPage> {
           error.message == 'Could not acquire a writable SAF folder URI.') {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Could not acquire a writable SAF folder URI.'),
+            content: LText('Could not acquire a writable SAF folder URI.'),
           ),
         );
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not create local document: $error')),
+        SnackBar(content: LText('Could not create local document: $error')),
       );
     }
   }
@@ -894,11 +895,11 @@ class _SelectionPageState extends State<SelectionPage> {
         if (!mounted) return;
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.message)));
+        ).showSnackBar(SnackBar(content: LText(error.message)));
       } catch (error) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not create cloud document: $error')),
+          SnackBar(content: LText('Could not create cloud document: $error')),
         );
       }
     });
@@ -909,7 +910,7 @@ class _SelectionPageState extends State<SelectionPage> {
     if (session == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Connect a cloud provider in Settings first.'),
+          content: LText('Connect a cloud provider in Settings first.'),
         ),
       );
       return null;
@@ -935,7 +936,7 @@ class _SelectionPageState extends State<SelectionPage> {
       if (!mounted) return null;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      ).showSnackBar(SnackBar(content: LText(error.message)));
       return null;
     }
   }
@@ -945,7 +946,7 @@ class _SelectionPageState extends State<SelectionPage> {
     if (session == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Sign in to use recent opening configurations.'),
+          content: LText('Sign in to use recent opening configurations.'),
         ),
       );
       return;
@@ -959,7 +960,7 @@ class _SelectionPageState extends State<SelectionPage> {
     if (configs.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No recent opening configurations saved yet.'),
+          content: LText('No recent opening configurations saved yet.'),
         ),
       );
       return;
@@ -1087,7 +1088,7 @@ class _SelectionPageState extends State<SelectionPage> {
         final modes = EditorOpenMode.values;
 
         return AlertDialog(
-          title: const Text('Opening modes'),
+          title: const LText('Opening modes'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1097,7 +1098,7 @@ class _SelectionPageState extends State<SelectionPage> {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
+                        child: LText(
                           _documentOpenModeLabel(mode),
                           style: dialogTheme.textTheme.titleSmall,
                         ),
@@ -1111,9 +1112,9 @@ class _SelectionPageState extends State<SelectionPage> {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(_documentOpenModeDescription(mode)),
+                  LText(_documentOpenModeDescription(mode)),
                   const SizedBox(height: 4),
-                  Text(
+                  LText(
                     _documentOpenModeTableHint(mode),
                     style: dialogTheme.textTheme.bodySmall?.copyWith(
                       color: dialogTheme.colorScheme.onSurfaceVariant,
@@ -1127,7 +1128,7 @@ class _SelectionPageState extends State<SelectionPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Got it'),
+              child: const LText('Got it'),
             ),
           ],
         );
@@ -1144,7 +1145,7 @@ class _SelectionPageState extends State<SelectionPage> {
     });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text(
+        content: LText(
           'Remembered local file cleared. Pick a file again anytime.',
         ),
       ),
@@ -1157,13 +1158,13 @@ class _SelectionPageState extends State<SelectionPage> {
       if (!mounted) return;
       setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Remembered cloud sync file cleared.')),
+        const SnackBar(content: LText('Remembered cloud sync file cleared.')),
       );
     } on CloudDocumentException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      ).showSnackBar(SnackBar(content: LText(error.message)));
     }
   }
 
@@ -1194,7 +1195,7 @@ class _SelectionPageState extends State<SelectionPage> {
     final messenger = ScaffoldMessenger.of(context);
     if (!_isAndroidPlatform) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('SAF folder setup is Android-only.')),
+        const SnackBar(content: LText('SAF folder setup is Android-only.')),
       );
       return null;
     }
@@ -1319,7 +1320,7 @@ class _SelectionPageState extends State<SelectionPage> {
         ? <DropdownMenuItem<EditorOpenMode>>[
             DropdownMenuItem(
               value: EditorOpenMode.dateBasedOpenEnd,
-              child: Text(
+              child: LText(
                 _documentOpenModeLabel(EditorOpenMode.dateBasedOpenEnd),
               ),
             ),
@@ -1328,7 +1329,7 @@ class _SelectionPageState extends State<SelectionPage> {
               .map(
                 (mode) => DropdownMenuItem<EditorOpenMode>(
                   value: mode,
-                  child: Text(_documentOpenModeLabel(mode)),
+                  child: LText(_documentOpenModeLabel(mode)),
                 ),
               )
               .toList();
@@ -1347,7 +1348,7 @@ class _SelectionPageState extends State<SelectionPage> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text(
+                      child: LText(
                         'Selector',
                         style: theme.textTheme.titleMedium,
                       ),
@@ -1370,13 +1371,13 @@ class _SelectionPageState extends State<SelectionPage> {
                     Row(
                       children: [
                         Expanded(
-                          child: Text(
+                          child: LText(
                             'Opening Mode',
                             style: theme.textTheme.titleMedium,
                           ),
                         ),
                         IconButton(
-                          tooltip: 'Explain opening modes',
+                          tooltip: context.tr('Explain opening modes'),
                           onPressed: () => _showOpenModeInfo(setupOpenMode),
                           icon: const Icon(Icons.info_outline_rounded),
                         ),
@@ -1385,8 +1386,8 @@ class _SelectionPageState extends State<SelectionPage> {
                     const SizedBox(height: 8),
                     DropdownButtonFormField<EditorOpenMode>(
                       initialValue: setupOpenMode,
-                      decoration: const InputDecoration(
-                        labelText: 'How to open the sheet',
+                      decoration: InputDecoration(
+                        labelText: context.tr('How to open the sheet'),
                       ),
                       items: openModeItems,
                       onChanged: (value) {
@@ -1465,7 +1466,7 @@ class _SelectionPageState extends State<SelectionPage> {
                           onPressed: _setRecentOpeningConfiguration,
                           child: const FittedBox(
                             fit: BoxFit.scaleDown,
-                            child: Text('Set Recent'),
+                            child: LText('Set Recent'),
                           ),
                         ),
                       ),
@@ -1488,7 +1489,7 @@ class _SelectionPageState extends State<SelectionPage> {
                               : _createDocument,
                           child: FittedBox(
                             fit: BoxFit.scaleDown,
-                            child: Text(
+                            child: LText(
                               _documentSetupAction == _SetupAction.open
                                   ? 'Open'
                                   : 'Create',
@@ -1540,7 +1541,7 @@ class _RecentConfigDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Set recent'),
+      title: const LText('Set recent'),
       content: SizedBox(
         width: double.maxFinite,
         child: ListView(
@@ -1550,7 +1551,7 @@ class _RecentConfigDialog extends StatelessWidget {
                 (config) => ListTile(
                   leading: Icon(_iconForSource(config.source)),
                   title: Text(config.fileName),
-                  subtitle: Text(
+                  subtitle: LText(
                     '${_sourceLabel(config.source)} - ${_openModeLabel(config.openMode)}',
                   ),
                   onTap: () => Navigator.of(context).pop(config),
@@ -1562,7 +1563,7 @@ class _RecentConfigDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const LText('Cancel'),
         ),
       ],
     );
@@ -1660,7 +1661,10 @@ class _ChooseDocumentCard extends StatelessWidget {
                       color: selected ? theme.colorScheme.primary : null,
                     ),
                     const SizedBox(width: 8),
-                    Text('Choose Document', style: theme.textTheme.titleMedium),
+                    LText(
+                      'Choose Document',
+                      style: theme.textTheme.titleMedium,
+                    ),
                   ],
                 ),
               ),
@@ -1682,7 +1686,7 @@ class _ChooseDocumentCard extends StatelessWidget {
                   clearAction: hasRememberedLocalFile
                       ? _InlineSetupAction(
                           icon: Icons.clear,
-                          tooltip: 'Clear remembered local file',
+                          tooltip: context.tr('Clear remembered local file'),
                           onTap: onClearLocal,
                         )
                       : null,
@@ -1703,7 +1707,7 @@ class _ChooseDocumentCard extends StatelessWidget {
                 clearAction: hasSelectedCloudFile
                     ? _InlineSetupAction(
                         icon: Icons.clear,
-                        tooltip: 'Clear remembered cloud file',
+                        tooltip: context.tr('Clear remembered cloud file'),
                         onTap: onClearCloud,
                       )
                     : null,
@@ -1753,7 +1757,7 @@ class _CreateDocumentCard extends StatelessWidget {
                     color: selected ? theme.colorScheme.primary : null,
                   ),
                   const SizedBox(width: 8),
-                  Text('Create Document', style: theme.textTheme.titleMedium),
+                  LText('Create Document', style: theme.textTheme.titleMedium),
                 ],
               ),
               const SizedBox(height: 8),
@@ -1797,11 +1801,11 @@ class _DocumentSourceTile extends StatelessWidget {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Icon(selected ? Icons.check_circle_rounded : icon),
-      title: Text(title),
+      title: LText(title),
       subtitle: Row(
         children: [
           if (clearAction != null) ...[clearAction!, const SizedBox(width: 8)],
-          Expanded(child: Text(subtitle)),
+          Expanded(child: LText(subtitle)),
         ],
       ),
       trailing:
@@ -1823,21 +1827,21 @@ class _CreateDestinationDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Save New Document'),
+      title: const LText('Save New Document'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (showLocal)
             ListTile(
               leading: const Icon(Icons.folder_open_rounded),
-              title: const Text('Local'),
-              subtitle: const Text('Choose a save location on this device.'),
+              title: const LText('Local'),
+              subtitle: const LText('Choose a save location on this device.'),
               onTap: () => Navigator.of(context).pop(_CreateDestination.local),
             ),
           ListTile(
             leading: const Icon(Icons.cloud_outlined),
-            title: const Text('Cloud'),
-            subtitle: const Text('Choose a Google Drive or WebDAV folder.'),
+            title: const LText('Cloud'),
+            subtitle: const LText('Choose a Google Drive or WebDAV folder.'),
             onTap: () => Navigator.of(context).pop(_CreateDestination.cloud),
           ),
         ],
@@ -1845,7 +1849,7 @@ class _CreateDestinationDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const LText('Cancel'),
         ),
       ],
     );
@@ -1858,14 +1862,14 @@ class _LocalCreateTargetDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Choose SAF Folder'),
+      title: const LText('Choose SAF Folder'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           ListTile(
             leading: const Icon(Icons.folder_open_rounded),
-            title: const Text('Use current SAF folder'),
-            subtitle: const Text(
+            title: const LText('Use current SAF folder'),
+            subtitle: const LText(
               'Save into the folder configured in Settings.',
             ),
             onTap: () =>
@@ -1873,8 +1877,8 @@ class _LocalCreateTargetDialog extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.create_new_folder_outlined),
-            title: const Text('Pick SAF folder'),
-            subtitle: const Text('Choose a writable Android folder.'),
+            title: const LText('Pick SAF folder'),
+            subtitle: const LText('Choose a writable Android folder.'),
             onTap: () =>
                 Navigator.of(context).pop(_LocalCreateTarget.pickSafFolder),
           ),
@@ -1883,7 +1887,7 @@ class _LocalCreateTargetDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const LText('Cancel'),
         ),
       ],
     );
@@ -2005,7 +2009,7 @@ class _CloudFolderPickerDialogState extends State<_CloudFolderPickerDialog> {
   Widget build(BuildContext context) {
     final folderLabel = _folderStack.map((node) => node.name).join(' / ');
     return AlertDialog(
-      title: const Text('Choose Folder'),
+      title: const LText('Choose Folder'),
       content: SizedBox(
         width: double.maxFinite,
         child: Column(
@@ -2016,10 +2020,10 @@ class _CloudFolderPickerDialogState extends State<_CloudFolderPickerDialog> {
                 IconButton(
                   onPressed: _folderStack.length > 1 ? _goUp : null,
                   icon: const Icon(Icons.arrow_upward_rounded),
-                  tooltip: 'Up one folder',
+                  tooltip: context.tr('Up one folder'),
                 ),
                 Expanded(
-                  child: Text(
+                  child: LText(
                     folderLabel,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -2034,9 +2038,9 @@ class _CloudFolderPickerDialogState extends State<_CloudFolderPickerDialog> {
                 child: CircularProgressIndicator(),
               )
             else if (_errorText != null)
-              SelectableText(_errorText!)
+              SelectableText(context.tr(_errorText!))
             else if (_entries.isEmpty)
-              const Text('This folder has no subfolders.'),
+              const LText('This folder has no subfolders.'),
             if (!_isLoading && _errorText == null && _entries.isNotEmpty)
               Flexible(
                 child: ListView(
@@ -2046,7 +2050,7 @@ class _CloudFolderPickerDialogState extends State<_CloudFolderPickerDialog> {
                         (entry) => ListTile(
                           leading: const Icon(Icons.folder_outlined),
                           title: Text(entry.name),
-                          subtitle: const Text('Folder'),
+                          subtitle: const LText('Folder'),
                           onTap: () => _openFolder(entry),
                         ),
                       )
@@ -2059,13 +2063,13 @@ class _CloudFolderPickerDialogState extends State<_CloudFolderPickerDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const LText('Cancel'),
         ),
         FilledButton(
           onPressed: _isLoading || _errorText != null
               ? null
               : _useCurrentFolder,
-          child: const Text('Use This Folder'),
+          child: const LText('Use This Folder'),
         ),
       ],
     );
@@ -2146,7 +2150,7 @@ class _CloudFilePickerDialogState extends State<_CloudFilePickerDialog> {
   Widget build(BuildContext context) {
     final folderLabel = _folderStack.map((node) => node.name).join(' / ');
     return AlertDialog(
-      title: const Text('Choose sync file'),
+      title: const LText('Choose sync file'),
       content: SelectionArea(
         child: SizedBox(
           width: double.maxFinite,
@@ -2158,10 +2162,10 @@ class _CloudFilePickerDialogState extends State<_CloudFilePickerDialog> {
                   IconButton(
                     onPressed: _folderStack.length > 1 ? _goUp : null,
                     icon: const Icon(Icons.arrow_upward_rounded),
-                    tooltip: 'Up one folder',
+                    tooltip: context.tr('Up one folder'),
                   ),
                   Expanded(
-                    child: Text(
+                    child: LText(
                       folderLabel,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -2176,9 +2180,9 @@ class _CloudFilePickerDialogState extends State<_CloudFilePickerDialog> {
                   child: CircularProgressIndicator(),
                 )
               else if (_errorText != null)
-                SelectableText(_errorText!)
+                SelectableText(context.tr(_errorText!))
               else if (_entries.isEmpty)
-                const Text(
+                const LText(
                   'This folder has no supported CSV, XLSX, or ODS files yet. Open another folder or create a new sync file here.',
                 )
               else
@@ -2196,7 +2200,7 @@ class _CloudFilePickerDialogState extends State<_CloudFilePickerDialog> {
                                   : Icons.insert_drive_file_outlined,
                             ),
                             title: Text(entry.name),
-                            subtitle: Text(
+                            subtitle: LText(
                               entry.isFolder
                                   ? 'Folder'
                                   : _mimeLabel(entry.mimeType),
@@ -2225,17 +2229,17 @@ class _CloudFilePickerDialogState extends State<_CloudFilePickerDialog> {
         TextButton(
           onPressed: () =>
               Navigator.of(context).pop(const _CloudFileSelection.clear()),
-          child: const Text('Clear'),
+          child: const LText('Clear'),
         ),
         TextButton(
           onPressed: () => Navigator.of(
             context,
           ).pop(_CloudFileSelection.createNew(folderId: _currentFolderId)),
-          child: const Text('Create new'),
+          child: const LText('Create new'),
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const LText('Cancel'),
         ),
       ],
     );

@@ -30,7 +30,7 @@ class _DiaryEditingModeBehavior extends _EditingModeBehavior {
     if (!selection.usedDateColumn || !selection.foundMatchingDateRow) {
       ScaffoldMessenger.of(state.context).showSnackBar(
         SnackBar(
-          content: Text(
+          content: LText(
             'Date-based opening is blocked because ${_EditingPageBaseState._formatDate(DateTime.now())} was not found in the detected date column.',
           ),
         ),

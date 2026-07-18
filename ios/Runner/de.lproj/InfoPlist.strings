@@ -1,0 +1,2 @@
+"NSCameraUsageDescription" = "Der Kamerazugriff wird zum Scannen von WebDAV-Passkey-QR-Codes verwendet.";
+"NSPhotoLibraryUsageDescription" = "Calcrow greift nur auf die Fotomediathek zu, wenn du Dateien über die iOS-Dateiauswahl auswählst, damit die ausgewählten Dokumente in der App geöffnet werden können.";

@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:calcrow/l10n/app_localizations.dart';
 import 'package:flutter/services.dart';
 
 import 'package:calcrow/app/presentation/web_link_opener_stub.dart'
@@ -301,7 +302,7 @@ class _SignInSheetState extends State<SignInSheet> {
       await _startVerificationFlow(session: session, issueNewCode: true);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Verification code reissued.')),
+        const SnackBar(content: LText('Verification code reissued.')),
       );
     } on FirebaseException catch (error, stackTrace) {
       _reportError('Resend code failed', error, stackTrace);
@@ -334,7 +335,7 @@ class _SignInSheetState extends State<SignInSheet> {
       await ServiceLocator.authService.sendPasswordResetCode(email: email);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Password reset code sent to $email.')),
+        SnackBar(content: LText('Password reset code sent to $email.')),
       );
       setState(() {
         _step = _AuthStep.resetPasswordConfirm;
@@ -400,7 +401,9 @@ class _SignInSheetState extends State<SignInSheet> {
       TextInput.finishAutofillContext(shouldSave: true);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password updated. You can sign in now.')),
+        const SnackBar(
+          content: LText('Password updated. You can sign in now.'),
+        ),
       );
       setState(() {
         _step = _AuthStep.signIn;
@@ -437,9 +440,9 @@ class _SignInSheetState extends State<SignInSheet> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(_titleForStep, style: theme.textTheme.headlineSmall),
+                LText(_titleForStep, style: theme.textTheme.headlineSmall),
                 const SizedBox(height: 8),
-                Text(_subtitleForStep, style: theme.textTheme.bodyMedium),
+                LText(_subtitleForStep, style: theme.textTheme.bodyMedium),
                 const SizedBox(height: 18),
                 if (_step != _AuthStep.verifyEmail) ...[
                   TextField(
@@ -449,7 +452,7 @@ class _SignInSheetState extends State<SignInSheet> {
                       AutofillHints.username,
                       AutofillHints.email,
                     ],
-                    decoration: const InputDecoration(labelText: 'Email'),
+                    decoration: InputDecoration(labelText: context.tr('Email')),
                   ),
                   if (_step != _AuthStep.forgotPassword &&
                       _step != _AuthStep.resetPasswordConfirm) ...[
@@ -460,7 +463,9 @@ class _SignInSheetState extends State<SignInSheet> {
                       autofillHints: _step == _AuthStep.register
                           ? const [AutofillHints.newPassword]
                           : const [AutofillHints.password],
-                      decoration: const InputDecoration(labelText: 'Password'),
+                      decoration: InputDecoration(
+                        labelText: context.tr('Password'),
+                      ),
                     ),
                   ],
                 ],
@@ -470,8 +475,8 @@ class _SignInSheetState extends State<SignInSheet> {
                     controller: _confirmPasswordController,
                     obscureText: true,
                     autofillHints: const [AutofillHints.newPassword],
-                    decoration: const InputDecoration(
-                      labelText: 'Confirm password',
+                    decoration: InputDecoration(
+                      labelText: context.tr('Confirm password'),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -497,14 +502,14 @@ class _SignInSheetState extends State<SignInSheet> {
                     keyboardType: TextInputType.number,
                     maxLength: 6,
                     decoration: InputDecoration(
-                      labelText: '6-digit code',
+                      labelText: context.tr('6-digit code'),
                       hintText: _pendingEmail == null
                           ? null
-                          : 'Sent to $_pendingEmail',
+                          : context.tr('Sent to $_pendingEmail'),
                     ),
                   ),
                   if (kDebugMode && _debugCode != null)
-                    Text(
+                    LText(
                       'Debug code: $_debugCode',
                       style: theme.textTheme.bodySmall,
                     ),
@@ -516,8 +521,10 @@ class _SignInSheetState extends State<SignInSheet> {
                     keyboardType: TextInputType.number,
                     maxLength: 6,
                     decoration: InputDecoration(
-                      labelText: '6-digit code',
-                      hintText: 'Sent to ${_emailController.text.trim()}',
+                      labelText: context.tr('6-digit code'),
+                      hintText: context.tr(
+                        'Sent to ${_emailController.text.trim()}',
+                      ),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -525,8 +532,8 @@ class _SignInSheetState extends State<SignInSheet> {
                     controller: _resetPasswordController,
                     obscureText: true,
                     autofillHints: const [AutofillHints.newPassword],
-                    decoration: const InputDecoration(
-                      labelText: 'New password',
+                    decoration: InputDecoration(
+                      labelText: context.tr('New password'),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -534,14 +541,14 @@ class _SignInSheetState extends State<SignInSheet> {
                     controller: _resetConfirmPasswordController,
                     obscureText: true,
                     autofillHints: const [AutofillHints.newPassword],
-                    decoration: const InputDecoration(
-                      labelText: 'Confirm new password',
+                    decoration: InputDecoration(
+                      labelText: context.tr('Confirm new password'),
                     ),
                   ),
                 ],
                 if (_errorText != null) ...[
                   const SizedBox(height: 10),
-                  Text(
+                  LText(
                     _errorText!,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.error,
@@ -562,7 +569,7 @@ class _SignInSheetState extends State<SignInSheet> {
                             _AuthStep.resetPasswordConfirm =>
                               _confirmPasswordReset,
                           },
-                    child: Text(_primaryButtonLabel),
+                    child: LText(_primaryButtonLabel),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -576,7 +583,7 @@ class _SignInSheetState extends State<SignInSheet> {
                             _debugCode = null;
                             _codeController.clear();
                           }),
-                    child: const Text('Create account'),
+                    child: const LText('Create account'),
                   ),
                 if (_step == _AuthStep.signIn)
                   TextButton(
@@ -590,7 +597,7 @@ class _SignInSheetState extends State<SignInSheet> {
                             _resetPasswordController.clear();
                             _resetConfirmPasswordController.clear();
                           }),
-                    child: const Text('Forgot password?'),
+                    child: const LText('Forgot password?'),
                   ),
                 if (_step == _AuthStep.register)
                   TextButton(
@@ -603,17 +610,17 @@ class _SignInSheetState extends State<SignInSheet> {
                             _codeController.clear();
                             _acceptedLegalTerms = false;
                           }),
-                    child: const Text('I already have an account'),
+                    child: const LText('I already have an account'),
                   ),
                 if (_step == _AuthStep.verifyEmail)
                   TextButton(
                     onPressed: _isLoading ? null : _resendCode,
-                    child: const Text('Resend code'),
+                    child: const LText('Resend code'),
                   ),
                 if (_step == _AuthStep.resetPasswordConfirm)
                   TextButton(
                     onPressed: _isLoading ? null : _sendPasswordResetCode,
-                    child: const Text('Resend code'),
+                    child: const LText('Resend code'),
                   ),
                 if (_step == _AuthStep.forgotPassword ||
                     _step == _AuthStep.resetPasswordConfirm)
@@ -628,7 +635,7 @@ class _SignInSheetState extends State<SignInSheet> {
                             _resetPasswordController.clear();
                             _resetConfirmPasswordController.clear();
                           }),
-                    child: const Text('Back to sign in'),
+                    child: const LText('Back to sign in'),
                   ),
               ],
             ),
@@ -734,13 +741,7 @@ class _SignInSheetState extends State<SignInSheet> {
       case 'too-many-requests':
         return 'Too many attempts. Try again later.';
       default:
-        final message = error.message?.trim();
-        if (message == null ||
-            message.isEmpty ||
-            message.toLowerCase() == 'error') {
-          return 'Authentication failed (${error.code}).';
-        }
-        return '$message (${error.code})';
+        return 'Authentication failed (${error.code}).';
     }
   }
 
@@ -753,13 +754,7 @@ class _SignInSheetState extends State<SignInSheet> {
       case 'network-request-failed':
         return 'Network error. Check connection and try again.';
       default:
-        final message = error.message?.trim();
-        if (message == null ||
-            message.isEmpty ||
-            message.toLowerCase() == 'error') {
-          return 'Request failed (${error.code}).';
-        }
-        return '$message (${error.code})';
+        return 'Request failed (${error.code}).';
     }
   }
 
@@ -819,7 +814,7 @@ class _LegalAgreementControl extends StatelessWidget {
               controlAffinity: ListTileControlAffinity.leading,
               contentPadding: EdgeInsets.zero,
               dense: true,
-              title: const Text(
+              title: const LText(
                 'I agree to the Terms of Use, Privacy Policy, and Ads Privacy Policy.',
               ),
             ),
@@ -831,16 +826,16 @@ class _LegalAgreementControl extends StatelessWidget {
                 children: [
                   TextButton(
                     onPressed: () => openExternalUrl(IConst.termsOfUseUrl),
-                    child: const Text('Terms of Use'),
+                    child: const LText('Terms of Use'),
                   ),
                   TextButton(
                     onPressed: () => openExternalUrl(IConst.privacyPolicyUrl),
-                    child: const Text('Privacy Policy'),
+                    child: const LText('Privacy Policy'),
                   ),
                   TextButton(
                     onPressed: () =>
                         openExternalUrl(IConst.privacyPolicyAdsUrl),
-                    child: const Text('Ads Privacy'),
+                    child: const LText('Ads Privacy'),
                   ),
                 ],
               ),

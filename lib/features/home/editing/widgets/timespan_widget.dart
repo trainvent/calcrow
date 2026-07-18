@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:calcrow/l10n/app_localizations.dart';
 
 class TimespanWidget extends StatefulWidget {
   const TimespanWidget({
@@ -62,9 +63,9 @@ class _TimespanWidgetState extends State<TimespanWidget> {
             child: TextField(
               controller: _hoursController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Hours',
-                hintText: '0',
+              decoration: InputDecoration(
+                labelText: context.tr('Hours'),
+                hintText: context.tr('0'),
                 suffixText: 'h',
               ),
               onChanged: (_) => _handleDurationChanged(),
@@ -76,9 +77,9 @@ class _TimespanWidgetState extends State<TimespanWidget> {
             child: TextField(
               controller: _minutesController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Minutes',
-                hintText: '0',
+              decoration: InputDecoration(
+                labelText: context.tr('Minutes'),
+                hintText: context.tr('0'),
                 suffixText: 'min',
               ),
               onChanged: (_) => _handleDurationChanged(),

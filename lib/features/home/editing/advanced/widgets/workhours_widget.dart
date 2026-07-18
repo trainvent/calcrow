@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:calcrow/l10n/app_localizations.dart';
 
 class WorkhoursWidget extends StatelessWidget {
   const WorkhoursWidget({
@@ -25,14 +26,14 @@ class WorkhoursWidget extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Workhours', style: theme.textTheme.titleMedium),
+            LText('Workhours', style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: startController,
-                    decoration: const InputDecoration(labelText: 'Start'),
+                    decoration: InputDecoration(labelText: context.tr('Start')),
                     onChanged: (_) => onChanged(),
                   ),
                 ),
@@ -40,7 +41,7 @@ class WorkhoursWidget extends StatelessWidget {
                 Expanded(
                   child: TextField(
                     controller: endController,
-                    decoration: const InputDecoration(labelText: 'End'),
+                    decoration: InputDecoration(labelText: context.tr('End')),
                     onChanged: (_) => onChanged(),
                   ),
                 ),
@@ -52,7 +53,9 @@ class WorkhoursWidget extends StatelessWidget {
                 Expanded(
                   child: TextField(
                     controller: breakController,
-                    decoration: const InputDecoration(labelText: 'Pause (min)'),
+                    decoration: InputDecoration(
+                      labelText: context.tr('Pause (min)'),
+                    ),
                     onChanged: (_) => onChanged(),
                   ),
                 ),
@@ -61,7 +64,7 @@ class WorkhoursWidget extends StatelessWidget {
                   child: TextField(
                     readOnly: true,
                     decoration: InputDecoration(
-                      labelText: 'Total',
+                      labelText: context.tr('Total'),
                       hintText: totalHours,
                     ),
                   ),

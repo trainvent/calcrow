@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:calcrow/l10n/app_localizations.dart';
 
 import 'package:calcrow/core/data/services/webdav_service.dart';
 
@@ -14,10 +15,10 @@ void showWebDavErrorSnackBar({
 
   messenger.showSnackBar(
     SnackBar(
-      content: Text(error.message),
+      content: LText(error.message),
       action: canShowDetails
           ? SnackBarAction(
-              label: 'Details',
+              label: context.tr('Details'),
               onPressed: () => _showWebDavErrorDetailsDialog(
                 context: context,
                 error: error,
@@ -44,24 +45,24 @@ Future<void> _showWebDavErrorDetailsDialog({
   await showDialog<void>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      title: const Text('WebDAV error details'),
+      title: const LText('WebDAV error details'),
       content: SingleChildScrollView(
         child: SelectableText(
-          'Summary: ${error.message}\n'
-          'Kind: $kindLabel\n'
-          'Origin: $origin\n'
-          'Request host: ${requestHost == null || requestHost.isEmpty ? 'unknown' : requestHost}\n'
-          'Request path: $requestPath\n'
-          'Request method: $requestMethod\n'
-          'Required CORS methods: PROPFIND, GET, PUT, OPTIONS\n'
-          'Required CORS headers: Authorization, Depth, Content-Type\n'
-          'Technical details: $technicalDetails',
+          '${context.tr('Summary')}: ${context.tr(error.message)}\n'
+          '${context.tr('Kind')}: ${context.tr(kindLabel)}\n'
+          '${context.tr('Origin')}: $origin\n'
+          '${context.tr('Request host')}: ${requestHost == null || requestHost.isEmpty ? context.tr('unknown') : requestHost}\n'
+          '${context.tr('Request path')}: $requestPath\n'
+          '${context.tr('Request method')}: $requestMethod\n'
+          '${context.tr('Required CORS methods')}: PROPFIND, GET, PUT, OPTIONS\n'
+          '${context.tr('Required CORS headers')}: Authorization, Depth, Content-Type\n'
+          '${context.tr('Technical details')}: $technicalDetails',
         ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('Close'),
+          child: const LText('Close'),
         ),
       ],
     ),

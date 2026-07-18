@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:calcrow/l10n/app_localizations.dart';
 
 class RowDefinementWidget extends StatelessWidget {
   const RowDefinementWidget({super.key, required this.dateController});
@@ -14,12 +15,12 @@ class RowDefinementWidget extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Row-Definement', style: theme.textTheme.titleMedium),
+            LText('Row-Definement', style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             TextField(
               controller: dateController,
               readOnly: true,
-              decoration: const InputDecoration(labelText: 'Date'),
+              decoration: InputDecoration(labelText: context.tr('Date')),
             ),
           ],
         ),

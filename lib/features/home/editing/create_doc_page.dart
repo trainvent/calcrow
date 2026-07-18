@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:calcrow/l10n/app_localizations.dart';
 import 'package:calcrow/app/widgets/templates_dialogue.dart';
 import 'package:calcrow/core/guessers/field_type_guesser.dart';
 import 'package:calcrow/core/sheet_type_logic/field_type.dart';
@@ -300,7 +301,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
       context: context,
       builder: (context) {
         return SimpleDialog(
-          title: const Text('Select currency'),
+          title: const LText('Select currency'),
           children: FieldTypeGuesser.currencyCodes
               .map(
                 (currencyCode) => SimpleDialogOption(
@@ -356,7 +357,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
     final column = _columns[index];
     final headerField = TextField(
       controller: column.headerController,
-      decoration: InputDecoration(labelText: 'Column ${index + 1}'),
+      decoration: InputDecoration(labelText: context.tr('Column ${index + 1}')),
       onChanged: (_) {
         if (_errorText != null) {
           setState(() => _errorText = null);
@@ -365,14 +366,14 @@ class _CreateDocPageState extends State<CreateDocPage> {
     );
     final typeField = TypeDropdownList<FieldType>(
       initialValue: column.type,
-      labelText: 'Type',
+      labelText: context.tr('Type'),
       options: FieldType.createOptions,
       labelFor: (type) => _typeLabelForColumn(type, column),
       iconFor: TypeDropdownList.iconForFieldType,
       onChanged: (value) => _handleColumnTypeChanged(column, value),
     );
     final removeButton = IconButton(
-      tooltip: 'Remove column',
+      tooltip: context.tr('Remove column'),
       onPressed: _columns.length <= 1 ? null : () => _removeColumn(index),
       icon: const Icon(Icons.remove_circle_outline_rounded),
     );
@@ -415,14 +416,14 @@ class _CreateDocPageState extends State<CreateDocPage> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create Document'),
+        title: const LText('Create Document'),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: TextButton.icon(
               onPressed: _openTemplates,
               icon: const Icon(Icons.dashboard_customize_outlined),
-              label: const Text('Templates'),
+              label: const LText('Templates'),
             ),
           ),
         ],
@@ -440,7 +441,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
                     TextField(
                       controller: _fileNameController,
                       decoration: InputDecoration(
-                        labelText: 'File name',
+                        labelText: context.tr('File name'),
                         suffixText: _fileNameSuffixForFormat(
                           _fileNameController.text,
                           _format,
@@ -454,17 +455,17 @@ class _CreateDocPageState extends State<CreateDocPage> {
                         if (widget.initialSetup?.allowsCsv != false)
                           const ButtonSegment<SheetFileFormat>(
                             value: SheetFileFormat.csv,
-                            label: Text('CSV'),
+                            label: LText('CSV'),
                             icon: Icon(Icons.table_rows_outlined),
                           ),
                         const ButtonSegment<SheetFileFormat>(
                           value: SheetFileFormat.xlsx,
-                          label: Text('XLSX'),
+                          label: LText('XLSX'),
                           icon: Icon(Icons.grid_on_rounded),
                         ),
                         const ButtonSegment<SheetFileFormat>(
                           value: SheetFileFormat.ods,
-                          label: Text('ODS'),
+                          label: LText('ODS'),
                           icon: Icon(Icons.grid_view_rounded),
                         ),
                       ],
@@ -479,15 +480,17 @@ class _CreateDocPageState extends State<CreateDocPage> {
                     Row(
                       children: [
                         Expanded(
-                          child: Text(
+                          child: LText(
                             'Fields',
                             style: theme.textTheme.titleMedium,
                           ),
                         ),
                         IconButton(
-                          tooltip: _isArranging
-                              ? 'Finish arranging'
-                              : 'Arrange fields',
+                          tooltip: context.tr(
+                            _isArranging
+                                ? 'Finish arranging'
+                                : 'Arrange fields',
+                          ),
                           onPressed: _columns.length <= 1
                               ? null
                               : () => setState(
@@ -502,7 +505,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
                         TextButton.icon(
                           onPressed: _addColumn,
                           icon: const Icon(Icons.add_rounded),
-                          label: const Text('Add field'),
+                          label: const LText('Add field'),
                         ),
                       ],
                     ),
@@ -513,7 +516,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
                     ),
                     if (_errorText != null) ...[
                       const SizedBox(height: 8),
-                      Text(
+                      LText(
                         _errorText!,
                         style: TextStyle(color: theme.colorScheme.error),
                       ),
@@ -533,14 +536,14 @@ class _CreateDocPageState extends State<CreateDocPage> {
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
+                  child: const LText('Cancel'),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton(
                   onPressed: _submit,
-                  child: const Text('Continue'),
+                  child: const LText('Continue'),
                 ),
               ),
             ],

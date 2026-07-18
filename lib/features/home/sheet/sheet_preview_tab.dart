@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:calcrow/l10n/app_localizations.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import 'sheet_preview_store.dart';
@@ -82,7 +83,7 @@ class _SheetPreviewTabState extends State<SheetPreviewTab> {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
+                        child: LText(
                           rowPickRequest?.title ?? 'Sheet Preview',
                           style: theme.textTheme.headlineLarge,
                         ),
@@ -91,13 +92,13 @@ class _SheetPreviewTabState extends State<SheetPreviewTab> {
                         TextButton.icon(
                           onPressed: SheetPreviewStore.cancelRowPick,
                           icon: const Icon(Icons.close_rounded),
-                          label: const Text('Cancel'),
+                          label: const LText('Cancel'),
                         ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   if (rowPickRequest != null) ...[
-                    Text(
+                    LText(
                       rowPickRequest.subtitle,
                       style: theme.textTheme.bodyLarge,
                     ),
@@ -109,12 +110,12 @@ class _SheetPreviewTabState extends State<SheetPreviewTab> {
                       style: theme.textTheme.titleMedium,
                     ),
                     const SizedBox(height: 2),
-                    Text(
+                    LText(
                       '${preview.rowCount} rows • ${previewHeaders.length} columns',
                       style: theme.textTheme.bodyMedium,
                     ),
                   ] else
-                    Text(
+                    LText(
                       'No file loaded yet.',
                       style: theme.textTheme.bodyLarge,
                     ),
@@ -217,7 +218,7 @@ class _SheetPreviewTabState extends State<SheetPreviewTab> {
               previewHeaders.length,
               (index) => DataCell(
                 index == 0
-                    ? Text(rowPickRequest!.createNewEntryLabel)
+                    ? LText(rowPickRequest!.createNewEntryLabel)
                     : const SizedBox.shrink(),
               ),
             ),
@@ -264,7 +265,7 @@ class _NewEntryIndicator extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Semantics(
-      label: 'Create new entry',
+      label: context.tr('Create new entry'),
       button: true,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
@@ -300,7 +301,7 @@ class _RowPickIndicator extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Semantics(
-      label: 'Pick row',
+      label: context.tr('Pick row'),
       button: true,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),

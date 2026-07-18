@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:calcrow/l10n/app_localizations.dart';
 
 import 'package:calcrow/core/guessers/field_type_guesser.dart';
 import 'package:calcrow/core/sheet_type_logic/field_type.dart';
@@ -107,7 +108,7 @@ class _TypeDropdownItem extends StatelessWidget {
       children: [
         Icon(icon, size: 20, color: colorScheme.primary),
         const SizedBox(width: 10),
-        Text(label),
+        LText(label),
       ],
     );
   }

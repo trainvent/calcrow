@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:calcrow/l10n/app_localizations.dart';
 
 class WellbeingWidget extends StatelessWidget {
   const WellbeingWidget({
@@ -23,7 +24,7 @@ class WellbeingWidget extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Wellbeing', style: theme.textTheme.titleMedium),
+            LText('Wellbeing', style: theme.textTheme.titleMedium),
             const SizedBox(height: 6),
             _LabeledSlider(
               icon: Icons.sentiment_neutral_rounded,
@@ -63,11 +64,11 @@ class _LabeledSlider extends StatelessWidget {
       children: [
         Icon(icon, size: 18),
         const SizedBox(width: 8),
-        SizedBox(width: 56, child: Text(label)),
+        SizedBox(width: 56, child: LText(label)),
         Expanded(
           child: Slider(value: value, onChanged: onChanged),
         ),
-        SizedBox(width: 44, child: Text('${(value * 100).round()}%')),
+        SizedBox(width: 44, child: LText('${(value * 100).round()}%')),
       ],
     );
   }

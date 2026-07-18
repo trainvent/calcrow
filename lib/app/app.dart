@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:calcrow/l10n/app_localizations.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../core/data/di/service_locator.dart';
 import '../core/data/services/auth_service.dart';
@@ -63,6 +65,8 @@ class _CalcrowAppState extends State<CalcrowApp> {
     if (_showMarketingLanding()) {
       return MaterialApp(
         title: 'Calcrow',
+        localizationsDelegates: _localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
         home: _WebSelectionHost(child: const MarketingLandingPage()),
@@ -72,6 +76,8 @@ class _CalcrowAppState extends State<CalcrowApp> {
     if (!ServiceLocator.isSetup) {
       return MaterialApp(
         title: 'Calcrow',
+        localizationsDelegates: _localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
         home: _AdsConsentHost(
@@ -92,6 +98,8 @@ class _CalcrowAppState extends State<CalcrowApp> {
   Widget _buildMaterialApp({required Widget child}) {
     return MaterialApp(
       title: 'Calcrow',
+      localizationsDelegates: _localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       home: _AdsConsentHost(
@@ -105,6 +113,13 @@ class _CalcrowAppState extends State<CalcrowApp> {
       ),
     );
   }
+
+  static const _localizationsDelegates = <LocalizationsDelegate<dynamic>>[
+    AppLocalizations.delegate,
+    GlobalMaterialLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+  ];
 
   bool _showMarketingLanding() {
     if (!kIsWeb) return false;
@@ -306,20 +321,20 @@ class _DiagnosticsConsentSheetState extends State<_DiagnosticsConsentSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            LText(
               'Help Improve Calcrow',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
-            const Text(
+            const LText(
               'Choose whether Calcrow may collect anonymous usage analytics and technical crash or performance diagnostics. You can change both later in Settings.',
             ),
             const SizedBox(height: 16),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               secondary: const Icon(Icons.insights_outlined),
-              title: const Text('Usage analytics'),
-              subtitle: const Text(
+              title: const LText('Usage analytics'),
+              subtitle: const LText(
                 'Anonymous usage patterns to understand which screens and flows are used.',
               ),
               value: _usageAnalyticsEnabled,
@@ -334,8 +349,8 @@ class _DiagnosticsConsentSheetState extends State<_DiagnosticsConsentSheet> {
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               secondary: const Icon(Icons.health_and_safety_outlined),
-              title: const Text('Crash reports and performance'),
-              subtitle: const Text(
+              title: const LText('Crash reports and performance'),
+              subtitle: const LText(
                 'Crash logs, non-fatal errors, and performance monitoring to diagnose failures and slow paths.',
               ),
               value: _crashReportsEnabled,
@@ -360,7 +375,7 @@ class _DiagnosticsConsentSheetState extends State<_DiagnosticsConsentSheet> {
                         ),
                       );
                     },
-                    child: const Text('Keep Off'),
+                    child: const LText('Keep Off'),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -374,7 +389,7 @@ class _DiagnosticsConsentSheetState extends State<_DiagnosticsConsentSheet> {
                         ),
                       );
                     },
-                    child: const Text('Save Choices'),
+                    child: const LText('Save Choices'),
                   ),
                 ),
               ],

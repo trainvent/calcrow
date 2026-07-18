@@ -1,0 +1,2 @@
+"NSCameraUsageDescription" = "Camera access is used to scan WebDAV passkey QR codes.";
+"NSPhotoLibraryUsageDescription" = "Calcrow uses photo library access only when you choose files through an iOS import picker, so selected documents can be opened in the app.";

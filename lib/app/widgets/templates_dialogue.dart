@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:calcrow/l10n/app_localizations.dart';
 import 'package:calcrow/core/guessers/field_type_guesser.dart';
 import 'package:calcrow/core/sheet_type_logic/field_type.dart';
 
@@ -142,20 +143,20 @@ class TemplatesDialogue extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Text(
+                    child: LText(
                       'Templates',
                       style: theme.textTheme.headlineSmall,
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Close templates',
+                    tooltip: context.tr('Close templates'),
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded),
                   ),
                 ],
               ),
               const SizedBox(height: 6),
-              Text(
+              LText(
                 'Every template starts with Date as the first column. Pick a starting point, then rename, add, remove, and reorder the remaining fields before creating the document.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
@@ -202,7 +203,7 @@ class _TemplateOptionTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: Text(
+                    child: LText(
                       template.name,
                       style: theme.textTheme.titleMedium,
                     ),
@@ -211,7 +212,7 @@ class _TemplateOptionTile extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 4),
-              Text(
+              LText(
                 template.description,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
@@ -247,7 +248,7 @@ class _TemplateFieldPreview extends StatelessWidget {
         children: [
           for (var index = 0; index < previewColumns.length; index++) ...[
             Chip(
-              label: Text(previewColumns[index].header),
+              label: LText(previewColumns[index].header),
               avatar: Icon(_iconForType(previewColumns[index].type), size: 18),
               visualDensity: VisualDensity.compact,
             ),

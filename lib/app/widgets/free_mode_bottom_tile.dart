@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:calcrow/l10n/app_localizations.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import 'package:calcrow/core/constants/internal_constants.dart';
@@ -343,13 +344,13 @@ class _PromoUpgradeTile extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  const LText(
                     'Free plan',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
                   ),
-                  Text(
+                  LText(
                     debugDiagnosticMessage ??
                         'Upgrade to remove this slot and unlock Pro.',
                     maxLines: 1,
@@ -370,7 +371,7 @@ class _PromoUpgradeTile extends StatelessWidget {
               onPressed: isUpgradeEnabled
                   ? (onUpgradeTap ?? _defaultUpgradeTap(context))
                   : null,
-              child: const Text('Upgrade'),
+              child: const LText('Upgrade'),
             ),
           ],
         ),
@@ -393,11 +394,11 @@ class _PromoUpgradeTile extends StatelessWidget {
         );
         await PurchasesService.instance.presentPaywall();
       } on PurchasesServiceException catch (error) {
-        messenger.showSnackBar(SnackBar(content: Text(error.message)));
+        messenger.showSnackBar(SnackBar(content: LText(error.message)));
       } catch (error) {
         messenger.showSnackBar(
           SnackBar(
-            content: Text('Could not open subscription options: $error'),
+            content: LText('Could not open subscription options: $error'),
           ),
         );
       }

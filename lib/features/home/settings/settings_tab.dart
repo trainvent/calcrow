@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:calcrow/l10n/app_localizations.dart';
 import 'package:http/http.dart' as http;
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:saf_util/saf_util.dart';
@@ -56,17 +57,17 @@ class _SettingsTabState extends State<SettingsTab> {
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
-            Text('Settings', style: theme.textTheme.headlineLarge),
+            LText('Settings', style: theme.textTheme.headlineLarge),
             const SizedBox(height: 12),
             if (session == null)
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.person_outline_rounded),
-                  title: const Text('Signed out'),
-                  subtitle: const Text('Sign in to use Calcrow.'),
+                  title: const LText('Signed out'),
+                  subtitle: const LText('Sign in to use Calcrow.'),
                   trailing: TextButton(
                     onPressed: () => _openSignInSheet(context),
-                    child: const Text('Sign in'),
+                    child: const LText('Sign in'),
                   ),
                 ),
               ),
@@ -77,8 +78,8 @@ class _SettingsTabState extends State<SettingsTab> {
                   children: [
                     ListTile(
                       leading: const Icon(Icons.folder_special_outlined),
-                      title: const Text('Manage SAF folder'),
-                      subtitle: Text(_safFolderSubtitle(null)),
+                      title: const LText('Manage SAF folder'),
+                      subtitle: LText(_safFolderSubtitle(null)),
                     ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -87,13 +88,13 @@ class _SettingsTabState extends State<SettingsTab> {
                           onPressed: _isUpdatingSafFolder
                               ? null
                               : () => _setSafFolder(),
-                          child: const Text('Set'),
+                          child: const LText('Set'),
                         ),
                         clearButton: TextButton(
                           onPressed: _isUpdatingSafFolder
                               ? null
                               : () => _clearSafFolder(),
-                          child: const Text('Clear'),
+                          child: const LText('Clear'),
                         ),
                       ),
                     ),
@@ -108,7 +109,7 @@ class _SettingsTabState extends State<SettingsTab> {
                       ),
                     const Padding(
                       padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      child: Text(
+                      child: LText(
                         'Sign in to save this Android folder setting to your account.',
                       ),
                     ),
@@ -138,11 +139,11 @@ class _SettingsTabState extends State<SettingsTab> {
                             const Divider(height: 1),
                             ListTile(
                               leading: const Icon(Icons.cloud_sync_outlined),
-                              title: const Text('Active cloud provider'),
+                              title: const LText('Active cloud provider'),
                               trailing: DropdownButtonHideUnderline(
                                 child: DropdownButton<CloudSyncProvider>(
                                   value: _selectedCloudProvider(settings),
-                                  hint: const Text('Choose'),
+                                  hint: const LText('Choose'),
                                   onChanged:
                                       _availableCloudProviders(settings).isEmpty
                                       ? null
@@ -158,7 +159,7 @@ class _SettingsTabState extends State<SettingsTab> {
                                         (provider) =>
                                             DropdownMenuItem<CloudSyncProvider>(
                                               value: provider,
-                                              child: Text(
+                                              child: LText(
                                                 _cloudProviderLabel(provider),
                                               ),
                                             ),
@@ -170,8 +171,8 @@ class _SettingsTabState extends State<SettingsTab> {
                             const Divider(height: 1),
                             ListTile(
                               leading: const Icon(Icons.link_rounded),
-                              title: const Text('Connect Google Drive'),
-                              subtitle: Text(_googleDriveSubtitle(settings)),
+                              title: const LText('Connect Google Drive'),
+                              subtitle: LText(_googleDriveSubtitle(settings)),
                               trailing: _isLinkingGoogle
                                   ? const SizedBox(
                                       width: 18,
@@ -187,7 +188,7 @@ class _SettingsTabState extends State<SettingsTab> {
                                           settings,
                                         ),
                                       ),
-                                      child: Text(
+                                      child: LText(
                                         _isGoogleDriveLinked(settings)
                                             ? 'Unlink'
                                             : 'Link',
@@ -197,8 +198,8 @@ class _SettingsTabState extends State<SettingsTab> {
                             const Divider(height: 1),
                             ListTile(
                               leading: const Icon(Icons.storage_rounded),
-                              title: const Text('Link WebDAV / Nextcloud'),
-                              subtitle: Text(_webDavSubtitle(settings)),
+                              title: const LText('Link WebDAV / Nextcloud'),
+                              subtitle: LText(_webDavSubtitle(settings)),
                               trailing: _isLinkingWebDav
                                   ? const SizedBox(
                                       width: 18,
@@ -212,7 +213,7 @@ class _SettingsTabState extends State<SettingsTab> {
                                         session: session,
                                         settings: settings,
                                       ),
-                                      child: Text(
+                                      child: LText(
                                         _webDavEntries(settings).isEmpty
                                             ? 'Link'
                                             : 'Manage',
@@ -231,8 +232,8 @@ class _SettingsTabState extends State<SettingsTab> {
                                 leading: const Icon(
                                   Icons.folder_special_outlined,
                                 ),
-                                title: const Text('Manage SAF folder'),
-                                subtitle: Text(_safFolderSubtitle(settings)),
+                                title: const LText('Manage SAF folder'),
+                                subtitle: LText(_safFolderSubtitle(settings)),
                               ),
                               Padding(
                                 padding: const EdgeInsets.fromLTRB(
@@ -246,14 +247,14 @@ class _SettingsTabState extends State<SettingsTab> {
                                     onPressed: _isUpdatingSafFolder
                                         ? null
                                         : () => _setSafFolder(session: session),
-                                    child: const Text('Set'),
+                                    child: const LText('Set'),
                                   ),
                                   clearButton: TextButton(
                                     onPressed: _isUpdatingSafFolder
                                         ? null
                                         : () =>
                                               _clearSafFolder(session: session),
-                                    child: const Text('Clear'),
+                                    child: const LText('Clear'),
                                   ),
                                 ),
                               ),
@@ -285,20 +286,18 @@ class _SettingsTabState extends State<SettingsTab> {
                             const Divider(height: 1),
                             ListTile(
                               leading: const Icon(Icons.alternate_email),
-                              title: const Text('Signed in as'),
-                              subtitle: Text(
-                                session.email.trim().isEmpty
-                                    ? 'No email available.'
-                                    : session.email,
-                              ),
+                              title: const LText('Signed in as'),
+                              subtitle: session.email.trim().isEmpty
+                                  ? const LText('No email available.')
+                                  : Text(session.email),
                             ),
                             const Divider(height: 1),
                             ListTile(
                               leading: const Icon(
                                 Icons.workspace_premium_outlined,
                               ),
-                              title: const Text('Entitlement'),
-                              subtitle: Text(
+                              title: const LText('Entitlement'),
+                              subtitle: LText(
                                 settings?.isPro == true
                                     ? 'Pro enabled.'
                                     : 'Open subscription and purchase options.',
@@ -322,8 +321,8 @@ class _SettingsTabState extends State<SettingsTab> {
                             const Divider(height: 1),
                             ListTile(
                               leading: const Icon(Icons.privacy_tip_outlined),
-                              title: const Text('Data collection'),
-                              subtitle: const Text(
+                              title: const LText('Data collection'),
+                              subtitle: const LText(
                                 'Manage separate consent for usage analytics and crash or performance diagnostics.',
                               ),
                               trailing: const Icon(Icons.chevron_right_rounded),
@@ -332,8 +331,8 @@ class _SettingsTabState extends State<SettingsTab> {
                             const Divider(height: 1),
                             ListTile(
                               leading: const Icon(Icons.password_rounded),
-                              title: const Text('Change password'),
-                              subtitle: const Text(
+                              title: const LText('Change password'),
+                              subtitle: const LText(
                                 'Send a reset code to your signed-in email.',
                               ),
                               trailing: _isChangingPassword
@@ -353,14 +352,14 @@ class _SettingsTabState extends State<SettingsTab> {
                             const Divider(height: 1),
                             ListTile(
                               leading: const Icon(Icons.logout_rounded),
-                              title: const Text('Sign out'),
+                              title: const LText('Sign out'),
                               onTap: () => ServiceLocator.authService.signOut(),
                             ),
                             const Divider(height: 1),
                             ListTile(
                               leading: const Icon(Icons.delete_outline_rounded),
-                              title: const Text('Delete account'),
-                              subtitle: const Text(
+                              title: const LText('Delete account'),
+                              subtitle: const LText(
                                 'Open the permanent account deletion flow.',
                               ),
                               onTap: _openDeleteAccountPage,
@@ -377,8 +376,8 @@ class _SettingsTabState extends State<SettingsTab> {
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.privacy_tip_outlined),
-                  title: const Text('Data collection'),
-                  subtitle: const Text(
+                  title: const LText('Data collection'),
+                  subtitle: const LText(
                     'Manage separate consent for usage analytics and crash or performance diagnostics.',
                   ),
                   trailing: const Icon(Icons.chevron_right_rounded),
@@ -488,9 +487,9 @@ class _SettingsTabState extends State<SettingsTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: theme.textTheme.titleMedium),
+          LText(title, style: theme.textTheme.titleMedium),
           const SizedBox(height: 4),
-          Text(subtitle, style: theme.textTheme.bodyMedium),
+          LText(subtitle, style: theme.textTheme.bodyMedium),
         ],
       ),
     );
@@ -514,7 +513,7 @@ class _SettingsTabState extends State<SettingsTab> {
     final messenger = ScaffoldMessenger.of(context);
     if (normalizedEmail.isEmpty) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('No account email is available.')),
+        const SnackBar(content: LText('No account email is available.')),
       );
       return;
     }
@@ -527,13 +526,13 @@ class _SettingsTabState extends State<SettingsTab> {
     } on AuthServiceException catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text(_readablePasswordResetError(error))),
+        SnackBar(content: LText(_readablePasswordResetError(error))),
       );
       return;
     } catch (_) {
       if (!mounted) return;
       messenger.showSnackBar(
-        const SnackBar(content: Text('Could not send password reset code.')),
+        const SnackBar(content: LText('Could not send password reset code.')),
       );
       return;
     } finally {
@@ -544,7 +543,7 @@ class _SettingsTabState extends State<SettingsTab> {
 
     if (!mounted) return;
     messenger.showSnackBar(
-      SnackBar(content: Text('Password reset code sent to $normalizedEmail.')),
+      SnackBar(content: LText('Password reset code sent to $normalizedEmail.')),
     );
     await _showChangePasswordDialog(normalizedEmail);
   }
@@ -561,7 +560,7 @@ class _SettingsTabState extends State<SettingsTab> {
     if (didUpdate == true && mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Password updated.')));
+      ).showSnackBar(const SnackBar(content: LText('Password updated.')));
     }
   }
 
@@ -591,13 +590,7 @@ class _SettingsTabState extends State<SettingsTab> {
       case 'too-many-requests':
         return 'Too many attempts. Try again later.';
       default:
-        final message = error.message?.trim();
-        if (message == null ||
-            message.isEmpty ||
-            message.toLowerCase() == 'error') {
-          return 'Authentication failed (${error.code}).';
-        }
-        return '$message (${error.code})';
+        return 'Authentication failed (${error.code}).';
     }
   }
 
@@ -617,7 +610,7 @@ class _SettingsTabState extends State<SettingsTab> {
         await ServiceLocator.userRepository.clearGoogleDriveLinked(uid: uid);
         if (!mounted) return;
         messenger.showSnackBar(
-          const SnackBar(content: Text('Google account unlinked.')),
+          const SnackBar(content: LText('Google account unlinked.')),
         );
       } else {
         late final GoogleDriveLinkResult linkResult;
@@ -648,7 +641,7 @@ class _SettingsTabState extends State<SettingsTab> {
         if (!mounted) return;
         messenger.showSnackBar(
           SnackBar(
-            content: Text(
+            content: LText(
               'Google Drive connected: ${linkResult.email}. Choose a Drive file next.',
             ),
           ),
@@ -659,18 +652,18 @@ class _SettingsTabState extends State<SettingsTab> {
         '$_googleDriveLogTag settings link auth error: ${error.message}',
       );
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+      messenger.showSnackBar(SnackBar(content: LText(error.message)));
     } on GoogleDriveSyncException catch (error) {
       debugPrint(
         '$_googleDriveLogTag settings link sync error: ${error.message}',
       );
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+      messenger.showSnackBar(SnackBar(content: LText(error.message)));
     } catch (error) {
       debugPrint('$_googleDriveLogTag settings link unexpected error: $error');
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('Google link failed: $error')),
+        SnackBar(content: LText('Google link failed: $error')),
       );
     } finally {
       if (mounted) {
@@ -708,7 +701,7 @@ class _SettingsTabState extends State<SettingsTab> {
           await _unlinkAllWebDavEntries(session: session);
           if (!mounted) return;
           messenger.showSnackBar(
-            const SnackBar(content: Text('All WebDAV entries unlinked.')),
+            const SnackBar(content: LText('All WebDAV entries unlinked.')),
           );
           break;
       }
@@ -718,7 +711,7 @@ class _SettingsTabState extends State<SettingsTab> {
     } catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('WebDAV update failed: $error')),
+        SnackBar(content: LText('WebDAV update failed: $error')),
       );
     } finally {
       if (mounted) {
@@ -764,7 +757,7 @@ class _SettingsTabState extends State<SettingsTab> {
     if (!mounted) return;
     messenger.showSnackBar(
       SnackBar(
-        content: Text(
+        content: LText(
           'WebDAV entry added: ${linkedAccount.username} on ${linkedAccount.hostLabel}.',
         ),
       ),
@@ -790,7 +783,7 @@ class _SettingsTabState extends State<SettingsTab> {
     }
     if (settings?.webDavActiveEntryId == selected.id) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('This WebDAV entry is already active.')),
+        const SnackBar(content: LText('This WebDAV entry is already active.')),
       );
       return;
     }
@@ -836,7 +829,7 @@ class _SettingsTabState extends State<SettingsTab> {
     final host = Uri.tryParse(selected.serverUrl)?.host;
     messenger.showSnackBar(
       SnackBar(
-        content: Text(
+        content: LText(
           host == null || host.isEmpty
               ? 'WebDAV entry active: ${selected.username}.'
               : 'WebDAV entry active: ${selected.username} on $host.',
@@ -875,7 +868,7 @@ class _SettingsTabState extends State<SettingsTab> {
     }
     if (!mounted) return;
     messenger.showSnackBar(
-      SnackBar(content: Text('WebDAV entry removed: ${selected.username}.')),
+      SnackBar(content: LText('WebDAV entry removed: ${selected.username}.')),
     );
   }
 
@@ -910,7 +903,7 @@ class _SettingsTabState extends State<SettingsTab> {
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
-          content: Text(
+          content: LText(
             '${_cloudProviderLabel(provider)} is now the active cloud provider.',
           ),
         ),
@@ -918,7 +911,7 @@ class _SettingsTabState extends State<SettingsTab> {
     } catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('Could not update cloud provider: $error')),
+        SnackBar(content: LText('Could not update cloud provider: $error')),
       );
     }
   }
@@ -930,13 +923,13 @@ class _SettingsTabState extends State<SettingsTab> {
       context: context,
       builder: (dialogContext) {
         return SimpleDialog(
-          title: const Text('Manage WebDAV entries'),
+          title: const LText('Manage WebDAV entries'),
           children: [
             SimpleDialogOption(
               onPressed: () {
                 Navigator.of(dialogContext).pop(_WebDavManagementAction.add);
               },
-              child: const Text('Add WebDAV entry'),
+              child: const LText('Add WebDAV entry'),
             ),
             if (hasEntries)
               SimpleDialogOption(
@@ -945,7 +938,7 @@ class _SettingsTabState extends State<SettingsTab> {
                     dialogContext,
                   ).pop(_WebDavManagementAction.select);
                 },
-                child: const Text('Select active entry'),
+                child: const LText('Select active entry'),
               ),
             if (hasEntries)
               SimpleDialogOption(
@@ -954,7 +947,7 @@ class _SettingsTabState extends State<SettingsTab> {
                     dialogContext,
                   ).pop(_WebDavManagementAction.remove);
                 },
-                child: const Text('Remove one entry'),
+                child: const LText('Remove one entry'),
               ),
             if (hasEntries)
               SimpleDialogOption(
@@ -963,7 +956,7 @@ class _SettingsTabState extends State<SettingsTab> {
                     dialogContext,
                   ).pop(_WebDavManagementAction.unlinkAll);
                 },
-                child: const Text('Unlink all entries'),
+                child: const LText('Unlink all entries'),
               ),
           ],
         );
@@ -983,7 +976,7 @@ class _SettingsTabState extends State<SettingsTab> {
           activeEntryId ?? (entries.isEmpty ? null : entries.first.id),
         );
         return AlertDialog(
-          title: Text(title),
+          title: LText(title),
           content: SizedBox(
             width: 420,
             child: ValueListenableBuilder<String?>(
@@ -1017,7 +1010,7 @@ class _SettingsTabState extends State<SettingsTab> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
+              child: const LText('Cancel'),
             ),
             FilledButton(
               onPressed: () {
@@ -1027,7 +1020,7 @@ class _SettingsTabState extends State<SettingsTab> {
                 if (selectedEntry.isEmpty) return;
                 Navigator.of(dialogContext).pop(selectedEntry.first);
               },
-              child: const Text('Confirm'),
+              child: const LText('Confirm'),
             ),
           ],
         );
@@ -1048,12 +1041,12 @@ class _SettingsTabState extends State<SettingsTab> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('Enter app password'),
+              title: const LText('Enter app password'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Password required for $username'),
+                  LText('Password required for $username'),
                   const SizedBox(height: 4),
                   Text(serverUrl, style: Theme.of(context).textTheme.bodySmall),
                   const SizedBox(height: 12),
@@ -1061,8 +1054,10 @@ class _SettingsTabState extends State<SettingsTab> {
                     controller: controller,
                     obscureText: obscurePassword,
                     decoration: InputDecoration(
-                      labelText: 'App password',
-                      errorText: errorText.isEmpty ? null : errorText,
+                      labelText: context.tr('App password'),
+                      errorText: errorText.isEmpty
+                          ? null
+                          : context.tr(errorText),
                       suffixIcon: IconButton(
                         onPressed: () {
                           setDialogState(() {
@@ -1092,7 +1087,7 @@ class _SettingsTabState extends State<SettingsTab> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancel'),
+                  child: const LText('Cancel'),
                 ),
                 FilledButton(
                   onPressed: () {
@@ -1105,7 +1100,7 @@ class _SettingsTabState extends State<SettingsTab> {
                     }
                     Navigator.of(dialogContext).pop(password);
                   },
-                  child: const Text('Confirm'),
+                  child: const LText('Confirm'),
                 ),
               ],
             );
@@ -1219,7 +1214,7 @@ class _SettingsTabState extends State<SettingsTab> {
             }
 
             return AlertDialog(
-              title: const Text('Link WebDAV / Nextcloud'),
+              title: const LText('Link WebDAV / Nextcloud'),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1227,8 +1222,8 @@ class _SettingsTabState extends State<SettingsTab> {
                     TextFormField(
                       controller: serverUrlController,
                       keyboardType: TextInputType.url,
-                      decoration: const InputDecoration(
-                        labelText: 'WebDAV URL',
+                      decoration: InputDecoration(
+                        labelText: context.tr('WebDAV URL'),
                         hintText:
                             'https://cloud.example.com/remote.php/dav/files/you/',
                       ),
@@ -1237,7 +1232,9 @@ class _SettingsTabState extends State<SettingsTab> {
                     TextFormField(
                       controller: usernameController,
                       keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(labelText: 'Username'),
+                      decoration: InputDecoration(
+                        labelText: context.tr('Username'),
+                      ),
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -1250,7 +1247,7 @@ class _SettingsTabState extends State<SettingsTab> {
                         }
                       },
                       decoration: InputDecoration(
-                        labelText: 'App password',
+                        labelText: context.tr('App password'),
                         suffixIcon: IconButton(
                           onPressed: () {
                             setDialogState(() {
@@ -1267,7 +1264,7 @@ class _SettingsTabState extends State<SettingsTab> {
                     ),
                     if (kIsWeb) ...[
                       const SizedBox(height: 12),
-                      const Text(
+                      const LText(
                         'If phone works but web fails, this is usually CORS/TLS on the WebDAV server.',
                       ),
                     ],
@@ -1277,12 +1274,12 @@ class _SettingsTabState extends State<SettingsTab> {
                       child: OutlinedButton.icon(
                         onPressed: scanQrCode,
                         icon: const Icon(Icons.qr_code_scanner_outlined),
-                        label: const Text('Scan passkey QR'),
+                        label: const LText('Scan passkey QR'),
                       ),
                     ),
                     if (errorText != null) ...[
                       const SizedBox(height: 12),
-                      Text(
+                      LText(
                         errorText!,
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.error,
@@ -1295,7 +1292,7 @@ class _SettingsTabState extends State<SettingsTab> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancel'),
+                  child: const LText('Cancel'),
                 ),
                 FilledButton(
                   onPressed: () {
@@ -1304,7 +1301,7 @@ class _SettingsTabState extends State<SettingsTab> {
                       Navigator.of(dialogContext).pop(result);
                     }
                   },
-                  child: const Text('Link'),
+                  child: const LText('Link'),
                 ),
               ],
             );
@@ -1337,11 +1334,11 @@ class _SettingsTabState extends State<SettingsTab> {
       await PurchasesService.instance.refreshCustomerInfo();
     } on PurchasesServiceException catch (error) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+      messenger.showSnackBar(SnackBar(content: LText(error.message)));
     } catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('Could not open subscription options: $error')),
+        SnackBar(content: LText('Could not open subscription options: $error')),
       );
     } finally {
       if (mounted) {
@@ -1366,7 +1363,7 @@ class _SettingsTabState extends State<SettingsTab> {
       if (!mounted || opened) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
+          content: LText(
             'Open ${IConst.deleteAccountUrl} in a browser to continue.',
           ),
         ),
@@ -1378,7 +1375,7 @@ class _SettingsTabState extends State<SettingsTab> {
     final messenger = ScaffoldMessenger.of(context);
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('SAF folder setup is Android-only.')),
+        const SnackBar(content: LText('SAF folder setup is Android-only.')),
       );
       return;
     }
@@ -1392,7 +1389,7 @@ class _SettingsTabState extends State<SettingsTab> {
       if (treeUri == null || treeUri.isEmpty) {
         if (!mounted) return;
         messenger.showSnackBar(
-          const SnackBar(content: Text('SAF folder selection canceled.')),
+          const SnackBar(content: LText('SAF folder selection canceled.')),
         );
         return;
       }
@@ -1401,7 +1398,7 @@ class _SettingsTabState extends State<SettingsTab> {
         if (!mounted) return;
         messenger.showSnackBar(
           const SnackBar(
-            content: Text('Could not acquire a writable SAF folder URI.'),
+            content: LText('Could not acquire a writable SAF folder URI.'),
           ),
         );
         return;
@@ -1422,7 +1419,7 @@ class _SettingsTabState extends State<SettingsTab> {
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
-          content: Text(
+          content: LText(
             syncedToSettings
                 ? (session == null
                       ? 'SAF folder saved for this app session.'
@@ -1434,7 +1431,7 @@ class _SettingsTabState extends State<SettingsTab> {
     } catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('Could not set SAF folder: $error')),
+        SnackBar(content: LText('Could not set SAF folder: $error')),
       );
     } finally {
       if (mounted) {
@@ -1453,12 +1450,12 @@ class _SettingsTabState extends State<SettingsTab> {
       SheetPersistenceService.setRuntimeSafTreeUri(null);
       if (!mounted) return;
       messenger.showSnackBar(
-        const SnackBar(content: Text('SAF folder cleared.')),
+        const SnackBar(content: LText('SAF folder cleared.')),
       );
     } catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('Could not clear SAF folder: $error')),
+        SnackBar(content: LText('Could not clear SAF folder: $error')),
       );
     } finally {
       if (mounted) {
@@ -1569,20 +1566,22 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Change password'),
+      title: const LText('Change password'),
       content: SingleChildScrollView(
         child: AutofillGroup(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Enter the code sent to ${widget.email}.'),
+              LText('Enter the code sent to ${widget.email}.'),
               const SizedBox(height: 12),
               TextField(
                 controller: _codeController,
                 enabled: !_isSubmitting,
                 keyboardType: TextInputType.number,
                 textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(labelText: 'Reset code'),
+                decoration: InputDecoration(
+                  labelText: context.tr('Reset code'),
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -1591,7 +1590,9 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
                 obscureText: true,
                 autofillHints: const [AutofillHints.newPassword],
                 textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(labelText: 'New password'),
+                decoration: InputDecoration(
+                  labelText: context.tr('New password'),
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -1601,13 +1602,13 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
                 autofillHints: const [AutofillHints.newPassword],
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _submit(),
-                decoration: const InputDecoration(
-                  labelText: 'Confirm new password',
+                decoration: InputDecoration(
+                  labelText: context.tr('Confirm new password'),
                 ),
               ),
               if (_errorText != null) ...[
                 const SizedBox(height: 12),
-                Text(
+                LText(
                   _errorText!,
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
@@ -1619,7 +1620,7 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
       actions: [
         TextButton(
           onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const LText('Cancel'),
         ),
         FilledButton(
           onPressed: _isSubmitting ? null : _submit,
@@ -1629,7 +1630,7 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Update'),
+              : const LText('Update'),
         ),
       ],
     );
@@ -2074,7 +2075,7 @@ class _WebDavQrScannerPageState extends State<_WebDavQrScannerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Scan passkey QR')),
+      appBar: AppBar(title: const LText('Scan passkey QR')),
       body: MobileScanner(controller: _controller, onDetect: _onDetect),
     );
   }

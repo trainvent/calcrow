@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:calcrow/l10n/app_localizations.dart';
 
 import 'package:calcrow/core/data/di/service_locator.dart';
 import 'package:calcrow/core/data/services/purchases_service.dart';
@@ -87,12 +88,12 @@ class _HomeShellState extends State<HomeShell> {
                           locked: isPickingRow,
                           child: const _SingleRowNavIcon(selected: true),
                         ),
-                        label: 'Row',
+                        label: context.tr('Row'),
                       ),
-                      const NavigationDestination(
-                        icon: Icon(Icons.grid_on_outlined),
-                        selectedIcon: Icon(Icons.grid_on),
-                        label: 'Sheet',
+                      NavigationDestination(
+                        icon: const Icon(Icons.grid_on_outlined),
+                        selectedIcon: const Icon(Icons.grid_on),
+                        label: context.tr('Sheet'),
                       ),
                       NavigationDestination(
                         icon: _PickLockedNavIcon(
@@ -103,7 +104,7 @@ class _HomeShellState extends State<HomeShell> {
                           locked: isPickingRow,
                           child: const Icon(Icons.settings),
                         ),
-                        label: 'Settings',
+                        label: context.tr('Settings'),
                       ),
                     ],
                   );

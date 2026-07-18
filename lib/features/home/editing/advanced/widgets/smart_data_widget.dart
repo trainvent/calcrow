@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:calcrow/l10n/app_localizations.dart';
 
 class SmartDataWidget extends StatelessWidget {
   const SmartDataWidget({super.key, required this.energyLevel});
@@ -14,7 +15,7 @@ class SmartDataWidget extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Smart Data', style: theme.textTheme.titleMedium),
+            LText('Smart Data', style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -50,7 +51,7 @@ class _InfoTag extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFEAE0D6)),
       ),
-      child: Text('$label: $value'),
+      child: LText('$label: $value'),
     );
   }
 }

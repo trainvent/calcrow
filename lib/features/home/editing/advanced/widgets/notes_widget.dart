@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:calcrow/l10n/app_localizations.dart';
 
 class NotesWidget extends StatelessWidget {
   const NotesWidget({
@@ -19,14 +20,14 @@ class NotesWidget extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Notes', style: theme.textTheme.titleMedium),
+            LText('Notes', style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             TextField(
               controller: notesController,
               minLines: 4,
               maxLines: 6,
-              decoration: const InputDecoration(
-                hintText: 'Focus, blockers, wins...',
+              decoration: InputDecoration(
+                hintText: context.tr('Focus, blockers, wins...'),
               ),
             ),
             const SizedBox(height: 8),
@@ -35,7 +36,7 @@ class NotesWidget extends StatelessWidget {
               child: TextButton.icon(
                 onPressed: onClearNote,
                 icon: const Icon(Icons.clear_rounded),
-                label: const Text('Clear note'),
+                label: const LText('Clear note'),
               ),
             ),
           ],
