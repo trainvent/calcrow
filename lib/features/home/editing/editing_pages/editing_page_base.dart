@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:calcrow/l10n/app_localizations.dart';
 import 'package:flutter/services.dart';
-import 'package:calcrow/app/widgets/triangle_loading_indicator.dart';
 import 'package:calcrow/core/data/di/service_locator.dart';
 import 'package:calcrow/core/guessers/field_type_guesser.dart';
 import 'package:calcrow/features/home/editing/advanced/widgets/notes_widget.dart';
@@ -26,6 +25,7 @@ import 'package:calcrow/features/home/editing/widgets/select_time_widget.dart';
 import 'package:calcrow/features/home/editing/widgets/timespan_widget.dart';
 import 'package:calcrow/app/widgets/type_dropdown_list.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:trainvent_general/trainvent_general.dart';
 
 part 'diary_editing_page.dart';
 part 'logbook_editing_page.dart';

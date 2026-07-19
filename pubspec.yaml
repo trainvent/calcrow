@@ -63,6 +63,7 @@ dependencies:
   url_launcher: ^6.3.2
   flutter_svg: ^2.0.0
   open_filex: ^4.7.0
+  trainvent_general: ^0.0.1
 
 dev_dependencies:
   flutter_test:

@@ -168,10 +168,16 @@ class _AuthGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final initialSession = ServiceLocator.authService.currentSession;
     return StreamBuilder<AuthSession?>(
       stream: ServiceLocator.authService.authStateChanges(),
-      initialData: ServiceLocator.authService.currentSession,
+      initialData: initialSession,
       builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            initialSession == null) {
+          return const Scaffold();
+        }
+
         final session = snapshot.data;
         if (session == null) {
           return const _AppEntry(isSignedIn: false);
@@ -182,8 +188,12 @@ class _AuthGate extends StatelessWidget {
 
         return StreamBuilder<bool>(
           stream: ServiceLocator.dbService.watchUserEmailVerified(session.uid),
-          initialData: false,
           builder: (context, verificationSnapshot) {
+            if (verificationSnapshot.connectionState ==
+                ConnectionState.waiting) {
+              return const Scaffold();
+            }
+
             final isSignedIn = verificationSnapshot.data ?? false;
             return _AppEntry(isSignedIn: isSignedIn);
           },

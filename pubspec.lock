@@ -985,6 +985,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.11"
+  trainvent_general:
+    dependency: "direct main"
+    description:
+      name: trainvent_general
+      sha256: "9fdf8b931d83d787dfd3c9e6fa1afd72731ae31ab5b4d4208bba2801c043fd1d"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.1"
   typed_data:
     dependency: transitive
     description:
@@ -1178,5 +1186,5 @@ packages:
     source: hosted
     version: "3.1.3"
 sdks:
-  dart: ">=3.12.0 <4.0.0"
+  dart: ">=3.12.2 <4.0.0"
   flutter: ">=3.44.0"
