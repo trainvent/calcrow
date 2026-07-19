@@ -434,6 +434,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get manageSAFFolder => 'Manage SAF folder';
 
   @override
+  String get localAccess => 'Local Access';
+
+  @override
+  String get manageLocalAndroidFolderAccess =>
+      'Manage Android folder access for local documents.';
+
+  @override
   String
   get manageSeparateConsentForUsageAnalyticsAndCrashOrPerformanceDiagnostics =>
       'Manage separate consent for usage analytics and crash or performance diagnostics.';
@@ -1522,6 +1529,37 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pauseField => 'Pause';
+
+  @override
+  String get lookAndFeel => 'Look and feel';
+
+  @override
+  String get customizeLanguageAndAppearance =>
+      'Customize the app\'s language and appearance.';
+
+  @override
+  String get language => 'Language';
+
+  @override
+  String get languageEnglish => 'English';
+
+  @override
+  String get languageGerman => 'Deutsch';
+
+  @override
+  String get signInToSaveLanguageToProfile =>
+      'Sign in to save this language to your profile.';
+
+  @override
+  String get languageSavedToProfile => 'Saved in your user profile.';
+
+  @override
+  String get languageSaved => 'Language saved.';
+
+  @override
+  String couldNotSaveLanguage(String details) {
+    return 'Could not save language: $details';
+  }
 
   @override
   String get couldNotReopenTheRememberedLocalDocument =>

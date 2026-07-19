@@ -1,5 +1,6 @@
 import 'package:calcrow/app/app.dart';
 import 'package:calcrow/features/onboarding/onboarding_screen.dart';
+import 'package:calcrow/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -23,5 +24,19 @@ void main() {
 
     expect(find.text('Sign in or create account'), findsOneWidget);
     expect(find.text('Start without account'), findsNothing);
+  });
+
+  testWidgets('changing the app language rebuilds the interface', (
+    tester,
+  ) async {
+    addTearDown(() => AppLanguageController.setLanguageCode(null));
+    AppLanguageController.setLanguageCode('de');
+
+    await tester.pumpWidget(const CalcrowApp());
+
+    expect(
+      find.text('Arbeitstage in weniger als einer Minute erfassen'),
+      findsOneWidget,
+    );
   });
 }

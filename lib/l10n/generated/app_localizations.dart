@@ -899,6 +899,18 @@ abstract class AppLocalizations {
   /// **'Manage SAF folder'**
   String get manageSAFFolder;
 
+  /// No description provided for @localAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Local Access'**
+  String get localAccess;
+
+  /// No description provided for @manageLocalAndroidFolderAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage Android folder access for local documents.'**
+  String get manageLocalAndroidFolderAccess;
+
   /// No description provided for @manageSeparateConsentForUsageAnalyticsAndCrashOrPerformanceDiagnostics.
   ///
   /// In en, this message translates to:
@@ -2830,6 +2842,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Pause'**
   String get pauseField;
+
+  /// No description provided for @lookAndFeel.
+  ///
+  /// In en, this message translates to:
+  /// **'Look and feel'**
+  String get lookAndFeel;
+
+  /// No description provided for @customizeLanguageAndAppearance.
+  ///
+  /// In en, this message translates to:
+  /// **'Customize the app\'s language and appearance.'**
+  String get customizeLanguageAndAppearance;
+
+  /// No description provided for @language.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get language;
+
+  /// No description provided for @languageEnglish.
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get languageEnglish;
+
+  /// No description provided for @languageGerman.
+  ///
+  /// In en, this message translates to:
+  /// **'Deutsch'**
+  String get languageGerman;
+
+  /// No description provided for @signInToSaveLanguageToProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to save this language to your profile.'**
+  String get signInToSaveLanguageToProfile;
+
+  /// No description provided for @languageSavedToProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved in your user profile.'**
+  String get languageSavedToProfile;
+
+  /// No description provided for @languageSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Language saved.'**
+  String get languageSaved;
+
+  /// No description provided for @couldNotSaveLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save language: {details}'**
+  String couldNotSaveLanguage(String details);
 
   /// No description provided for @couldNotReopenTheRememberedLocalDocument.
   ///

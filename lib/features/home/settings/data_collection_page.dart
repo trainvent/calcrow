@@ -252,6 +252,7 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
     setState(() => _isUpdatingAnalytics = true);
     try {
       await ServiceLocator.diagnosticsService.setUsageAnalyticsEnabled(enabled);
+      await _saveDiagnosticsConsentToProfile();
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
@@ -282,6 +283,7 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
     setState(() => _isUpdatingCrashReports = true);
     try {
       await ServiceLocator.diagnosticsService.setCrashReportsEnabled(enabled);
+      await _saveDiagnosticsConsentToProfile();
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
@@ -340,6 +342,18 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
         setState(() => _isOpeningAdsPrivacyChoices = false);
       }
     }
+  }
+
+  Future<void> _saveDiagnosticsConsentToProfile() async {
+    final session = ServiceLocator.authService.currentSession;
+    if (session == null) return;
+    final diagnostics = ServiceLocator.diagnosticsService;
+    await diagnostics.associateConsentWithUser(session.uid);
+    await ServiceLocator.userRepository.saveDiagnosticsConsent(
+      uid: session.uid,
+      usageAnalyticsEnabled: diagnostics.usageAnalyticsEnabled,
+      crashReportsEnabled: diagnostics.crashReportsEnabled,
+    );
   }
 
   Future<void> _openAdsPrivacyPolicy() async {

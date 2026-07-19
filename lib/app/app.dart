@@ -8,6 +8,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import '../core/data/di/service_locator.dart';
 import '../core/data/services/auth_service.dart';
 import '../core/data/services/purchases_service.dart';
+import '../core/data/services/user_repository.dart';
 import '../features/home/home_shell.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import 'presentation/marketing_landing_page.dart';
@@ -23,6 +24,7 @@ class CalcrowApp extends StatefulWidget {
 class _CalcrowAppState extends State<CalcrowApp> {
   StreamSubscription<AuthSession?>? _authSubscription;
   StreamSubscription<EntitlementTier>? _entitlementSubscription;
+  StreamSubscription<UserSettingsData>? _settingsSubscription;
   String? _currentRevenueCatUid;
 
   @override
@@ -32,10 +34,12 @@ class _CalcrowAppState extends State<CalcrowApp> {
       return;
     }
     _currentRevenueCatUid = ServiceLocator.authService.currentSession?.uid;
+    _watchLanguageSettings(ServiceLocator.authService.currentSession);
     _authSubscription = ServiceLocator.authService.authStateChanges().listen((
       session,
     ) async {
       _currentRevenueCatUid = session?.uid;
+      _watchLanguageSettings(session);
       await PurchasesService.instance.syncAppUser(
         session?.uid,
         email: session?.email,
@@ -57,13 +61,23 @@ class _CalcrowAppState extends State<CalcrowApp> {
   void dispose() {
     _authSubscription?.cancel();
     _entitlementSubscription?.cancel();
+    _settingsSubscription?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    return ValueListenableBuilder<String?>(
+      valueListenable: AppLanguageController.languageCode,
+      builder: (context, languageCode, child) =>
+          _buildForLocale(AppLanguageController.locale),
+    );
+  }
+
+  Widget _buildForLocale(Locale? locale) {
     if (_showMarketingLanding()) {
       return MaterialApp(
+        locale: locale,
         onGenerateTitle: (context) => context.l10n.calcrow,
         localizationsDelegates: _localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
@@ -75,6 +89,7 @@ class _CalcrowAppState extends State<CalcrowApp> {
 
     if (!ServiceLocator.isSetup) {
       return MaterialApp(
+        locale: locale,
         onGenerateTitle: (context) => context.l10n.calcrow,
         localizationsDelegates: _localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
@@ -92,11 +107,12 @@ class _CalcrowAppState extends State<CalcrowApp> {
       );
     }
 
-    return _buildMaterialApp(child: const _AuthGate());
+    return _buildMaterialApp(locale: locale, child: const _AuthGate());
   }
 
-  Widget _buildMaterialApp({required Widget child}) {
+  Widget _buildMaterialApp({required Locale? locale, required Widget child}) {
     return MaterialApp(
+      locale: locale,
       onGenerateTitle: (context) => context.l10n.calcrow,
       localizationsDelegates: _localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
@@ -120,6 +136,21 @@ class _CalcrowAppState extends State<CalcrowApp> {
     GlobalWidgetsLocalizations.delegate,
     GlobalCupertinoLocalizations.delegate,
   ];
+
+  void _watchLanguageSettings(AuthSession? session) {
+    _settingsSubscription?.cancel();
+    _settingsSubscription = null;
+    if (session == null) {
+      AppLanguageController.setLanguageCode(null);
+      return;
+    }
+    _settingsSubscription = ServiceLocator.userRepository
+        .watchUserSettings(session.uid)
+        .listen(
+          (settings) =>
+              AppLanguageController.setLanguageCode(settings.languageCode),
+        );
+  }
 
   bool _showMarketingLanding() {
     if (!kIsWeb) return false;
@@ -249,8 +280,31 @@ class _DiagnosticsConsentHost extends StatefulWidget {
 }
 
 class _DiagnosticsConsentHostState extends State<_DiagnosticsConsentHost> {
+  StreamSubscription<AuthSession?>? _authSubscription;
   bool _hasChecked = false;
+  bool _isChecking = false;
   bool _isShowing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!ServiceLocator.isSetup) return;
+    _authSubscription = ServiceLocator.authService.authStateChanges().listen((
+      session,
+    ) {
+      if (session == null) return;
+      _hasChecked = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _maybeShowDiagnosticsConsent();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -267,33 +321,87 @@ class _DiagnosticsConsentHostState extends State<_DiagnosticsConsentHost> {
 
   Future<void> _maybeShowDiagnosticsConsent() async {
     if (!mounted || !widget.enabled || !ServiceLocator.isSetup) return;
-    if (_hasChecked || _isShowing) return;
+    if (_hasChecked || _isChecking || _isShowing) return;
 
+    final session = ServiceLocator.authService.currentSession;
+    if (session == null) return;
+
+    _isChecking = true;
     final diagnostics = ServiceLocator.diagnosticsService;
-    if (!diagnostics.needsConsentPrompt) {
+    try {
+      await diagnostics.init();
+      if (!mounted) return;
+
+      UserSettingsData settings;
+      try {
+        settings = await ServiceLocator.userRepository.getUserSettings(
+          session.uid,
+        );
+      } catch (_) {
+        // Never ask again merely because the profile could not be reached.
+        _hasChecked = true;
+        return;
+      }
+      if (!mounted) return;
+
+      if (settings.diagnosticsConsentCompleted) {
+        await diagnostics.saveConsentChoices(
+          usageAnalyticsEnabled: settings.usageAnalyticsEnabled,
+          crashReportsEnabled: settings.crashReportsEnabled,
+        );
+        await diagnostics.associateConsentWithUser(session.uid);
+        _hasChecked = true;
+        return;
+      }
+
+      if (diagnostics.hasConsentForUser(session.uid)) {
+        _hasChecked = true;
+        await diagnostics.associateConsentWithUser(session.uid);
+        try {
+          await ServiceLocator.userRepository.saveDiagnosticsConsent(
+            uid: session.uid,
+            usageAnalyticsEnabled: diagnostics.usageAnalyticsEnabled,
+            crashReportsEnabled: diagnostics.crashReportsEnabled,
+          );
+        } catch (_) {
+          // Keep the local choice and retry profile migration next launch.
+        }
+        return;
+      }
+
       _hasChecked = true;
-      return;
+      _isShowing = true;
+
+      final result = await showModalBottomSheet<_DiagnosticsConsentResult>(
+        context: context,
+        isDismissible: false,
+        enableDrag: false,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (context) => const _DiagnosticsConsentSheet(),
+      );
+
+      _isShowing = false;
+      if (result == null) return;
+
+      await diagnostics.saveConsentChoices(
+        usageAnalyticsEnabled: result.usageAnalyticsEnabled,
+        crashReportsEnabled: result.crashReportsEnabled,
+      );
+      await diagnostics.associateConsentWithUser(session.uid);
+      try {
+        await ServiceLocator.userRepository.saveDiagnosticsConsent(
+          uid: session.uid,
+          usageAnalyticsEnabled: result.usageAnalyticsEnabled,
+          crashReportsEnabled: result.crashReportsEnabled,
+        );
+      } catch (_) {
+        // The local completion flag still prevents a repeated prompt.
+      }
+    } finally {
+      _isChecking = false;
+      _isShowing = false;
     }
-
-    _hasChecked = true;
-    _isShowing = true;
-
-    final result = await showModalBottomSheet<_DiagnosticsConsentResult>(
-      context: context,
-      isDismissible: false,
-      enableDrag: false,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (context) => const _DiagnosticsConsentSheet(),
-    );
-
-    _isShowing = false;
-    if (result == null) return;
-
-    await diagnostics.saveConsentChoices(
-      usageAnalyticsEnabled: result.usageAnalyticsEnabled,
-      crashReportsEnabled: result.crashReportsEnabled,
-    );
   }
 }
 

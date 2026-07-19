@@ -37,12 +37,98 @@ class _SettingsTabState extends State<SettingsTab> {
   bool _isOpeningRevenueCat = false;
   bool _isChangingPassword = false;
   bool _isUpdatingSafFolder = false;
+  bool _isUpdatingLanguage = false;
   static final SafUtil _safUtil = SafUtil();
   final SheetPersistenceService _sheetPersistenceService =
       SheetPersistenceService();
 
   bool get _showSafFolderSettings =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  Widget _buildLookAndFeelCard({
+    required AuthSession? session,
+    required UserSettingsData? settings,
+  }) {
+    final selectedLanguage =
+        AppLanguageController.languageCode.value ??
+        settings?.languageCode ??
+        Localizations.localeOf(context).languageCode;
+    final effectiveLanguage = selectedLanguage == 'de' ? 'de' : 'en';
+    return Card(
+      child: Column(
+        children: [
+          _buildSectionHeader(context, title: context.l10n.lookAndFeel),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.translate_rounded),
+            title: Text(context.l10n.language),
+            trailing: _isUpdatingLanguage
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : null,
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<String>(
+                segments: <ButtonSegment<String>>[
+                  ButtonSegment(
+                    value: 'en',
+                    icon: const Text('🇬🇧'),
+                    label: Text(context.l10n.languageEnglish),
+                  ),
+                  ButtonSegment(
+                    value: 'de',
+                    icon: const Text('🇩🇪'),
+                    label: Text(context.l10n.languageGerman),
+                  ),
+                ],
+                selected: <String>{effectiveLanguage},
+                onSelectionChanged: _isUpdatingLanguage
+                    ? null
+                    : (selection) => _setLanguage(
+                        session: session,
+                        languageCode: selection.first,
+                      ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _setLanguage({
+    required AuthSession? session,
+    required String languageCode,
+  }) async {
+    final previousLanguageCode = AppLanguageController.languageCode.value;
+    AppLanguageController.setLanguageCode(languageCode);
+    if (session == null) return;
+    setState(() => _isUpdatingLanguage = true);
+    try {
+      await ServiceLocator.userRepository.setLanguageCode(
+        uid: session.uid,
+        languageCode: languageCode,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.languageSaved)));
+    } catch (error) {
+      AppLanguageController.setLanguageCode(previousLanguageCode);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.couldNotSaveLanguage('$error'))),
+      );
+    } finally {
+      if (mounted) setState(() => _isUpdatingLanguage = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,11 +157,20 @@ class _SettingsTabState extends State<SettingsTab> {
                   ),
                 ),
               ),
+            if (session == null) ...[
+              const SizedBox(height: 12),
+              _buildLookAndFeelCard(session: null, settings: null),
+            ],
             if (session == null && _showSafFolderSettings) ...[
               const SizedBox(height: 12),
               Card(
                 child: Column(
                   children: [
+                    _buildSectionHeader(
+                      context,
+                      title: context.l10n.localAccess,
+                    ),
+                    const Divider(height: 1),
                     ListTile(
                       leading: const Icon(Icons.folder_special_outlined),
                       title: Text(context.l10n.manageSAFFolder),
@@ -129,15 +224,17 @@ class _SettingsTabState extends State<SettingsTab> {
 
                   return Column(
                     children: [
+                      _buildLookAndFeelCard(
+                        session: session,
+                        settings: settings,
+                      ),
+                      const SizedBox(height: 12),
                       Card(
                         child: Column(
                           children: [
                             _buildSectionHeader(
                               context,
                               title: context.l10n.cloudSettings,
-                              subtitle: context
-                                  .l10n
-                                  .manageGoogleDriveAndWebDAVConnections,
                             ),
                             const Divider(height: 1),
                             ListTile(
@@ -175,9 +272,6 @@ class _SettingsTabState extends State<SettingsTab> {
                             ListTile(
                               leading: const Icon(Icons.link_rounded),
                               title: Text(context.l10n.connectGoogleDrive),
-                              subtitle: Text(
-                                _googleDriveSubtitle(context.l10n, settings),
-                              ),
                               trailing: _isLinkingGoogle
                                   ? const SizedBox(
                                       width: 18,
@@ -235,6 +329,11 @@ class _SettingsTabState extends State<SettingsTab> {
                         Card(
                           child: Column(
                             children: [
+                              _buildSectionHeader(
+                                context,
+                                title: context.l10n.localAccess,
+                              ),
+                              const Divider(height: 1),
                               ListTile(
                                 leading: const Icon(
                                   Icons.folder_special_outlined,
@@ -289,9 +388,6 @@ class _SettingsTabState extends State<SettingsTab> {
                             _buildSectionHeader(
                               context,
                               title: context.l10n.accountSettings,
-                              subtitle: context
-                                  .l10n
-                                  .manageYourSubscriptionPrivacyAndAccountAccess,
                             ),
                             const Divider(height: 1),
                             ListTile(
@@ -346,9 +442,6 @@ class _SettingsTabState extends State<SettingsTab> {
                             ListTile(
                               leading: const Icon(Icons.password_rounded),
                               title: Text(context.l10n.changePassword),
-                              subtitle: Text(
-                                context.l10n.sendAResetCodeToYourSignedInEmail,
-                              ),
                               trailing: _isChangingPassword
                                   ? const SizedBox(
                                       width: 18,
@@ -373,11 +466,6 @@ class _SettingsTabState extends State<SettingsTab> {
                             ListTile(
                               leading: const Icon(Icons.delete_outline_rounded),
                               title: Text(context.l10n.deleteAccount2),
-                              subtitle: Text(
-                                context
-                                    .l10n
-                                    .openThePermanentAccountDeletionFlow,
-                              ),
                               onTap: _openDeleteAccountPage,
                             ),
                           ],
@@ -435,21 +523,6 @@ class _SettingsTabState extends State<SettingsTab> {
       if (_isGoogleDriveLinked(settings)) CloudSyncProvider.googleDrive,
       if (_isWebDavLinked(settings)) CloudSyncProvider.webDav,
     ];
-  }
-
-  String _googleDriveSubtitle(
-    AppLocalizations localizations,
-    UserSettingsData? settings,
-  ) {
-    final linked = _isGoogleDriveLinked(settings);
-    if (!linked) {
-      return localizations.grantDriveReadWritePermissionsForCloudDocumentSync;
-    }
-    final email = settings?.googleDriveEmail;
-    if (email != null && email.isNotEmpty) {
-      return localizations.linkedAs(email);
-    }
-    return localizations.connectedToGoogleDrive;
   }
 
   String _webDavSubtitle(
@@ -510,7 +583,7 @@ class _SettingsTabState extends State<SettingsTab> {
   Widget _buildSectionHeader(
     BuildContext context, {
     required String title,
-    required String subtitle,
+    String? subtitle,
   }) {
     final theme = Theme.of(context);
     return Padding(
@@ -519,8 +592,10 @@ class _SettingsTabState extends State<SettingsTab> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: theme.textTheme.titleMedium),
-          const SizedBox(height: 4),
-          Text(subtitle, style: theme.textTheme.bodyMedium),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(subtitle, style: theme.textTheme.bodyMedium),
+          ],
         ],
       ),
     );

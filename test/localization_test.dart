@@ -1,4 +1,5 @@
 import 'package:calcrow/l10n/app_localizations.dart';
+import 'package:calcrow/core/data/services/user_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -85,5 +86,32 @@ void main() {
       localizations.manageWebDavSyncFile('Arbeitszeit.ods'),
       'WebDAV-Synchronisierungsdatei verwalten: Arbeitszeit.ods',
     );
+  });
+
+  test('reads only supported languages from the user profile', () {
+    expect(
+      UserSettingsData.fromMap(const {'languageCode': 'de'}).languageCode,
+      'de',
+    );
+    expect(
+      UserSettingsData.fromMap(const {'languageCode': 'EN'}).languageCode,
+      'en',
+    );
+    expect(
+      UserSettingsData.fromMap(const {'languageCode': 'fr'}).languageCode,
+      isNull,
+    );
+  });
+
+  test('reads diagnostics consent choices from the user profile', () {
+    final settings = UserSettingsData.fromMap(const {
+      'diagnosticsConsentCompleted': true,
+      'usageAnalyticsEnabled': true,
+      'crashReportsEnabled': false,
+    });
+
+    expect(settings.diagnosticsConsentCompleted, isTrue);
+    expect(settings.usageAnalyticsEnabled, isTrue);
+    expect(settings.crashReportsEnabled, isFalse);
   });
 }

@@ -12,23 +12,27 @@ class DiagnosticsService {
   static const String _usageAnalyticsPrefsKey = 'usage_analytics_enabled';
   static const String _crashReportsPrefsKey = 'crash_reports_enabled';
   static const String _consentAskedPrefsKey = 'diagnostics_consent_asked';
+  static const String _consentUserIdPrefsKey = 'diagnostics_consent_user_id';
 
   static final DiagnosticsService instance = DiagnosticsService._();
 
   final ValueNotifier<bool> usageAnalyticsEnabledListenable =
       ValueNotifier<bool>(false);
-  final ValueNotifier<bool> crashReportsEnabledListenable =
-      ValueNotifier<bool>(false);
+  final ValueNotifier<bool> crashReportsEnabledListenable = ValueNotifier<bool>(
+    false,
+  );
 
   SharedPreferences? _prefs;
   bool _initialized = false;
   bool _hasAskedForConsent = false;
+  String? _consentUserId;
 
   bool get usageAnalyticsEnabled => usageAnalyticsEnabledListenable.value;
   bool get crashReportsEnabled => crashReportsEnabledListenable.value;
   bool get hasAskedForConsent => _hasAskedForConsent;
-  bool get needsConsentPrompt =>
-      supportsUsageAnalytics && !_hasAskedForConsent;
+  bool hasConsentForUser(String uid) =>
+      _hasAskedForConsent && (_consentUserId == null || _consentUserId == uid);
+  bool get needsConsentPrompt => supportsUsageAnalytics && !_hasAskedForConsent;
 
   bool get supportsUsageAnalytics => _supportsAnalytics;
   bool get supportsCrashReports => _supportsCrashAndPerformance;
@@ -36,16 +40,17 @@ class DiagnosticsService {
   Future<void> init() async {
     if (_initialized) return;
     _prefs = await SharedPreferences.getInstance();
-    final analyticsEnabled =
-        _prefs?.getBool(_usageAnalyticsPrefsKey) ?? false;
-    final crashReportsEnabled =
-        _prefs?.getBool(_crashReportsPrefsKey) ?? false;
+    final analyticsEnabled = _prefs?.getBool(_usageAnalyticsPrefsKey) ?? false;
+    final crashReportsEnabled = _prefs?.getBool(_crashReportsPrefsKey) ?? false;
     _hasAskedForConsent = _prefs?.getBool(_consentAskedPrefsKey) ?? false;
+    _consentUserId = _prefs?.getString(_consentUserIdPrefsKey);
 
-    usageAnalyticsEnabledListenable.value =
-        _supportsAnalytics ? analyticsEnabled : false;
-    crashReportsEnabledListenable.value =
-        _supportsCrashAndPerformance ? crashReportsEnabled : false;
+    usageAnalyticsEnabledListenable.value = _supportsAnalytics
+        ? analyticsEnabled
+        : false;
+    crashReportsEnabledListenable.value = _supportsCrashAndPerformance
+        ? crashReportsEnabled
+        : false;
 
     if (_supportsAnalytics) {
       await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(
@@ -111,10 +116,7 @@ class DiagnosticsService {
       await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(
         usageAnalyticsEnabled,
       );
-      await _prefs?.setBool(
-        _usageAnalyticsPrefsKey,
-        usageAnalyticsEnabled,
-      );
+      await _prefs?.setBool(_usageAnalyticsPrefsKey, usageAnalyticsEnabled);
       usageAnalyticsEnabledListenable.value = usageAnalyticsEnabled;
     }
 
@@ -134,6 +136,12 @@ class DiagnosticsService {
 
     await _prefs?.setBool(_consentAskedPrefsKey, true);
     _hasAskedForConsent = true;
+  }
+
+  Future<void> associateConsentWithUser(String uid) async {
+    if (!_initialized) await init();
+    _consentUserId = uid;
+    await _prefs?.setString(_consentUserIdPrefsKey, uid);
   }
 
   Future<void> recordError(

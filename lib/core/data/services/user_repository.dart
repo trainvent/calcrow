@@ -153,6 +153,10 @@ T? _firstWhereOrNull<T>(Iterable<T> items, bool Function(T item) test) {
 class UserSettingsData {
   const UserSettingsData({
     this.defaultDateFormat = 'YYYY-MM-DD',
+    this.languageCode,
+    this.diagnosticsConsentCompleted = false,
+    this.usageAnalyticsEnabled = false,
+    this.crashReportsEnabled = false,
     this.isPro = false,
     this.cloudSyncProvider,
     this.googleDriveLinked = false,
@@ -174,6 +178,10 @@ class UserSettingsData {
   });
 
   final String defaultDateFormat;
+  final String? languageCode;
+  final bool diagnosticsConsentCompleted;
+  final bool usageAnalyticsEnabled;
+  final bool crashReportsEnabled;
   final bool isPro;
   final CloudSyncProvider? cloudSyncProvider;
   final bool googleDriveLinked;
@@ -221,6 +229,11 @@ class UserSettingsData {
           (settings['defaultDateFormat'] as String?)?.trim().isNotEmpty == true
           ? (settings['defaultDateFormat'] as String).trim()
           : 'YYYY-MM-DD',
+      languageCode: _supportedLanguageCode(settings['languageCode']),
+      diagnosticsConsentCompleted:
+          settings['diagnosticsConsentCompleted'] == true,
+      usageAnalyticsEnabled: settings['usageAnalyticsEnabled'] == true,
+      crashReportsEnabled: settings['crashReportsEnabled'] == true,
       isPro: settings['isPro'] == true,
       cloudSyncProvider:
           parsedCloudProvider ??
@@ -256,6 +269,11 @@ class UserSettingsData {
     final text = (value as String?)?.trim();
     if (text == null || text.isEmpty) return null;
     return text;
+  }
+
+  static String? _supportedLanguageCode(Object? value) {
+    final code = _readTrimmed(value)?.toLowerCase();
+    return code == 'en' || code == 'de' ? code : null;
   }
 
   static List<WebDavSavedEntry> _parseWebDavEntries(
@@ -356,6 +374,35 @@ class UserRepository {
   Future<void> setIsPro({required String uid, required bool isPro}) {
     return _firestore.collection(_usersCollection).doc(uid).set({
       'settings': {'isPro': isPro},
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> setLanguageCode({
+    required String uid,
+    required String languageCode,
+  }) {
+    final normalized = languageCode.trim().toLowerCase();
+    if (normalized != 'en' && normalized != 'de') {
+      throw ArgumentError.value(languageCode, 'languageCode');
+    }
+    return _firestore.collection(_usersCollection).doc(uid).set({
+      'settings': {'languageCode': normalized},
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> saveDiagnosticsConsent({
+    required String uid,
+    required bool usageAnalyticsEnabled,
+    required bool crashReportsEnabled,
+  }) {
+    return _firestore.collection(_usersCollection).doc(uid).set({
+      'settings': {
+        'diagnosticsConsentCompleted': true,
+        'usageAnalyticsEnabled': usageAnalyticsEnabled,
+        'crashReportsEnabled': crashReportsEnabled,
+      },
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
