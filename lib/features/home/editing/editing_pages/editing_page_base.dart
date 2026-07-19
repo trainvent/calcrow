@@ -78,7 +78,7 @@ abstract class _EditingModeBehavior {
   const _EditingModeBehavior();
 
   EditorOpenMode get openMode;
-  String get pickButtonLabel;
+  String pickButtonLabel(AppLocalizations localizations);
   bool get showsTextEntryActions => false;
   bool get showsDateOpenEndActions => false;
   String? get requiredFirstColumnType => null;
@@ -114,7 +114,10 @@ abstract class _EditingModeBehavior {
     if (state._documentValueTypes.isEmpty) return null;
     final firstType = state._documentValueTypes.first.trim().toLowerCase();
     if (firstType == requiredType) return null;
-    return 'The first field must stay ${requiredType == 'date' ? 'Date' : 'Text'} for this opening mode.';
+    final localizations = state.context.l10n;
+    return localizations.firstFieldMustStayForOpeningMode(
+      requiredType == 'date' ? localizations.date : localizations.text,
+    );
   }
 
   static _EditingModeBehavior forOpenMode(EditorOpenMode mode) {
@@ -144,18 +147,12 @@ class _EditingPageBaseState extends State<EditingPageBase>
     'email',
     'phone',
   ];
-  static const XTypeGroup _csvTypeGroup = XTypeGroup(
-    label: 'CSV',
-    extensions: <String>['csv'],
-  );
-  static const XTypeGroup _xlsxTypeGroup = XTypeGroup(
-    label: 'XLSX',
-    extensions: <String>['xlsx'],
-  );
-  static const XTypeGroup _odsTypeGroup = XTypeGroup(
-    label: 'ODS',
-    extensions: <String>['ods'],
-  );
+  XTypeGroup get _csvTypeGroup =>
+      XTypeGroup(label: context.l10n.csv, extensions: const <String>['csv']);
+  XTypeGroup get _xlsxTypeGroup =>
+      XTypeGroup(label: context.l10n.xlsx, extensions: const <String>['xlsx']);
+  XTypeGroup get _odsTypeGroup =>
+      XTypeGroup(label: context.l10n.ods, extensions: const <String>['ods']);
   static const List<_WidgetBlock> _widgetBlocks = <_WidgetBlock>[
     _WidgetBlock.rowDefinement,
     _WidgetBlock.workhours,
@@ -291,7 +288,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
     if (message != null && message.isNotEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: LText(message)));
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -309,16 +306,16 @@ class _EditingPageBaseState extends State<EditingPageBase>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         opened
-            ? const SnackBar(content: LText('Opened document in another app.'))
-            : const SnackBar(
-                content: LText('Could not open the file in another app.'),
+            ? SnackBar(content: Text(context.l10n.openedDocumentInAnotherApp))
+            : SnackBar(
+                content: Text(context.l10n.couldNotOpenTheFileInAnotherApp),
               ),
       );
       return;
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: LText('Choose a document from Get Started.')),
+      SnackBar(content: Text(context.l10n.chooseADocumentFromGetStarted)),
     );
   }
 
@@ -489,7 +486,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
       SnackBar(
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.all(16),
-        content: Row(children: [Expanded(child: LText(message, maxLines: 2))]),
+        content: Row(children: [Expanded(child: Text(message, maxLines: 2))]),
       ),
     );
   }
@@ -794,7 +791,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
     if (validationError != null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: LText(validationError)));
+      ).showSnackBar(SnackBar(content: Text(validationError)));
       return false;
     }
     final nextRows = List<List<String>>.from(_documentRows);
@@ -843,7 +840,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
       final saveResult = await _persistSheet(mode: mode);
       if (!mounted) return false;
       messenger.showSnackBar(
-        SnackBar(content: LText(_saveMessage(saveResult))),
+        SnackBar(content: Text(_saveMessage(context.l10n, saveResult))),
       );
       setState(() {
         _documentEditingBaseline = normalizedUpdated;
@@ -853,14 +850,14 @@ class _EditingPageBaseState extends State<EditingPageBase>
       if (!mounted) return false;
       if (error is StateError && error.message == 'Save canceled.') {
         messenger.showSnackBar(
-          const SnackBar(content: LText('Row updated. File save canceled.')),
+          SnackBar(content: Text(context.l10n.rowUpdatedFileSaveCanceled)),
         );
         return false;
       }
       if (error is StateError && error.message == 'SAF save canceled.') {
         messenger.showSnackBar(
-          const SnackBar(
-            content: LText('SAF save canceled. Use "Save as is" in Preview.'),
+          SnackBar(
+            content: Text(context.l10n.safSaveCanceledUseSaveAsIsInPreview),
           ),
         );
         return false;
@@ -868,9 +865,9 @@ class _EditingPageBaseState extends State<EditingPageBase>
       if (error is StateError &&
           error.message == 'SAF save is not supported on this platform.') {
         messenger.showSnackBar(
-          const SnackBar(
-            content: LText(
-              'SAF save is not available here. Use "Save as is" in Preview.',
+          SnackBar(
+            content: Text(
+              context.l10n.safSaveIsNotAvailableHereUseSaveAsIsInPreview,
             ),
           ),
         );
@@ -880,9 +877,11 @@ class _EditingPageBaseState extends State<EditingPageBase>
           error.message ==
               'No SAF target selected. Open a SAF-backed file first or configure SAF folder in Settings.') {
         messenger.showSnackBar(
-          const SnackBar(
-            content: LText(
-              'No SAF target selected. Open a SAF-backed file or configure SAF folder in Settings, or use "Save as is" in Preview.',
+          SnackBar(
+            content: Text(
+              context
+                  .l10n
+                  .noSAFTargetSelectedOpenASAFBackedFileOrConfigureSAFFolderInSettingsOrUseSaveAsIsInPreview,
             ),
           ),
         );
@@ -892,9 +891,11 @@ class _EditingPageBaseState extends State<EditingPageBase>
           error.message ==
               'Current file is not SAF-backed. Use "Save as is" or reopen with SAF.') {
         messenger.showSnackBar(
-          const SnackBar(
-            content: LText(
-              'Current file is not SAF-backed. Use "Save as is" in Preview, or reopen via SAF.',
+          SnackBar(
+            content: Text(
+              context
+                  .l10n
+                  .currentFileIsNotSAFBackedUseSaveAsIsInPreviewOrReopenViaSAF,
             ),
           ),
         );
@@ -902,9 +903,9 @@ class _EditingPageBaseState extends State<EditingPageBase>
       }
       if (error is StateError && error.message == 'SAF stream write failed.') {
         messenger.showSnackBar(
-          const SnackBar(
-            content: LText(
-              'SAF stream write failed. Use "Save as is" in Preview.',
+          SnackBar(
+            content: Text(
+              context.l10n.safStreamWriteFailedUseSaveAsIsInPreview,
             ),
           ),
         );
@@ -914,9 +915,11 @@ class _EditingPageBaseState extends State<EditingPageBase>
           error.message ==
               'SAF target is incompatible for direct overwrite. Reopen from a writable folder via SAF.') {
         messenger.showSnackBar(
-          const SnackBar(
-            content: LText(
-              'This SAF source cannot be overwritten directly. Reopen from a writable folder via SAF, or use "Save as is".',
+          SnackBar(
+            content: Text(
+              context
+                  .l10n
+                  .thisSAFSourceCannotBeOverwrittenDirectlyReopenFromAWritableFolderViaSAFOrUseSaveAsIs,
             ),
           ),
         );
@@ -924,24 +927,27 @@ class _EditingPageBaseState extends State<EditingPageBase>
       }
       messenger.showSnackBar(
         SnackBar(
-          content: LText('Row saved in app, but file write failed: $error'),
+          content: Text(context.l10n.rowSavedButFileWriteFailed('$error')),
         ),
       );
       return false;
     }
   }
 
-  String _saveMessage(PersistResult saveResult) {
+  String _saveMessage(
+    AppLocalizations localizations,
+    PersistResult saveResult,
+  ) {
     if (kIsWeb) {
-      return 'Row updated. Downloaded updated file as ${saveResult.locationLabel}.';
+      return localizations.rowUpdatedDownloadedFileAs(saveResult.locationLabel);
     }
     if (saveResult.usedAppDocumentsFallback) {
-      return 'Row saved to app storage at ${saveResult.locationLabel}.';
+      return localizations.rowSavedToAppStorageAt(saveResult.locationLabel);
     }
     if (saveResult.overwroteExistingFile) {
-      return 'Row saved to ${saveResult.locationLabel}.';
+      return localizations.rowSavedToLocation(saveResult.locationLabel);
     }
-    return 'Row saved to ${saveResult.locationLabel}. Future saves will overwrite this file.';
+    return localizations.rowSavedFutureSavesOverwrite(saveResult.locationLabel);
   }
 
   int? _findBestExistingRowForSave(List<String> updatedRow) {
@@ -1007,7 +1013,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
       context: context,
       builder: (context) {
         return SimpleDialog(
-          title: const LText('Select currency'),
+          title: Text(context.l10n.selectCurrency),
           children: FieldTypeGuesser.currencyCodes
               .map(
                 (currencyCode) => SimpleDialogOption(
@@ -1083,12 +1089,27 @@ class _EditingPageBaseState extends State<EditingPageBase>
     return type;
   }
 
-  String _editorTypeLabelFor(String type) {
+  String _localizedEditorTypeLabelFor(
+    AppLocalizations localizations,
+    String type,
+  ) {
     if (FieldTypeGuesser.isMoneyType(type)) {
       final currencyCode = FieldTypeGuesser.currencyCodeFromType(type);
-      return 'money ($currencyCode)';
+      return localizations.moneyWithCurrency(currencyCode);
     }
-    return _editorTypeOptionFor(type);
+    return switch (_editorTypeOptionFor(type).trim().toLowerCase()) {
+      'boolean' => localizations.boolean,
+      'date' => localizations.date2,
+      'duration' => localizations.duration,
+      'email' => localizations.email2,
+      'float' => localizations.float,
+      'integer' || 'int' => localizations.integer,
+      'money' => localizations.money,
+      'phone' => localizations.phone,
+      'text' => localizations.text2,
+      'time' => localizations.time,
+      _ => type,
+    };
   }
 
   void _confirmPendingTypes() {
@@ -1097,7 +1118,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
     if (validationMessage != null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: LText(validationMessage)));
+      ).showSnackBar(SnackBar(content: Text(validationMessage)));
       return;
     }
     setState(() {
@@ -1106,7 +1127,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
     unawaited(_rememberCurrentTypeHints());
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: LText('Field formats confirmed.')));
+    ).showSnackBar(SnackBar(content: Text(context.l10n.fieldFormatsConfirmed)));
   }
 
   void _resetTypeSelection() {
@@ -1126,7 +1147,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
 
     if (editableColumns.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: LText('No editable field types to reset.')),
+        SnackBar(content: Text(context.l10n.noEditableFieldTypesToReset)),
       );
       return;
     }
@@ -1234,10 +1255,10 @@ class _EditingPageBaseState extends State<EditingPageBase>
           for (var rowIndex = 0; rowIndex < _documentRows.length; rowIndex++)
             rowIndex,
         },
-        title: 'Pick Entry',
-        subtitle: 'Choose any row from the sheet.',
+        title: context.l10n.pickEntry,
+        subtitle: context.l10n.chooseAnyRowFromTheSheet,
         allowCreateNewEntry: true,
-        createNewEntryLabel: 'Create new entry',
+        createNewEntryLabel: context.l10n.createNewEntry,
       ),
     );
   }
@@ -1250,8 +1271,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
     final dateColumn = _documentDateColumnIndex();
     if (dateColumn == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: LText('Date-based open-end needs a detected date column.'),
+        SnackBar(
+          content: Text(context.l10n.dateBasedOpenEndNeedsADetectedDateColumn),
         ),
       );
       return;
@@ -1274,7 +1295,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
     if (matchingRowIndexes.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: LText('No rows found for ${_formatDate(targetDate)}.'),
+          content: Text(context.l10n.noRowsFoundFor(_formatDate(targetDate))),
         ),
       );
       return;
@@ -1284,8 +1305,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
     SheetPreviewStore.beginRowPick(
       SheetPreviewRowPickRequest(
         selectableRowIndexes: matchingRowIndexes,
-        title: 'Pick Row',
-        subtitle: 'Choose a row for ${_formatDate(targetDate)}.',
+        title: context.l10n.pickRow,
+        subtitle: context.l10n.chooseRowFor(_formatDate(targetDate)),
       ),
     );
   }
@@ -1307,8 +1328,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
     final choice = await showDialog<_UnsavedEditsChoice>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const LText('Unsaved row edits'),
-        content: const LText('Save the current row before starting a new one?'),
+        title: Text(context.l10n.unsavedRowEdits),
+        content: Text(context.l10n.saveTheCurrentRowBeforeStartingANewOne),
         actions: [
           SizedBox(
             width: double.infinity,
@@ -1317,7 +1338,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
                 TextButton(
                   onPressed: () =>
                       Navigator.of(context).pop(_UnsavedEditsChoice.cancel),
-                  child: const LText('Cancel'),
+                  child: Text(context.l10n.cancel),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1330,9 +1351,9 @@ class _EditingPageBaseState extends State<EditingPageBase>
                             onPressed: () => Navigator.of(
                               context,
                             ).pop(_UnsavedEditsChoice.discard),
-                            child: const FittedBox(
+                            child: FittedBox(
                               fit: BoxFit.scaleDown,
-                              child: LText('Discard'),
+                              child: Text(context.l10n.discard),
                             ),
                           ),
                         ),
@@ -1345,9 +1366,9 @@ class _EditingPageBaseState extends State<EditingPageBase>
                             onPressed: () => Navigator.of(
                               context,
                             ).pop(_UnsavedEditsChoice.save),
-                            child: const FittedBox(
+                            child: FittedBox(
                               fit: BoxFit.scaleDown,
-                              child: LText('Save'),
+                              child: Text(context.l10n.save),
                             ),
                           ),
                         ),
@@ -1383,9 +1404,11 @@ class _EditingPageBaseState extends State<EditingPageBase>
     );
     if (candidateColumns.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: LText(
-            'Text-based opening needs at least one editable text column for new entries.',
+        SnackBar(
+          content: Text(
+            context
+                .l10n
+                .textBasedOpeningNeedsAtLeastOneEditableTextColumnForNewEntries,
           ),
         ),
       );
@@ -1413,8 +1436,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
     final dateColumn = _documentDateColumnIndex();
     if (dateColumn == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: LText('Date-based open-end needs a detected date column.'),
+        SnackBar(
+          content: Text(context.l10n.dateBasedOpenEndNeedsADetectedDateColumn),
         ),
       );
       return;
@@ -1458,7 +1481,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
       fileName: fileName,
       typeGroup: _csvTypeGroup,
       mimeType: 'text/csv',
-      confirmButtonText: 'Save CSV',
+      confirmButtonText: context.l10n.saveCsv,
       mode: mode,
     );
   }
@@ -1473,7 +1496,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
       typeGroup: _xlsxTypeGroup,
       mimeType:
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      confirmButtonText: 'Save XLSX',
+      confirmButtonText: context.l10n.saveXlsx,
       mode: mode,
     );
   }
@@ -1487,7 +1510,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
       fileName: fileName,
       typeGroup: _odsTypeGroup,
       mimeType: 'application/vnd.oasis.opendocument.spreadsheet',
-      confirmButtonText: 'Save ODS',
+      confirmButtonText: context.l10n.saveOds,
       mode: mode,
     );
   }
@@ -1656,7 +1679,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
       final messenger = ScaffoldMessenger.of(context);
       final file = await openFile(
         acceptedTypeGroups: <XTypeGroup>[_csvTypeGroup],
-        confirmButtonText: 'Import CSV',
+        confirmButtonText: context.l10n.importCsv,
       );
 
       if (!mounted || file == null) {
@@ -1667,7 +1690,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
       if (!mounted) return;
       if (bytes.isEmpty) {
         messenger.showSnackBar(
-          const SnackBar(content: LText('Could not read CSV file content.')),
+          SnackBar(content: Text(context.l10n.couldNotReadCSVFileContent)),
         );
         return;
       }
@@ -1679,7 +1702,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
           .toList();
       if (lines.isEmpty) {
         messenger.showSnackBar(
-          const SnackBar(content: LText('The selected CSV is empty.')),
+          SnackBar(content: Text(context.l10n.theSelectedCSVIsEmpty)),
         );
         return;
       }
@@ -1713,14 +1736,14 @@ class _EditingPageBaseState extends State<EditingPageBase>
 
       messenger.showSnackBar(
         SnackBar(
-          content: LText('Imported ${file.name} (${_allRows.length} rows).'),
+          content: Text(context.l10n.importedRows(file.name, _allRows.length)),
         ),
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: LText('Import failed: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.importFailed('$error'))),
+      );
     }
   }
 
@@ -1778,7 +1801,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
         );
 
     messenger.showSnackBar(
-      const SnackBar(content: LText('New row submitted.')),
+      SnackBar(content: Text(context.l10n.newRowSubmitted)),
     );
   }
 
@@ -1795,7 +1818,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
     });
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: LText('Editor cleared.')));
+    ).showSnackBar(SnackBar(content: Text(context.l10n.editorCleared)));
   }
 
   List<String> _splitCsvLine(String line, {required String delimiter}) {
@@ -1969,9 +1992,9 @@ class _EditingPageBaseState extends State<EditingPageBase>
   void _toggleWidget(_WidgetBlock block) {
     if (_allRows.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: LText(
-            'Widget layout is locked because this CSV already has entries.',
+        SnackBar(
+          content: Text(
+            context.l10n.widgetLayoutIsLockedBecauseThisCSVAlreadyHasEntries,
           ),
         ),
       );
@@ -2052,7 +2075,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
     final matches = _sameDateRowIndices();
     if (matches.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: LText('No entry found for this date.')),
+        SnackBar(content: Text(context.l10n.noEntryFoundForThisDate)),
       );
       return;
     }
@@ -2106,8 +2129,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: LText(
-          'Loaded same-date entry ${nextIndex + 1}/${matches.length}. Edit and submit a new row if needed.',
+        content: Text(
+          context.l10n.loadedSameDateEntry(nextIndex + 1, matches.length),
         ),
       ),
     );
@@ -2117,7 +2140,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
     final matches = _sameDateRowIndices();
     if (matches.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: LText('No entry found for this date.')),
+        SnackBar(content: Text(context.l10n.noEntryFoundForThisDate)),
       );
       return;
     }
@@ -2129,7 +2152,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
         if (currentPos == 0) {
           _switchToCreateNewForCurrentDate();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: LText('Create new entry mode.')),
+            SnackBar(content: Text(context.l10n.createNewEntryMode)),
           );
           return;
         }
@@ -2239,11 +2262,9 @@ class _EditingPageBaseState extends State<EditingPageBase>
               trailingActions: !_isAdvancedMode && _hasDocumentSchema
                   ? [
                       IconButton(
-                        tooltip: context.tr(
-                          _showFieldTypes
-                              ? 'Hide field types'
-                              : 'Show field types',
-                        ),
+                        tooltip: _showFieldTypes
+                            ? context.l10n.hideFieldTypes
+                            : context.l10n.showFieldTypes,
                         onPressed: _toggleFieldTypes,
                         icon: AnimatedBuilder(
                           animation: _typeTogglePulse,
@@ -2315,8 +2336,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
                           strokeColor: theme.colorScheme.onSurface,
                         ),
                         const SizedBox(height: 14),
-                        LText(
-                          'Opening document...',
+                        Text(
+                          context.l10n.openingDocument,
                           style: theme.textTheme.titleMedium,
                         ),
                       ],
@@ -2343,7 +2364,10 @@ class _EditingPageBaseState extends State<EditingPageBase>
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
               const SizedBox(width: 12),
-              LText('Opening document...', style: theme.textTheme.bodyMedium),
+              Text(
+                context.l10n.openingDocument,
+                style: theme.textTheme.bodyMedium,
+              ),
             ],
           ),
         ),
@@ -2351,7 +2375,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
     }
 
     if (!_hasDocumentControllersReady) {
-      return const Card(
+      return Card(
         child: Padding(
           padding: EdgeInsets.all(16),
           child: Row(
@@ -2362,7 +2386,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
               SizedBox(width: 10),
-              Expanded(child: LText('Preparing editor fields...')),
+              Expanded(child: Text(context.l10n.preparingEditorFields)),
             ],
           ),
         ),
@@ -2382,19 +2406,21 @@ class _EditingPageBaseState extends State<EditingPageBase>
             .toList();
     final hasPendingTypeSelection = validPendingTypeSelectionColumns.isNotEmpty;
     final targetLabel = isEditingExisting
-        ? 'row ${_documentEditingRowIndex + 1}'
-        : 'new row';
+        ? context.l10n.rowNumber(_documentEditingRowIndex + 1)
+        : context.l10n.newRow;
     final isSheetDocumentSource =
         _documentImportedFormat == SheetFileFormat.xlsx ||
         _documentImportedFormat == SheetFileFormat.ods ||
         _documentImportedFormat == SheetFileFormat.gsheet;
     final sheetName = _documentImportedSheetName?.trim();
     final activeSheetLabel = isSheetDocumentSource
-        ? ((sheetName == null || sheetName.isEmpty) ? 'default' : sheetName)
+        ? ((sheetName == null || sheetName.isEmpty)
+              ? context.l10n.defaultLabel
+              : sheetName)
         : null;
     final pendingTypeSelectionMessage = isSheetDocumentSource
-        ? 'Set Datatypes and bear in mind that calculated fields are read-only.'
-        : 'This file has no usable type row yet. Pick the editable field formats once before saving.';
+        ? context.l10n.setDatatypesCalculatedFieldsReadOnly
+        : context.l10n.noUsableTypeRowPickFormats;
     final canOpenLocalDocumentFromCard =
         (_supportsLocalFileEditing && _documentDocumentTarget == null) ||
         (_supportsLocalFileEditing &&
@@ -2412,13 +2438,16 @@ class _EditingPageBaseState extends State<EditingPageBase>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      LText('Current File', style: theme.textTheme.titleMedium),
+                      Text(
+                        context.l10n.currentFile,
+                        style: theme.textTheme.titleMedium,
+                      ),
                       const SizedBox(height: 6),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Expanded(
-                            child: LText(
+                            child: Text(
                               _documentImportedFileName == null
                                   ? targetLabel
                                   : '${_documentImportedFileName!} - $targetLabel',
@@ -2429,8 +2458,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
                       ),
                       if (activeSheetLabel != null) ...[
                         const SizedBox(height: 4),
-                        LText(
-                          'Active sheet: $activeSheetLabel',
+                        Text(
+                          context.l10n.activeSheet(activeSheetLabel),
                           style: theme.textTheme.bodySmall,
                         ),
                       ],
@@ -2442,12 +2471,12 @@ class _EditingPageBaseState extends State<EditingPageBase>
                   onPressed: hasPendingTypeSelection
                       ? null
                       : _resetTypeSelection,
-                  child: const LText('Adjust'),
+                  child: Text(context.l10n.adjust),
                 ),
                 if (canOpenLocalDocumentFromCard)
                   TextButton(
                     onPressed: _openLocalDocumentFolderOrDocument,
-                    child: LText(
+                    child: Text(
                       _documentDocumentTarget is LocalEditorDocumentTarget
                           ? 'Open'
                           : 'Open Document',
@@ -2465,12 +2494,12 @@ class _EditingPageBaseState extends State<EditingPageBase>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  LText(
-                    'Confirm field formats',
+                  Text(
+                    context.l10n.confirmFieldFormats,
                     style: theme.textTheme.titleMedium,
                   ),
                   const SizedBox(height: 6),
-                  LText(
+                  Text(
                     pendingTypeSelectionMessage,
                     style: theme.textTheme.bodyMedium,
                   ),
@@ -2482,7 +2511,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
                     alignment: Alignment.centerRight,
                     child: FilledButton(
                       onPressed: _confirmPendingTypes,
-                      child: const LText('Use these formats'),
+                      child: Text(context.l10n.useTheseFormats),
                     ),
                   ),
                 ],
@@ -2517,9 +2546,14 @@ class _EditingPageBaseState extends State<EditingPageBase>
                   final isDurationField =
                       _isDurationType(type) || _isTimespanField(header);
                   final keyboardType = _keyboardForType(type);
-                  final helperType = _editorTypeLabelFor(type);
+                  final helperType = _localizedEditorTypeLabelFor(
+                    context.l10n,
+                    type,
+                  );
                   final helperText = _showFieldTypes
-                      ? 'Type: $helperType${isReadOnly ? ' (fixed)' : ''}'
+                      ? isReadOnly
+                            ? context.l10n.typeLabelFixed(helperType)
+                            : context.l10n.typeLabel(helperType)
                       : null;
                   return Padding(
                     key: ValueKey<String>(
@@ -2532,20 +2566,22 @@ class _EditingPageBaseState extends State<EditingPageBase>
                         ? TimespanWidget(
                             controller: _documentControllers[index],
                             labelText: header,
-                            helperText: context.trNullable(
-                              helperText == null
-                                  ? null
-                                  : '$helperText (enter hours and minutes)',
-                            ),
+                            helperText: _showFieldTypes
+                                ? context.l10n.typeLabelHoursAndMinutes(
+                                    helperType,
+                                  )
+                                : null,
                           )
                         : !isReadOnly && _isTimeType(type)
                         ? SelectTimeWidget(
                             controller: _documentControllers[index],
                             labelText: header,
-                            hintText: context.trNullable(
-                              _hintForType(type, isDateField: isDateField),
+                            hintText: _hintForType(
+                              context.l10n,
+                              type,
+                              isDateField: isDateField,
                             ),
-                            helperText: context.trNullable(helperText),
+                            helperText: helperText,
                           )
                         : !isReadOnly && type.trim().toLowerCase() == 'date'
                         ? TextField(
@@ -2554,12 +2590,14 @@ class _EditingPageBaseState extends State<EditingPageBase>
                             onTap: () => _pickDateValue(index),
                             decoration: InputDecoration(
                               labelText: header,
-                              hintText: context.trNullable(
-                                _hintForType(type, isDateField: isDateField),
+                              hintText: _hintForType(
+                                context.l10n,
+                                type,
+                                isDateField: isDateField,
                               ),
-                              helperText: context.trNullable(helperText),
+                              helperText: helperText,
                               suffixIcon: IconButton(
-                                tooltip: context.tr('Select date'),
+                                tooltip: context.l10n.selectDate,
                                 onPressed: () => _pickDateValue(index),
                                 icon: const Icon(Icons.calendar_today_rounded),
                               ),
@@ -2569,7 +2607,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
                         ? _buildBooleanField(
                             columnIndex: index,
                             labelText: header,
-                            helperText: context.trNullable(helperText),
+                            helperText: helperText,
                           )
                         : TextField(
                             controller: _documentControllers[index],
@@ -2577,10 +2615,12 @@ class _EditingPageBaseState extends State<EditingPageBase>
                             keyboardType: keyboardType,
                             decoration: InputDecoration(
                               labelText: header,
-                              hintText: context.trNullable(
-                                _hintForType(type, isDateField: isDateField),
+                              hintText: _hintForType(
+                                context.l10n,
+                                type,
+                                isDateField: isDateField,
                               ),
-                              helperText: context.trNullable(helperText),
+                              helperText: helperText,
                             ),
                             minLines: header.toLowerCase().contains('note')
                                 ? 2
@@ -2603,14 +2643,14 @@ class _EditingPageBaseState extends State<EditingPageBase>
                   Expanded(
                     child: ElevatedButton(
                       onPressed: _saveDocumentRow,
-                      child: const LText('Save'),
+                      child: Text(context.l10n.save),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton(
                       onPressed: _pickFromCurrentSheetForMode,
-                      child: LText(_modeBehavior.pickButtonLabel),
+                      child: Text(_modeBehavior.pickButtonLabel(context.l10n)),
                     ),
                   ),
                   if (_modeBehavior.showsTextEntryActions) ...[
@@ -2618,7 +2658,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
                     Expanded(
                       child: OutlinedButton(
                         onPressed: _createNewTextEntry,
-                        child: const LText('New'),
+                        child: Text(context.l10n.newLabel),
                       ),
                     ),
                   ] else if (canCreateOpenEndDateRow) ...[
@@ -2626,14 +2666,14 @@ class _EditingPageBaseState extends State<EditingPageBase>
                     Expanded(
                       child: OutlinedButton(
                         onPressed: _createNewDateOpenEndRow,
-                        child: const LText('New'),
+                        child: Text(context.l10n.newLabel),
                       ),
                     ),
                   ] else ...[
                     const SizedBox(width: 8),
                     IconButton(
                       onPressed: _clearEditableFields,
-                      tooltip: context.tr('Clear editable fields'),
+                      tooltip: context.l10n.clearEditableFields,
                       icon: const Icon(Icons.delete_outline_rounded),
                     ),
                   ],
@@ -2660,7 +2700,11 @@ class _EditingPageBaseState extends State<EditingPageBase>
       initialValue: selectedType,
       labelText: header,
       options: typeOptions,
-      labelFor: (type) => _pendingTypeLabel(index: index, type: type),
+      labelFor: (type) => _pendingTypeLabel(
+        localizations: context.l10n,
+        index: index,
+        type: type,
+      ),
       iconFor: TypeDropdownList.iconForTypeLabel,
       onChanged: (value) => _handlePendingTypeChanged(index, value),
     );
@@ -2671,12 +2715,19 @@ class _EditingPageBaseState extends State<EditingPageBase>
     );
   }
 
-  String _pendingTypeLabel({required int index, required String type}) {
+  String _pendingTypeLabel({
+    required AppLocalizations localizations,
+    required int index,
+    required String type,
+  }) {
     if (type == 'money') {
       if (FieldTypeGuesser.isMoneyType(_documentValueTypes[index])) {
-        return _editorTypeLabelFor(_documentValueTypes[index]);
+        return _localizedEditorTypeLabelFor(
+          localizations,
+          _documentValueTypes[index],
+        );
       }
-      return 'money';
+      return localizations.money;
     }
     return type;
   }
@@ -2761,16 +2812,16 @@ class _EditingPageBaseState extends State<EditingPageBase>
       child: Align(
         alignment: Alignment.centerLeft,
         child: SegmentedButton<bool>(
-          segments: const <ButtonSegment<bool>>[
+          segments: <ButtonSegment<bool>>[
             ButtonSegment<bool>(
               value: true,
               icon: Icon(Icons.check_rounded),
-              label: LText('TRUE'),
+              label: Text(context.l10n.trueLabel),
             ),
             ButtonSegment<bool>(
               value: false,
               icon: Icon(Icons.close_rounded),
-              label: LText('FALSE'),
+              label: Text(context.l10n.falseLabel),
             ),
           ],
           selected: selected,
@@ -2828,68 +2879,73 @@ class _EditingPageBaseState extends State<EditingPageBase>
     setState(() {});
   }
 
-  String? _hintForType(String rawType, {required bool isDateField}) {
+  String? _hintForType(
+    AppLocalizations localizations,
+    String rawType, {
+    required bool isDateField,
+  }) {
     if (isDateField) {
-      return 'YYYY-MM-DD';
+      return localizations.yyyyMmDd;
     }
 
     final type = rawType.trim().toLowerCase();
     final normalizedType = FieldTypeGuesser.normalizeTypeLabel(rawType);
     if (normalizedType == 'duration') {
-      return 'Minutes or HH:MM:SS';
+      return localizations.minutesOrHHMMSS;
     }
     if (normalizedType == 'time') {
-      return 'HH:MM:SS';
+      return localizations.hhMmSs;
     }
     if (normalizedType == 'date') {
-      return 'YYYY-MM-DD';
+      return localizations.yyyyMmDd;
     }
     if (normalizedType == 'boolean') {
-      return 'TRUE or FALSE';
+      return localizations.trueOrFALSE;
     }
     if (normalizedType == 'int') {
-      return 'e.g. 123';
+      return localizations.exampleInteger;
     }
     if (normalizedType == 'float') {
-      return 'e.g. 123.45 or 123,45';
+      return localizations.exampleDecimal;
     }
     if (normalizedType == 'money') {
-      return 'e.g. 123.45 or 123,45';
+      return localizations.exampleDecimal;
     }
     if (type.contains('email')) {
-      return 'name@example.com';
+      return localizations.exampleEmail;
     }
     if (type.contains('phone')) {
-      return 'e.g. +49 123 456789';
+      return localizations.examplePhone;
     }
     return null;
   }
 
   Widget _buildSetupView(ThemeData theme) {
     final setupTip = _supportsLocalFileEditing
-        ? 'Tip: pick a local file first, then edit daily rows. For cloud-based files, connect Google Drive or WebDAV in Settings and use Edit Cloud Document here.'
-        : 'Tip: connect Google Drive or WebDAV in Settings, then use Edit Cloud Document here.';
+        ? context.l10n.localEditingTip
+        : context.l10n.cloudEditingTip;
 
     return Column(
       children: [
         _SetupCard(
-          title: 'Create New CSV',
-          subtitle: 'Start from a fresh monthly sheet',
+          title: context.l10n.createNewCSV,
+          subtitle: context.l10n.startFromAFreshMonthlySheet,
           icon: Icons.arrow_forward_ios_rounded,
           onTap: _createNewCsv,
         ),
         const SizedBox(height: 10),
         if (_supportsLocalFileEditing) ...[
           _SetupCard(
-            title: 'Select Local File',
+            title: context.l10n.selectLocalFile,
             subtitle:
-                _importedFileName ?? 'Open an existing CSV from this device',
+                _importedFileName ??
+                context.l10n.openAnExistingCsvFromThisDevice,
             icon: Icons.folder_open_rounded,
             onTap: _importCsv,
           ),
           const SizedBox(height: 14),
         ],
-        LText(setupTip, style: theme.textTheme.bodyMedium),
+        Text(setupTip, style: theme.textTheme.bodyMedium),
       ],
     );
   }
@@ -2952,7 +3008,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
             if (hasSameDateEntries)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: LText(
+                child: Text(
                   '${sameDateMatches.length} entr${sameDateMatches.length == 1 ? 'y' : 'ies'} for this date found.',
                 ),
               ),
@@ -2963,7 +3019,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
                     child: OutlinedButton.icon(
                       onPressed: _loadPreviousSameDateEntry,
                       icon: const Icon(Icons.history_rounded),
-                      label: const LText('Previous'),
+                      label: Text(context.l10n.previous),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -2973,15 +3029,13 @@ class _EditingPageBaseState extends State<EditingPageBase>
                     onPressed: isBrowsingExisting
                         ? _loadNextSameDateEntry
                         : _saveRow,
-                    child: LText(
-                      isBrowsingExisting ? 'Next Row' : 'Submit New',
-                    ),
+                    child: Text(isBrowsingExisting ? 'Next Row' : 'Submit New'),
                   ),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
                   onPressed: _clearEditorWindow,
-                  tooltip: context.tr('Clear editor'),
+                  tooltip: context.l10n.clearEditor,
                   icon: const Icon(Icons.delete_outline_rounded),
                 ),
               ],
@@ -2995,11 +3049,13 @@ class _EditingPageBaseState extends State<EditingPageBase>
   String get _headerTitle {
     if (!_isAdvancedMode) {
       if (_hasDocumentSchema) {
-        return 'Editor';
+        return context.l10n.editor;
       }
-      return 'Get Started';
+      return context.l10n.getStarted;
     }
-    return _setupDone ? 'Calcrow Daily Editor' : 'Get Started';
+    return _setupDone
+        ? context.l10n.calcrowDailyEditor
+        : context.l10n.getStarted;
   }
 
   void _handleBack() {
@@ -3168,25 +3224,25 @@ class _TopHeader extends StatelessWidget {
           children: [
             if (showBackButton) ...[
               IconButton(
-                tooltip: context.tr('Back'),
+                tooltip: context.l10n.back,
                 onPressed: onBack,
                 icon: const Icon(Icons.arrow_back_rounded),
               ),
               const SizedBox(width: 10),
             ],
             Expanded(
-              child: LText(headerTitle, style: theme.textTheme.titleMedium),
+              child: Text(headerTitle, style: theme.textTheme.titleMedium),
             ),
             if (isAdvancedMode && setupDone)
               PopupMenuButton<_WidgetBlock>(
-                tooltip: context.tr('Manage widgets'),
+                tooltip: context.l10n.manageWidgets,
                 icon: const Icon(Icons.more_horiz_rounded),
                 onSelected: onToggleWidget,
                 itemBuilder: (context) => widgetOptions.map((block) {
                   return CheckedPopupMenuItem<_WidgetBlock>(
                     value: block,
                     checked: visibleWidgets.contains(block),
-                    child: LText(_labelForWidget(block)),
+                    child: Text(_labelForWidget(block)),
                   );
                 }).toList(),
               ),
@@ -3194,7 +3250,7 @@ class _TopHeader extends StatelessWidget {
             if (showModeSwitch)
               TextButton(
                 onPressed: onToggleMode,
-                child: LText(isAdvancedMode ? 'Advanced' : 'Core'),
+                child: Text(isAdvancedMode ? 'Advanced' : 'Core'),
               ),
             if (showModeSwitch) const SizedBox(width: 6),
             ...trailingActions,
@@ -3253,9 +3309,9 @@ class _SetupCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    LText(title, style: theme.textTheme.titleMedium),
+                    Text(title, style: theme.textTheme.titleMedium),
                     const SizedBox(height: 5),
-                    LText(subtitle, style: theme.textTheme.bodyMedium),
+                    Text(subtitle, style: theme.textTheme.bodyMedium),
                   ],
                 ),
               ),

@@ -3,96 +3,93 @@ import 'package:calcrow/l10n/app_localizations.dart';
 import 'package:calcrow/core/guessers/field_type_guesser.dart';
 import 'package:calcrow/core/sheet_type_logic/field_type.dart';
 
-const documentTemplates = <DocumentTemplate>[
+typedef LocalizedTemplateText = String Function(AppLocalizations);
+
+final documentTemplates = <DocumentTemplate>[
   DocumentTemplate(
-    name: 'Workout like Bruce Lee',
+    name: (l10n) => l10n.workoutLikeBruceLee,
     fileName: 'bruce_lee_workout',
-    description:
-        'Track training sessions without turning the sheet into a fitness app.',
+    description: (l10n) =>
+        l10n.trackTrainingSessionsWithoutTurningTheSheetIntoAFitnessApp,
     columns: <TemplateColumn>[
-      TemplateColumn(header: 'Date', type: FieldType.date),
-      TemplateColumn(header: 'Run km', type: FieldType.float),
-      TemplateColumn(header: 'Clean and Press weight', type: FieldType.float),
-      TemplateColumn(header: 'Barbell Curl weight', type: FieldType.float),
-      TemplateColumn(
-        header: 'Behind-the-neck Press weight',
-        type: FieldType.float,
-      ),
-      TemplateColumn(header: 'Upright Row weight', type: FieldType.float),
-      TemplateColumn(header: 'Barbell Squat weight', type: FieldType.float),
-      TemplateColumn(header: 'Barbell Row weight', type: FieldType.float),
-      TemplateColumn(
-        header: 'Barbell Bench Press weight',
-        type: FieldType.float,
-      ),
-      TemplateColumn(header: 'Barbell Pullover weight', type: FieldType.float),
-      TemplateColumn(header: 'Reps', type: FieldType.integer),
-      TemplateColumn(header: 'Sets', type: FieldType.integer),
-      TemplateColumn(header: 'Notes', type: FieldType.text),
+      TemplateColumn(header: _date, type: FieldType.date),
+      TemplateColumn(header: _runKm, type: FieldType.float),
+      TemplateColumn(header: _cleanAndPressWeight, type: FieldType.float),
+      TemplateColumn(header: _barbellCurlWeight, type: FieldType.float),
+      TemplateColumn(header: _behindTheNeckPressWeight, type: FieldType.float),
+      TemplateColumn(header: _uprightRowWeight, type: FieldType.float),
+      TemplateColumn(header: _barbellSquatWeight, type: FieldType.float),
+      TemplateColumn(header: _barbellRowWeight, type: FieldType.float),
+      TemplateColumn(header: _barbellBenchPressWeight, type: FieldType.float),
+      TemplateColumn(header: _barbellPulloverWeight, type: FieldType.float),
+      TemplateColumn(header: _reps, type: FieldType.integer),
+      TemplateColumn(header: _sets, type: FieldType.integer),
+      TemplateColumn(header: _notes, type: FieldType.text),
     ],
   ),
   DocumentTemplate(
-    name: 'Triathlon Training Tracker Plus',
+    name: (l10n) => l10n.triathlonTrainingTrackerPlus,
     fileName: 'triathlon_training_tracker_plus',
-    description: 'Track swim, bike, run, and strength work in one row.',
+    description: (l10n) => l10n.trackSwimBikeRunAndStrengthWorkInOneRow,
     columns: <TemplateColumn>[
-      TemplateColumn(header: 'Date', type: FieldType.date),
-      TemplateColumn(header: 'Run km', type: FieldType.float),
-      TemplateColumn(header: 'Swim km', type: FieldType.float),
-      TemplateColumn(header: 'Bike km', type: FieldType.float),
-      TemplateColumn(header: 'Pull-ups', type: FieldType.integer),
-      TemplateColumn(header: 'Push-ups', type: FieldType.integer),
-      TemplateColumn(header: 'Squats', type: FieldType.integer),
+      TemplateColumn(header: _date, type: FieldType.date),
+      TemplateColumn(header: _runKm, type: FieldType.float),
+      TemplateColumn(header: _swimKm, type: FieldType.float),
+      TemplateColumn(header: _bikeKm, type: FieldType.float),
+      TemplateColumn(header: _pullUps, type: FieldType.integer),
+      TemplateColumn(header: _pushUps, type: FieldType.integer),
+      TemplateColumn(header: _squats, type: FieldType.integer),
     ],
   ),
   DocumentTemplate(
-    name: 'Customer Service',
+    name: (l10n) => l10n.customerService,
     fileName: 'customer_service',
-    description: 'Log customer visits, billable time, expenses, and outcomes.',
+    description: (l10n) =>
+        l10n.logCustomerVisitsBillableTimeExpensesAndOutcomes,
     columns: <TemplateColumn>[
-      TemplateColumn(header: 'Date', type: FieldType.date),
-      TemplateColumn(header: 'Customer', type: FieldType.text),
-      TemplateColumn(header: 'Workhours', type: FieldType.float),
-      TemplateColumn(header: 'Expenses', type: FieldType.money),
-      TemplateColumn(header: 'Work done', type: FieldType.text),
-      TemplateColumn(header: 'Notes', type: FieldType.text),
+      TemplateColumn(header: _date, type: FieldType.date),
+      TemplateColumn(header: _customer, type: FieldType.text),
+      TemplateColumn(header: _workhours, type: FieldType.float),
+      TemplateColumn(header: _expenses, type: FieldType.money),
+      TemplateColumn(header: _workDone, type: FieldType.text),
+      TemplateColumn(header: _notes, type: FieldType.text),
     ],
   ),
   DocumentTemplate(
-    name: 'Guestlist',
+    name: (l10n) => l10n.guestlist,
     fileName: 'guestlist',
-    description: 'Names, contacts, and RSVP status for an event.',
+    description: (l10n) => l10n.namesContactsAndRSVPStatusForAnEvent,
     columns: <TemplateColumn>[
-      TemplateColumn(header: 'Date', type: FieldType.date),
-      TemplateColumn(header: 'Name', type: FieldType.text),
-      TemplateColumn(header: 'Email', type: FieldType.email),
-      TemplateColumn(header: 'Phone', type: FieldType.phone),
-      TemplateColumn(header: 'RSVP', type: FieldType.boolean),
-      TemplateColumn(header: 'Notes', type: FieldType.text),
+      TemplateColumn(header: _date, type: FieldType.date),
+      TemplateColumn(header: _name, type: FieldType.text),
+      TemplateColumn(header: _email, type: FieldType.email),
+      TemplateColumn(header: _phone, type: FieldType.phone),
+      TemplateColumn(header: _rsvp, type: FieldType.boolean),
+      TemplateColumn(header: _notes, type: FieldType.text),
     ],
   ),
   DocumentTemplate(
-    name: 'Workhours',
+    name: (l10n) => l10n.workhours,
     fileName: 'workhours',
-    description: 'A clean day-by-day timesheet with breaks and notes.',
+    description: (l10n) => l10n.aCleanDayByDayTimesheetWithBreaksAndNotes,
     columns: <TemplateColumn>[
-      TemplateColumn(header: 'Date', type: FieldType.date),
-      TemplateColumn(header: 'Start', type: FieldType.time),
-      TemplateColumn(header: 'End', type: FieldType.time),
-      TemplateColumn(header: 'Pause', type: FieldType.duration),
-      TemplateColumn(header: 'Notes', type: FieldType.text),
+      TemplateColumn(header: _date, type: FieldType.date),
+      TemplateColumn(header: _start, type: FieldType.time),
+      TemplateColumn(header: _end, type: FieldType.time),
+      TemplateColumn(header: _pause, type: FieldType.duration),
+      TemplateColumn(header: _notes, type: FieldType.text),
     ],
   ),
   DocumentTemplate(
-    name: 'Invoices',
+    name: (l10n) => l10n.invoices,
     fileName: 'invoices',
-    description: 'Basic invoice tracking with dates, clients, and totals.',
+    description: (l10n) => l10n.basicInvoiceTrackingWithDatesClientsAndTotals,
     columns: <TemplateColumn>[
-      TemplateColumn(header: 'Date', type: FieldType.date),
-      TemplateColumn(header: 'Client', type: FieldType.text),
-      TemplateColumn(header: 'Invoice', type: FieldType.text),
-      TemplateColumn(header: 'Amount', type: FieldType.money),
-      TemplateColumn(header: 'Status', type: FieldType.text),
+      TemplateColumn(header: _date, type: FieldType.date),
+      TemplateColumn(header: _client, type: FieldType.text),
+      TemplateColumn(header: _invoice, type: FieldType.text),
+      TemplateColumn(header: _amount, type: FieldType.money),
+      TemplateColumn(header: _status, type: FieldType.text),
     ],
   ),
 ];
@@ -105,9 +102,9 @@ class DocumentTemplate {
     required this.columns,
   });
 
-  final String name;
+  final LocalizedTemplateText name;
   final String fileName;
-  final String description;
+  final LocalizedTemplateText description;
   final List<TemplateColumn> columns;
 }
 
@@ -118,10 +115,47 @@ class TemplateColumn {
     this.currencyCode = FieldTypeGuesser.defaultCurrencyCode,
   });
 
-  final String header;
+  final LocalizedTemplateText header;
   final FieldType type;
   final String currencyCode;
 }
+
+String _date(AppLocalizations l10n) => l10n.date;
+String _runKm(AppLocalizations l10n) => l10n.runKm;
+String _cleanAndPressWeight(AppLocalizations l10n) => l10n.cleanAndPressWeight;
+String _barbellCurlWeight(AppLocalizations l10n) => l10n.barbellCurlWeight;
+String _behindTheNeckPressWeight(AppLocalizations l10n) =>
+    l10n.behindTheNeckPressWeight;
+String _uprightRowWeight(AppLocalizations l10n) => l10n.uprightRowWeight;
+String _barbellSquatWeight(AppLocalizations l10n) => l10n.barbellSquatWeight;
+String _barbellRowWeight(AppLocalizations l10n) => l10n.barbellRowWeight;
+String _barbellBenchPressWeight(AppLocalizations l10n) =>
+    l10n.barbellBenchPressWeight;
+String _barbellPulloverWeight(AppLocalizations l10n) =>
+    l10n.barbellPulloverWeight;
+String _reps(AppLocalizations l10n) => l10n.reps;
+String _sets(AppLocalizations l10n) => l10n.sets;
+String _notes(AppLocalizations l10n) => l10n.notes;
+String _swimKm(AppLocalizations l10n) => l10n.swimKm;
+String _bikeKm(AppLocalizations l10n) => l10n.bikeKm;
+String _pullUps(AppLocalizations l10n) => l10n.pullUps;
+String _pushUps(AppLocalizations l10n) => l10n.pushUps;
+String _squats(AppLocalizations l10n) => l10n.squats;
+String _customer(AppLocalizations l10n) => l10n.customer;
+String _workhours(AppLocalizations l10n) => l10n.workhours;
+String _expenses(AppLocalizations l10n) => l10n.expenses;
+String _workDone(AppLocalizations l10n) => l10n.workDone;
+String _name(AppLocalizations l10n) => l10n.name;
+String _email(AppLocalizations l10n) => l10n.email;
+String _phone(AppLocalizations l10n) => l10n.phone;
+String _rsvp(AppLocalizations l10n) => l10n.rsvpField;
+String _start(AppLocalizations l10n) => l10n.start;
+String _end(AppLocalizations l10n) => l10n.end;
+String _pause(AppLocalizations l10n) => l10n.pauseField;
+String _client(AppLocalizations l10n) => l10n.client;
+String _invoice(AppLocalizations l10n) => l10n.invoice;
+String _amount(AppLocalizations l10n) => l10n.amount;
+String _status(AppLocalizations l10n) => l10n.status;
 
 class TemplatesDialogue extends StatelessWidget {
   const TemplatesDialogue({super.key, required this.templates});
@@ -143,21 +177,23 @@ class TemplatesDialogue extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: LText(
-                      'Templates',
+                    child: Text(
+                      context.l10n.templates,
                       style: theme.textTheme.headlineSmall,
                     ),
                   ),
                   IconButton(
-                    tooltip: context.tr('Close templates'),
+                    tooltip: context.l10n.closeTemplates,
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded),
                   ),
                 ],
               ),
               const SizedBox(height: 6),
-              LText(
-                'Every template starts with Date as the first column. Pick a starting point, then rename, add, remove, and reorder the remaining fields before creating the document.',
+              Text(
+                context
+                    .l10n
+                    .everyTemplateStartsWithDateAsTheFirstColumnPickAStartingPointThenRenameAddRemoveAndReorderTheRemainingFieldsBeforeCreatingTheDocument,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -203,8 +239,8 @@ class _TemplateOptionTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: LText(
-                      template.name,
+                    child: Text(
+                      template.name(context.l10n),
                       style: theme.textTheme.titleMedium,
                     ),
                   ),
@@ -212,8 +248,8 @@ class _TemplateOptionTile extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 4),
-              LText(
-                template.description,
+              Text(
+                template.description(context.l10n),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -236,11 +272,7 @@ class _TemplateFieldPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final previewColumns = columns
-        .where(
-          (column) =>
-              column.header.trim().toLowerCase() != 'date' ||
-              column.type != FieldType.date,
-        )
+        .where((column) => column.type != FieldType.date)
         .toList(growable: false);
     final chipStrip = SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -248,7 +280,7 @@ class _TemplateFieldPreview extends StatelessWidget {
         children: [
           for (var index = 0; index < previewColumns.length; index++) ...[
             Chip(
-              label: LText(previewColumns[index].header),
+              label: Text(previewColumns[index].header(context.l10n)),
               avatar: Icon(_iconForType(previewColumns[index].type), size: 18),
               visualDensity: VisualDensity.compact,
             ),

@@ -24,17 +24,17 @@ class WellbeingWidget extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            LText('Wellbeing', style: theme.textTheme.titleMedium),
+            Text(context.l10n.wellbeing, style: theme.textTheme.titleMedium),
             const SizedBox(height: 6),
             _LabeledSlider(
               icon: Icons.sentiment_neutral_rounded,
-              label: 'Mood',
+              label: context.l10n.mood,
               value: moodLevel,
               onChanged: onMoodChanged,
             ),
             _LabeledSlider(
               icon: Icons.favorite_border_rounded,
-              label: 'Energy',
+              label: context.l10n.energy,
               value: energyLevel,
               onChanged: onEnergyChanged,
             ),
@@ -64,11 +64,11 @@ class _LabeledSlider extends StatelessWidget {
       children: [
         Icon(icon, size: 18),
         const SizedBox(width: 8),
-        SizedBox(width: 56, child: LText(label)),
+        SizedBox(width: 56, child: Text(label)),
         Expanded(
           child: Slider(value: value, onChanged: onChanged),
         ),
-        SizedBox(width: 44, child: LText('${(value * 100).round()}%')),
+        SizedBox(width: 44, child: Text('${(value * 100).round()}%')),
       ],
     );
   }

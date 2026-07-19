@@ -26,14 +26,14 @@ class WorkhoursWidget extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            LText('Workhours', style: theme.textTheme.titleMedium),
+            Text(context.l10n.workhours, style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: startController,
-                    decoration: InputDecoration(labelText: context.tr('Start')),
+                    decoration: InputDecoration(labelText: context.l10n.start),
                     onChanged: (_) => onChanged(),
                   ),
                 ),
@@ -41,7 +41,7 @@ class WorkhoursWidget extends StatelessWidget {
                 Expanded(
                   child: TextField(
                     controller: endController,
-                    decoration: InputDecoration(labelText: context.tr('End')),
+                    decoration: InputDecoration(labelText: context.l10n.end),
                     onChanged: (_) => onChanged(),
                   ),
                 ),
@@ -54,7 +54,7 @@ class WorkhoursWidget extends StatelessWidget {
                   child: TextField(
                     controller: breakController,
                     decoration: InputDecoration(
-                      labelText: context.tr('Pause (min)'),
+                      labelText: context.l10n.pauseMin,
                     ),
                     onChanged: (_) => onChanged(),
                   ),
@@ -64,7 +64,7 @@ class WorkhoursWidget extends StatelessWidget {
                   child: TextField(
                     readOnly: true,
                     decoration: InputDecoration(
-                      labelText: context.tr('Total'),
+                      labelText: context.l10n.total,
                       hintText: totalHours,
                     ),
                   ),

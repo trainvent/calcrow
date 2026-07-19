@@ -88,12 +88,12 @@ class _HomeShellState extends State<HomeShell> {
                           locked: isPickingRow,
                           child: const _SingleRowNavIcon(selected: true),
                         ),
-                        label: context.tr('Row'),
+                        label: context.l10n.row,
                       ),
                       NavigationDestination(
                         icon: const Icon(Icons.grid_on_outlined),
                         selectedIcon: const Icon(Icons.grid_on),
-                        label: context.tr('Sheet'),
+                        label: context.l10n.sheet,
                       ),
                       NavigationDestination(
                         icon: _PickLockedNavIcon(
@@ -104,7 +104,7 @@ class _HomeShellState extends State<HomeShell> {
                           locked: isPickingRow,
                           child: const Icon(Icons.settings),
                         ),
-                        label: context.tr('Settings'),
+                        label: context.l10n.settings,
                       ),
                     ],
                   );

@@ -20,7 +20,7 @@ void main() {
                   showWebDavErrorSnackBar(
                     context: context,
                     error: WebDavException(
-                      'Browser blocked the WebDAV request.',
+                      WebDavMessage.browserBlocked,
                       kind: WebDavErrorKind.browserBlocked,
                       technicalDetails: 'XMLHttpRequest error',
                       requestMethod: 'PROPFIND',
@@ -39,7 +39,10 @@ void main() {
       );
 
       await tester.pump();
-      expect(find.text('Browser blocked the WebDAV request.'), findsOneWidget);
+      expect(
+        find.textContaining('Browser blocked the WebDAV request'),
+        findsOneWidget,
+      );
       expect(find.text('Details'), findsOneWidget);
 
       final action = tester.widget<SnackBarAction>(find.byType(SnackBarAction));

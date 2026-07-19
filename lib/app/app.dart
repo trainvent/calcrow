@@ -64,7 +64,7 @@ class _CalcrowAppState extends State<CalcrowApp> {
   Widget build(BuildContext context) {
     if (_showMarketingLanding()) {
       return MaterialApp(
-        title: 'Calcrow',
+        onGenerateTitle: (context) => context.l10n.calcrow,
         localizationsDelegates: _localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         debugShowCheckedModeBanner: false,
@@ -75,7 +75,7 @@ class _CalcrowAppState extends State<CalcrowApp> {
 
     if (!ServiceLocator.isSetup) {
       return MaterialApp(
-        title: 'Calcrow',
+        onGenerateTitle: (context) => context.l10n.calcrow,
         localizationsDelegates: _localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         debugShowCheckedModeBanner: false,
@@ -97,7 +97,7 @@ class _CalcrowAppState extends State<CalcrowApp> {
 
   Widget _buildMaterialApp({required Widget child}) {
     return MaterialApp(
-      title: 'Calcrow',
+      onGenerateTitle: (context) => context.l10n.calcrow,
       localizationsDelegates: _localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       debugShowCheckedModeBanner: false,
@@ -321,21 +321,25 @@ class _DiagnosticsConsentSheetState extends State<_DiagnosticsConsentSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            LText(
-              'Help Improve Calcrow',
+            Text(
+              context.l10n.helpImproveCalcrow,
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
-            const LText(
-              'Choose whether Calcrow may collect anonymous usage analytics and technical crash or performance diagnostics. You can change both later in Settings.',
+            Text(
+              context
+                  .l10n
+                  .chooseWhetherCalcrowMayCollectAnonymousUsageAnalyticsAndTechnicalCrashOrPerformanceDiagnosticsYouCanChangeBothLaterInSettings,
             ),
             const SizedBox(height: 16),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               secondary: const Icon(Icons.insights_outlined),
-              title: const LText('Usage analytics'),
-              subtitle: const LText(
-                'Anonymous usage patterns to understand which screens and flows are used.',
+              title: Text(context.l10n.usageAnalytics),
+              subtitle: Text(
+                context
+                    .l10n
+                    .anonymousUsagePatternsToUnderstandWhichScreensAndFlowsAreUsed,
               ),
               value: _usageAnalyticsEnabled,
               onChanged: diagnostics.supportsUsageAnalytics
@@ -349,9 +353,11 @@ class _DiagnosticsConsentSheetState extends State<_DiagnosticsConsentSheet> {
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               secondary: const Icon(Icons.health_and_safety_outlined),
-              title: const LText('Crash reports and performance'),
-              subtitle: const LText(
-                'Crash logs, non-fatal errors, and performance monitoring to diagnose failures and slow paths.',
+              title: Text(context.l10n.crashReportsAndPerformance),
+              subtitle: Text(
+                context
+                    .l10n
+                    .crashLogsNonFatalErrorsAndPerformanceMonitoringToDiagnoseFailuresAndSlowPaths,
               ),
               value: _crashReportsEnabled,
               onChanged: diagnostics.supportsCrashReports
@@ -375,7 +381,7 @@ class _DiagnosticsConsentSheetState extends State<_DiagnosticsConsentSheet> {
                         ),
                       );
                     },
-                    child: const LText('Keep Off'),
+                    child: Text(context.l10n.keepOff),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -389,7 +395,7 @@ class _DiagnosticsConsentSheetState extends State<_DiagnosticsConsentSheet> {
                         ),
                       );
                     },
-                    child: const LText('Save Choices'),
+                    child: Text(context.l10n.saveChoices),
                   ),
                 ),
               ],

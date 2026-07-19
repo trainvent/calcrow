@@ -15,16 +15,16 @@ class SmartDataWidget extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            LText('Smart Data', style: theme.textTheme.titleMedium),
+            Text(context.l10n.smartData, style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
-                const _InfoTag(label: 'Steps', value: '7500'),
-                const _InfoTag(label: 'Location', value: 'Bielefeld'),
+                _InfoTag(label: context.l10n.steps, value: '7500'),
+                _InfoTag(label: context.l10n.location, value: 'Bielefeld'),
                 _InfoTag(
-                  label: 'Health',
+                  label: context.l10n.health,
                   value: '${(energyLevel * 100).round()}%',
                 ),
               ],
@@ -51,7 +51,7 @@ class _InfoTag extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFEAE0D6)),
       ),
-      child: LText('$label: $value'),
+      child: Text('$label: $value'),
     );
   }
 }

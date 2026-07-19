@@ -7,15 +7,45 @@ import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 
+import '../../../l10n/app_localizations.dart';
+
 enum EntitlementTier { free, pro }
 
-class PurchasesServiceException implements Exception {
-  const PurchasesServiceException(this.message);
+enum PurchasesFailure {
+  missingConfiguration,
+  temporarilyUnavailable,
+  unavailableBuild,
+  unavailableNow,
+  paywallsUnsupportedOnWeb,
+  customerCenterUnsupportedOnWeb,
+  couldNotOpenOptions,
+}
 
-  final String message;
+class PurchasesServiceException implements Exception {
+  const PurchasesServiceException(this.failure);
+
+  final PurchasesFailure failure;
+
+  String localizedMessage(AppLocalizations localizations) => switch (failure) {
+    PurchasesFailure.missingConfiguration =>
+      localizations.purchasesUnavailableMissingConfiguration,
+    PurchasesFailure.temporarilyUnavailable =>
+      localizations.purchasesTemporarilyUnavailable,
+    PurchasesFailure.unavailableBuild =>
+      localizations
+          .purchasesAreUnavailableInThisBuildPleaseUpdateTheAppAndTryAgain,
+    PurchasesFailure.unavailableNow =>
+      localizations.purchasesAreUnavailableRightNowPleaseTryAgainLater,
+    PurchasesFailure.paywallsUnsupportedOnWeb =>
+      localizations.revenuecatPaywallsAreNotSupportedOnWebBuilds,
+    PurchasesFailure.customerCenterUnsupportedOnWeb =>
+      localizations.revenuecatCustomerCenterIsNotSupportedOnWebBuilds,
+    PurchasesFailure.couldNotOpenOptions =>
+      localizations.couldNotOpenSubscriptionOptionsPleaseTryAgainLater,
+  };
 
   @override
-  String toString() => message;
+  String toString() => failure.name;
 }
 
 class PurchasesService {
@@ -37,7 +67,7 @@ class PurchasesService {
   EntitlementTier get currentTier => _currentTier;
 
   bool _isInitialized = false;
-  String? _initFailureMessage;
+  PurchasesFailure? _initFailure;
   String? _appUserId;
   String? _appUserEmail;
   Set<String> _defaultProEmails = <String>{};
@@ -56,8 +86,7 @@ class PurchasesService {
     final trimmedApiKey = apiKey.trim();
     if (kIsWeb) return;
     if (trimmedApiKey.isEmpty) {
-      _initFailureMessage =
-          'Purchases are unavailable in this build. The App Store build is missing its purchase configuration.';
+      _initFailure = PurchasesFailure.missingConfiguration;
       return;
     }
     try {
@@ -67,14 +96,13 @@ class PurchasesService {
       );
       _appUserId = appUserId;
       _isInitialized = true;
-      _initFailureMessage = null;
+      _initFailure = null;
       Purchases.addCustomerInfoUpdateListener(_onCustomerInfoUpdated);
       final customerInfo = await Purchases.getCustomerInfo();
       _onCustomerInfoUpdated(customerInfo);
     } catch (error, stackTrace) {
       log('Purchases init failed: $error\n$stackTrace');
-      _initFailureMessage =
-          'Purchases are temporarily unavailable. Please try again later.';
+      _initFailure = PurchasesFailure.temporarilyUnavailable;
       rethrow;
     }
   }
@@ -118,27 +146,22 @@ class PurchasesService {
   Future<bool> presentPaywall() async {
     if (kIsWeb) {
       throw const PurchasesServiceException(
-        'RevenueCat paywalls are not supported on web builds.',
+        PurchasesFailure.paywallsUnsupportedOnWeb,
       );
     }
     if (!_isInitialized) {
       throw PurchasesServiceException(
-        _initFailureMessage ??
-            'Purchases are unavailable in this build. Please update the app and try again.',
+        _initFailure ?? PurchasesFailure.unavailableBuild,
       );
     }
     try {
       final offerings = await Purchases.getOfferings();
       final offering = offerings.current;
       if (offering == null) {
-        throw const PurchasesServiceException(
-          'Purchases are unavailable right now. Please try again later.',
-        );
+        throw const PurchasesServiceException(PurchasesFailure.unavailableNow);
       }
       if (offering.availablePackages.isEmpty) {
-        throw const PurchasesServiceException(
-          'Purchases are unavailable right now. Please try again later.',
-        );
+        throw const PurchasesServiceException(PurchasesFailure.unavailableNow);
       }
 
       await RevenueCatUI.presentPaywall(offering: offering);
@@ -149,7 +172,7 @@ class PurchasesService {
     } catch (error, stackTrace) {
       log('presentPaywall error: $error\n$stackTrace');
       throw const PurchasesServiceException(
-        'Could not open subscription options. Please try again later.',
+        PurchasesFailure.couldNotOpenOptions,
       );
     }
   }
@@ -157,13 +180,12 @@ class PurchasesService {
   Future<void> presentCustomerCenter() async {
     if (kIsWeb) {
       throw const PurchasesServiceException(
-        'RevenueCat customer center is not supported on web builds.',
+        PurchasesFailure.customerCenterUnsupportedOnWeb,
       );
     }
     if (!_isInitialized) {
       throw PurchasesServiceException(
-        _initFailureMessage ??
-            'Purchases are unavailable in this build. Please update the app and try again.',
+        _initFailure ?? PurchasesFailure.unavailableBuild,
       );
     }
     try {
@@ -174,7 +196,7 @@ class PurchasesService {
     } catch (error, stackTrace) {
       log('presentCustomerCenter error: $error\n$stackTrace');
       throw const PurchasesServiceException(
-        'Could not open subscription options. Please try again later.',
+        PurchasesFailure.couldNotOpenOptions,
       );
     }
   }

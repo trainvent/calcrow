@@ -110,7 +110,7 @@ class _SeparatedMovingTile extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         child,
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(bottom: 16),
           child: _DashedSeparator(),
         ),
@@ -187,12 +187,12 @@ class _ColumnArrangeControls extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          tooltip: context.tr('Move up'),
+          tooltip: context.l10n.moveUp,
           onPressed: canMoveUp ? onMoveUp : null,
           icon: const Icon(Icons.keyboard_arrow_up_rounded),
         ),
         IconButton(
-          tooltip: context.tr('Move down'),
+          tooltip: context.l10n.moveDown,
           onPressed: canMoveDown ? onMoveDown : null,
           icon: const Icon(Icons.keyboard_arrow_down_rounded),
         ),

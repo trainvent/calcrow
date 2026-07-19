@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import '../../sheet_type_logic/sheet_file_models.dart';
 import '../../sheet_type_logic/type_hint_cache.dart';
+import '../../../l10n/app_localizations.dart';
 import 'auth_service.dart';
 import 'google_drive_auth_service.dart';
 import 'google_drive_sync_service.dart';
@@ -11,9 +12,17 @@ import 'user_repository.dart';
 import 'webdav_service.dart';
 
 class CloudDocumentException implements Exception {
-  const CloudDocumentException(this.message);
+  const CloudDocumentException(this.message) : webDavCause = null;
+
+  CloudDocumentException.fromWebDav(WebDavException error)
+    : message = error.message,
+      webDavCause = error;
 
   final String message;
+  final WebDavException? webDavCause;
+
+  String localizedMessage(AppLocalizations localizations) =>
+      webDavCause?.localizedMessage(localizations) ?? message;
 
   @override
   String toString() => message;
@@ -89,19 +98,22 @@ class CloudDocumentService {
   final GoogleDriveSyncService _googleDriveSyncService;
   final WebDavService _webDavService;
 
-  Future<String> buildSubtitle() async {
+  Future<String> buildSubtitle(AppLocalizations localizations) async {
     final session = _authService.currentSession;
     if (session == null) {
-      return 'Connect a cloud provider in Settings first.';
+      return localizations.connectACloudProviderInSettingsFirst;
     }
     final settings = await _userRepository.getUserSettings(session.uid);
     final provider = _activeProvider(settings);
     if (provider == null) {
-      return 'Connect Google Drive or WebDAV in Settings first.';
+      return localizations.connectGoogleDriveOrWebDavInSettingsFirst;
     }
     return switch (provider) {
-      CloudSyncProvider.googleDrive => _googleDriveSubtitle(settings),
-      CloudSyncProvider.webDav => _webDavSubtitle(settings),
+      CloudSyncProvider.googleDrive => _googleDriveSubtitle(
+        localizations,
+        settings,
+      ),
+      CloudSyncProvider.webDav => _webDavSubtitle(localizations, settings),
     };
   }
 
@@ -365,20 +377,26 @@ class CloudDocumentService {
     return null;
   }
 
-  String _googleDriveSubtitle(UserSettingsData settings) {
+  String _googleDriveSubtitle(
+    AppLocalizations localizations,
+    UserSettingsData settings,
+  ) {
     final fileName = settings.googleDriveSyncFileName;
     if (fileName != null && fileName.isNotEmpty) {
-      return 'Manage Google Drive sync file: $fileName';
+      return localizations.manageGoogleDriveSyncFile(fileName);
     }
-    return 'Choose or create the Google Drive file used for sync.';
+    return localizations.chooseOrCreateTheGoogleDriveFileUsedForSync;
   }
 
-  String _webDavSubtitle(UserSettingsData settings) {
+  String _webDavSubtitle(
+    AppLocalizations localizations,
+    UserSettingsData settings,
+  ) {
     final fileName = settings.webDavSyncFileName;
     if (fileName != null && fileName.isNotEmpty) {
-      return 'Manage WebDAV sync file: $fileName';
+      return localizations.manageWebDavSyncFile(fileName);
     }
-    return 'Choose or create the WebDAV file used for sync.';
+    return localizations.chooseOrCreateTheWebDAVFileUsedForSync;
   }
 
   Future<List<CloudBrowserEntry>> _listGoogleDriveEntries({
@@ -434,7 +452,7 @@ class CloudDocumentService {
           )
           .toList();
     } on WebDavException catch (error) {
-      throw CloudDocumentException(error.message);
+      throw CloudDocumentException.fromWebDav(error);
     }
   }
 
@@ -489,7 +507,7 @@ class CloudDocumentService {
         mimeType: 'text/csv',
       );
     } on WebDavException catch (error) {
-      throw CloudDocumentException(error.message);
+      throw CloudDocumentException.fromWebDav(error);
     }
     return CloudFileMetadata(
       provider: CloudSyncProvider.webDav,
@@ -553,7 +571,7 @@ class CloudDocumentService {
         mimeType: mimeType,
       );
     } on WebDavException catch (error) {
-      throw CloudDocumentException(error.message);
+      throw CloudDocumentException.fromWebDav(error);
     }
     return CloudFileMetadata(
       provider: CloudSyncProvider.webDav,
@@ -600,7 +618,7 @@ class CloudDocumentService {
         relativePath: relativePath,
       );
     } on WebDavException catch (error) {
-      throw CloudDocumentException(error.message);
+      throw CloudDocumentException.fromWebDav(error);
     }
   }
 
@@ -670,7 +688,7 @@ class CloudDocumentService {
         mimeType: outputMimeType,
       );
     } on WebDavException catch (error) {
-      throw CloudDocumentException(error.message);
+      throw CloudDocumentException.fromWebDav(error);
     }
     return CloudFileMetadata(
       provider: CloudSyncProvider.webDav,

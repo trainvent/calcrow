@@ -83,8 +83,8 @@ class _SheetPreviewTabState extends State<SheetPreviewTab> {
                   Row(
                     children: [
                       Expanded(
-                        child: LText(
-                          rowPickRequest?.title ?? 'Sheet Preview',
+                        child: Text(
+                          rowPickRequest?.title ?? context.l10n.sheetPreview,
                           style: theme.textTheme.headlineLarge,
                         ),
                       ),
@@ -92,13 +92,13 @@ class _SheetPreviewTabState extends State<SheetPreviewTab> {
                         TextButton.icon(
                           onPressed: SheetPreviewStore.cancelRowPick,
                           icon: const Icon(Icons.close_rounded),
-                          label: const LText('Cancel'),
+                          label: Text(context.l10n.cancel),
                         ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   if (rowPickRequest != null) ...[
-                    LText(
+                    Text(
                       rowPickRequest.subtitle,
                       style: theme.textTheme.bodyLarge,
                     ),
@@ -110,13 +110,16 @@ class _SheetPreviewTabState extends State<SheetPreviewTab> {
                       style: theme.textTheme.titleMedium,
                     ),
                     const SizedBox(height: 2),
-                    LText(
-                      '${preview.rowCount} rows • ${previewHeaders.length} columns',
+                    Text(
+                      context.l10n.rowsAndColumns(
+                        preview.rowCount,
+                        previewHeaders.length,
+                      ),
                       style: theme.textTheme.bodyMedium,
                     ),
                   ] else
-                    LText(
-                      'No file loaded yet.',
+                    Text(
+                      context.l10n.noFileLoadedYet,
                       style: theme.textTheme.bodyLarge,
                     ),
                   const SizedBox(height: 12),
@@ -218,7 +221,7 @@ class _SheetPreviewTabState extends State<SheetPreviewTab> {
               previewHeaders.length,
               (index) => DataCell(
                 index == 0
-                    ? LText(rowPickRequest!.createNewEntryLabel)
+                    ? Text(rowPickRequest!.createNewEntryLabel!)
                     : const SizedBox.shrink(),
               ),
             ),
@@ -265,7 +268,7 @@ class _NewEntryIndicator extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Semantics(
-      label: context.tr('Create new entry'),
+      label: context.l10n.createNewEntry,
       button: true,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
@@ -301,7 +304,7 @@ class _RowPickIndicator extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Semantics(
-      label: context.tr('Pick row'),
+      label: context.l10n.pickRow,
       button: true,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),

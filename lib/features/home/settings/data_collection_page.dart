@@ -36,7 +36,7 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
             (snapshot.data ?? EntitlementTier.free) == EntitlementTier.pro;
 
         return Scaffold(
-          appBar: AppBar(title: const LText('Data Collection')),
+          appBar: AppBar(title: Text(context.l10n.dataCollection)),
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
@@ -46,15 +46,19 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      LText(
-                        'Privacy controls',
+                      Text(
+                        context.l10n.privacyControls,
                         style: theme.textTheme.titleLarge,
                       ),
                       const SizedBox(height: 8),
-                      LText(
+                      Text(
                         isPro
-                            ? 'Choose separately whether Calcrow may collect anonymous usage analytics and technical crash or performance diagnostics.'
-                            : 'Choose separately whether Calcrow may collect anonymous usage analytics, technical crash or performance diagnostics, and ad privacy preferences where supported.',
+                            ? context
+                                  .l10n
+                                  .chooseSeparatelyWhetherCalcrowMayCollectAnonymousUsageAnalyticsAndTechnicalCrashOrPerformanceDiagnostics
+                            : context
+                                  .l10n
+                                  .chooseSeparatelyWhetherCalcrowMayCollectAnonymousUsageAnalyticsTechnicalCrashOrPerformanceDiagnosticsAndAdPrivacyPreferencesWhereSupported,
                       ),
                     ],
                   ),
@@ -71,17 +75,23 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
                           status == PrivacyOptionsRequirementStatus.required;
                       final subtitle = switch (status) {
                         PrivacyOptionsRequirementStatus.required =>
-                          'Manage your Google ad privacy choices. This entry point must stay available after consent is collected.',
+                          context
+                              .l10n
+                              .manageYourGoogleAdPrivacyChoicesThisEntryPointMustStayAvailableAfterConsentIsCollected,
                         PrivacyOptionsRequirementStatus.notRequired =>
-                          'Google does not currently require a persistent ad privacy options button on this device or region.',
+                          context
+                              .l10n
+                              .googleDoesNotCurrentlyRequireAPersistentAdPrivacyOptionsButtonOnThisDeviceOrRegion,
                         PrivacyOptionsRequirementStatus.unknown =>
-                          'Refresh ad privacy choices and review the latest Google consent options for this device.',
+                          context
+                              .l10n
+                              .refreshAdPrivacyChoicesAndReviewTheLatestGoogleConsentOptionsForThisDevice,
                       };
 
                       return ListTile(
                         leading: const Icon(Icons.gpp_maybe_outlined),
-                        title: const LText('Ads privacy choices'),
-                        subtitle: LText(subtitle),
+                        title: Text(context.l10n.adsPrivacyChoices),
+                        subtitle: Text(subtitle),
                         trailing: _isOpeningAdsPrivacyChoices
                             ? const SizedBox(
                                 width: 18,
@@ -109,11 +119,15 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
                     builder: (context, canRequestAds, _) {
                       return ListTile(
                         leading: const Icon(Icons.block_outlined),
-                        title: const LText('Reset ad consent'),
-                        subtitle: LText(
+                        title: Text(context.l10n.resetAdConsent),
+                        subtitle: Text(
                           canRequestAds
-                              ? 'Clear the current AdMob consent state on this device. Ads stay disabled until Google collects consent again.'
-                              : 'Clear any stored AdMob consent state on this device and force the Google consent flow to ask again later.',
+                              ? context
+                                    .l10n
+                                    .clearTheCurrentAdMobConsentStateOnThisDeviceAdsStayDisabledUntilGoogleCollectsConsentAgain
+                              : context
+                                    .l10n
+                                    .clearAnyStoredAdMobConsentStateOnThisDeviceAndForceTheGoogleConsentFlowToAskAgainLater,
                         ),
                         trailing: _isResettingAdsConsent
                             ? const SizedBox(
@@ -133,9 +147,11 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
                 Card(
                   child: ListTile(
                     leading: const Icon(Icons.description_outlined),
-                    title: const LText('Ads privacy policy'),
-                    subtitle: const LText(
-                      'Read how Calcrow and Google AdMob handle consent choices for the EEA, UK, Switzerland, and applicable US state privacy rules.',
+                    title: Text(context.l10n.adsPrivacyPolicy),
+                    subtitle: Text(
+                      context
+                          .l10n
+                          .readHowCalcrowAndGoogleAdMobHandleConsentChoicesForTheEEAUKSwitzerlandAndApplicableUSStatePrivacyRules,
                     ),
                     trailing: _isOpeningAdsPolicy
                         ? const SizedBox(
@@ -155,11 +171,15 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
                   builder: (context, enabled, _) {
                     return SwitchListTile(
                       secondary: const Icon(Icons.insights_outlined),
-                      title: const LText('Usage analytics'),
-                      subtitle: LText(
+                      title: Text(context.l10n.usageAnalytics),
+                      subtitle: Text(
                         diagnostics.supportsUsageAnalytics
-                            ? 'Collect anonymous usage patterns to understand which screens and flows are used.'
-                            : 'Usage analytics are not available on this platform.',
+                            ? context
+                                  .l10n
+                                  .collectAnonymousUsagePatternsToUnderstandWhichScreensAndFlowsAreUsed
+                            : context
+                                  .l10n
+                                  .usageAnalyticsAreNotAvailableOnThisPlatform,
                       ),
                       value: enabled,
                       onChanged:
@@ -178,11 +198,15 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
                   builder: (context, enabled, _) {
                     return SwitchListTile(
                       secondary: const Icon(Icons.health_and_safety_outlined),
-                      title: const LText('Crash reports and performance'),
-                      subtitle: LText(
+                      title: Text(context.l10n.crashReportsAndPerformance),
+                      subtitle: Text(
                         diagnostics.supportsCrashReports
-                            ? 'Send crash logs, non-fatal errors, and performance monitoring data to help analyze app failures and slow paths.'
-                            : 'Crash reporting and performance monitoring are only available on supported mobile builds.',
+                            ? context
+                                  .l10n
+                                  .sendCrashLogsNonFatalErrorsAndPerformanceMonitoringDataToHelpAnalyzeAppFailuresAndSlowPaths
+                            : context
+                                  .l10n
+                                  .crashReportingAndPerformanceMonitoringAreOnlyAvailableOnSupportedMobileBuilds,
                       ),
                       value: enabled,
                       onChanged:
@@ -200,14 +224,16 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      LText(
-                        'Current behavior',
+                    children: [
+                      Text(
+                        context.l10n.currentBehavior,
                         style: TextStyle(fontWeight: FontWeight.w700),
                       ),
                       SizedBox(height: 8),
-                      LText(
-                        'Both categories stay off until you explicitly enable them here. You can turn them off again at any time.',
+                      Text(
+                        context
+                            .l10n
+                            .bothCategoriesStayOffUntilYouExplicitlyEnableThemHereYouCanTurnThemOffAgainAtAnyTime,
                       ),
                     ],
                   ),
@@ -229,15 +255,19 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
-          content: LText(
-            enabled ? 'Usage analytics enabled.' : 'Usage analytics disabled.',
+          content: Text(
+            enabled
+                ? context.l10n.usageAnalyticsEnabled
+                : context.l10n.usageAnalyticsDisabled,
           ),
         ),
       );
     } catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: LText('Could not update usage analytics: $error')),
+        SnackBar(
+          content: Text(context.l10n.couldNotUpdateUsageAnalytics('$error')),
+        ),
       );
     } finally {
       if (mounted) {
@@ -255,17 +285,19 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
-          content: LText(
+          content: Text(
             enabled
-                ? 'Crash reporting and performance monitoring enabled.'
-                : 'Crash reporting and performance monitoring disabled.',
+                ? context.l10n.crashReportingAndPerformanceMonitoringEnabled
+                : context.l10n.crashReportingAndPerformanceMonitoringDisabled,
           ),
         ),
       );
     } catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: LText('Could not update crash reporting: $error')),
+        SnackBar(
+          content: Text(context.l10n.couldNotUpdateCrashReporting('$error')),
+        ),
       );
     } finally {
       if (mounted) {
@@ -287,12 +319,12 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
       final message = ServiceLocator.adsConsentService.lastErrorMessage;
       if (message == null) {
         messenger.showSnackBar(
-          const SnackBar(content: LText('Ad privacy choices updated.')),
+          SnackBar(content: Text(context.l10n.adPrivacyChoicesUpdated)),
         );
       } else {
         messenger.showSnackBar(
           SnackBar(
-            content: LText('Could not open ad privacy choices: $message'),
+            content: Text(context.l10n.couldNotOpenAdPrivacyChoices(message)),
           ),
         );
       }
@@ -300,7 +332,7 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
-          content: LText('Could not refresh ad privacy choices: $error'),
+          content: Text(context.l10n.couldNotRefreshAdPrivacyChoices('$error')),
         ),
       );
     } finally {
@@ -320,8 +352,10 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
       if (!opened) {
         messenger.showSnackBar(
           SnackBar(
-            content: LText(
-              'Could not open ads privacy policy. Visit ${IConst.privacyPolicyAdsUrl} in a browser.',
+            content: Text(
+              context.l10n.couldNotOpenAdsPrivacyPolicyVisit(
+                IConst.privacyPolicyAdsUrl,
+              ),
             ),
           ),
         );
@@ -329,7 +363,9 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
     } catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: LText('Could not open ads privacy policy: $error')),
+        SnackBar(
+          content: Text(context.l10n.couldNotOpenAdsPrivacyPolicy('$error')),
+        ),
       );
     } finally {
       if (mounted) {
@@ -344,18 +380,20 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const LText('Reset ad consent?'),
-        content: const LText(
-          'This clears the current Google AdMob consent state on this device. The next consent refresh may ask again before ads can be requested.',
+        title: Text(context.l10n.resetAdConsent2),
+        content: Text(
+          context
+              .l10n
+              .thisClearsTheCurrentGoogleAdMobConsentStateOnThisDeviceTheNextConsentRefreshMayAskAgainBeforeAdsCanBeRequested,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const LText('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const LText('Reset'),
+            child: Text(context.l10n.reset),
           ),
         ],
       ),
@@ -369,12 +407,12 @@ class _DataCollectionPageState extends State<DataCollectionPage> {
       await ServiceLocator.adsConsentService.resetConsent();
       if (!mounted) return;
       messenger.showSnackBar(
-        const SnackBar(content: LText('Ad consent reset on this device.')),
+        SnackBar(content: Text(context.l10n.adConsentResetOnThisDevice)),
       );
     } catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: LText('Could not reset ad consent: $error')),
+        SnackBar(content: Text(context.l10n.couldNotResetAdConsent('$error'))),
       );
     } finally {
       if (mounted) {

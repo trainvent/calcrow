@@ -15,10 +15,10 @@ void showWebDavErrorSnackBar({
 
   messenger.showSnackBar(
     SnackBar(
-      content: LText(error.message),
+      content: Text(error.localizedMessage(context.l10n)),
       action: canShowDetails
           ? SnackBarAction(
-              label: context.tr('Details'),
+              label: context.l10n.details,
               onPressed: () => _showWebDavErrorDetailsDialog(
                 context: context,
                 error: error,
@@ -39,30 +39,30 @@ Future<void> _showWebDavErrorDetailsDialog({
   final requestMethod = error.requestMethod ?? 'unknown';
   final requestPath = error.requestUri?.path ?? '/';
   final origin = _resolveOriginLabel(isWebBuild: isWebBuild);
-  final kindLabel = _kindLabel(error.kind);
+  final kindLabel = _kindLabel(context.l10n, error.kind);
   final technicalDetails = error.technicalDetails ?? 'n/a';
 
   await showDialog<void>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      title: const LText('WebDAV error details'),
+      title: Text(context.l10n.webdavErrorDetails),
       content: SingleChildScrollView(
         child: SelectableText(
-          '${context.tr('Summary')}: ${context.tr(error.message)}\n'
-          '${context.tr('Kind')}: ${context.tr(kindLabel)}\n'
-          '${context.tr('Origin')}: $origin\n'
-          '${context.tr('Request host')}: ${requestHost == null || requestHost.isEmpty ? context.tr('unknown') : requestHost}\n'
-          '${context.tr('Request path')}: $requestPath\n'
-          '${context.tr('Request method')}: $requestMethod\n'
-          '${context.tr('Required CORS methods')}: PROPFIND, GET, PUT, OPTIONS\n'
-          '${context.tr('Required CORS headers')}: Authorization, Depth, Content-Type\n'
-          '${context.tr('Technical details')}: $technicalDetails',
+          '${context.l10n.summary}: ${error.localizedMessage(context.l10n)}\n'
+          '${context.l10n.kind}: $kindLabel\n'
+          '${context.l10n.origin}: $origin\n'
+          '${context.l10n.requestHost}: ${requestHost == null || requestHost.isEmpty ? context.l10n.unknown : requestHost}\n'
+          '${context.l10n.requestPath}: $requestPath\n'
+          '${context.l10n.requestMethod}: $requestMethod\n'
+          '${context.l10n.requiredCORSMethods}: PROPFIND, GET, PUT, OPTIONS\n'
+          '${context.l10n.requiredCORSHeaders}: Authorization, Depth, Content-Type\n'
+          '${context.l10n.technicalDetails}: $technicalDetails',
         ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const LText('Close'),
+          child: Text(context.l10n.close),
         ),
       ],
     ),
@@ -78,13 +78,16 @@ String _resolveOriginLabel({required bool isWebBuild}) {
   }
 }
 
-String _kindLabel(WebDavErrorKind kind) {
+String _kindLabel(
+  AppLocalizations localizations,
+  WebDavErrorKind kind,
+) {
   return switch (kind) {
-    WebDavErrorKind.browserBlocked => 'browser_blocked',
-    WebDavErrorKind.network => 'network',
-    WebDavErrorKind.auth => 'auth',
-    WebDavErrorKind.methodNotAllowed => 'method_not_allowed',
-    WebDavErrorKind.http => 'http',
-    WebDavErrorKind.unknown => 'unknown',
+    WebDavErrorKind.browserBlocked => localizations.browserBlocked,
+    WebDavErrorKind.network => localizations.network,
+    WebDavErrorKind.auth => localizations.auth,
+    WebDavErrorKind.methodNotAllowed => localizations.methodNotAllowed,
+    WebDavErrorKind.http => localizations.http,
+    WebDavErrorKind.unknown => localizations.unknown,
   };
 }

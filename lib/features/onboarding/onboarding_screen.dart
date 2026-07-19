@@ -16,21 +16,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   static const _pages = <_OnboardingPage>[
     _OnboardingPage(
-      title: 'Track workdays in under a minute',
-      body:
-          'Calcrow gives you one clean daily editor so you update logs fast on your phone.',
+      id: _OnboardingPageId.fastTracking,
       icon: Icons.checklist_rounded,
     ),
     _OnboardingPage(
-      title: 'Import or create monthly CSV instantly',
-      body:
-          'Bring an existing file or generate a full month table with your preferred date style.',
+      id: _OnboardingPageId.monthlyCsv,
       icon: Icons.table_chart_rounded,
     ),
     _OnboardingPage(
-      title: 'Keep data local, sync when you choose',
-      body:
-          'Start offline. Later connect account sync and backups without changing your workflow.',
+      id: _OnboardingPageId.localFirst,
       icon: Icons.cloud_done_rounded,
     ),
   ];
@@ -46,7 +40,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (!mounted) return;
     if (done ?? false) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: LText('Signed in. Welcome to Calcrow.')),
+        SnackBar(content: Text(context.l10n.signedInWelcomeToCalcrow)),
       );
     }
   }
@@ -107,14 +101,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         curve: Curves.easeOutCubic,
                       );
                     },
-                    child: const LText('Continue'),
+                    child: Text(context.l10n.continueLabel),
                   ),
                 if (isLast)
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: _openAuthSheet,
-                      child: const LText('Sign in or create account'),
+                      child: Text(context.l10n.signInOrCreateAccount),
                     ),
                   ),
               ],
@@ -156,9 +150,12 @@ class _OnboardingCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              LText(page.title, style: theme.textTheme.headlineSmall),
+              Text(
+                page.title(context.l10n),
+                style: theme.textTheme.headlineSmall,
+              ),
               const SizedBox(height: 10),
-              LText(page.body, style: theme.textTheme.bodyLarge),
+              Text(page.body(context.l10n), style: theme.textTheme.bodyLarge),
             ],
           ),
         ),
@@ -168,13 +165,30 @@ class _OnboardingCard extends StatelessWidget {
 }
 
 class _OnboardingPage {
-  const _OnboardingPage({
-    required this.title,
-    required this.body,
-    required this.icon,
-  });
+  const _OnboardingPage({required this.id, required this.icon});
 
-  final String title;
-  final String body;
+  final _OnboardingPageId id;
   final IconData icon;
+
+  String title(AppLocalizations localizations) => switch (id) {
+    _OnboardingPageId.fastTracking => localizations.trackWorkdaysInUnderAMinute,
+    _OnboardingPageId.monthlyCsv =>
+      localizations.importOrCreateMonthlyCSVInstantly,
+    _OnboardingPageId.localFirst =>
+      localizations.keepDataLocalSyncWhenYouChoose,
+  };
+
+  String body(AppLocalizations localizations) => switch (id) {
+    _OnboardingPageId.fastTracking =>
+      localizations
+          .calcrowGivesYouOneCleanDailyEditorSoYouUpdateLogsFastOnYourPhone,
+    _OnboardingPageId.monthlyCsv =>
+      localizations
+          .bringAnExistingFileOrGenerateAFullMonthTableWithYourPreferredDateStyle,
+    _OnboardingPageId.localFirst =>
+      localizations
+          .startOfflineLaterConnectAccountSyncAndBackupsWithoutChangingYourWorkflow,
+  };
 }
+
+enum _OnboardingPageId { fastTracking, monthlyCsv, localFirst }

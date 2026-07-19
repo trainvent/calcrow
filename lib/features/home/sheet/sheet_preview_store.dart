@@ -8,14 +8,14 @@ class SheetPreviewRowPickRequest {
     required this.title,
     required this.subtitle,
     this.allowCreateNewEntry = false,
-    this.createNewEntryLabel = 'New entry',
+    this.createNewEntryLabel,
   });
 
   final Set<int> selectableRowIndexes;
   final String title;
   final String subtitle;
   final bool allowCreateNewEntry;
-  final String createNewEntryLabel;
+  final String? createNewEntryLabel;
 
   bool canPick(int rowIndex) => selectableRowIndexes.contains(rowIndex);
 }

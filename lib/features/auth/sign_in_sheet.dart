@@ -21,6 +21,8 @@ enum _AuthStep {
   resetPasswordConfirm,
 }
 
+typedef _LocalizedText = String Function(AppLocalizations localizations);
+
 Future<T?> showSignInSheet<T>(BuildContext context) {
   return showGeneralDialog<T>(
     context: context,
@@ -71,7 +73,7 @@ class _SignInSheetState extends State<SignInSheet> {
 
   _AuthStep _step = _AuthStep.signIn;
   bool _isLoading = false;
-  String? _errorText;
+  _LocalizedText? _errorText;
   String? _pendingUid;
   String? _pendingEmail;
   String? _debugCode;
@@ -95,7 +97,7 @@ class _SignInSheetState extends State<SignInSheet> {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     if (email.isEmpty || password.isEmpty) {
-      setState(() => _errorText = 'Email and password are required.');
+      setState(() => _errorText = (l10n) => l10n.emailAndPasswordAreRequired);
       return;
     }
 
@@ -125,7 +127,7 @@ class _SignInSheetState extends State<SignInSheet> {
       setState(() => _errorText = _readableFirebaseError(error));
     } catch (error, stackTrace) {
       _reportError('Sign in failed', error, stackTrace);
-      setState(() => _errorText = 'Could not sign in right now.');
+      setState(() => _errorText = (l10n) => l10n.couldNotSignInRightNow);
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -142,22 +144,25 @@ class _SignInSheetState extends State<SignInSheet> {
 
     if (email.isEmpty || password.isEmpty || confirm.isEmpty) {
       setState(
-        () => _errorText = 'Email, password and confirmation are required.',
+        () =>
+            _errorText = (l10n) => l10n.emailPasswordAndConfirmationAreRequired,
       );
       return;
     }
     if (password != confirm) {
-      setState(() => _errorText = 'Passwords do not match.');
+      setState(() => _errorText = (l10n) => l10n.passwordsDoNotMatch);
       return;
     }
     if (password.length < 6) {
-      setState(() => _errorText = 'Password must be at least 6 characters.');
+      setState(
+        () => _errorText = (l10n) => l10n.passwordMustBeAtLeast6Characters,
+      );
       return;
     }
     if (!_acceptedLegalTerms) {
       setState(
-        () => _errorText =
-            'Accept the Terms of Use, Privacy Policy, and Ads Privacy Policy to create an account.',
+        () => _errorText = (l10n) => l10n
+            .acceptTheTermsOfUsePrivacyPolicyAndAdsPrivacyPolicyToCreateAnAccount,
       );
       return;
     }
@@ -185,7 +190,9 @@ class _SignInSheetState extends State<SignInSheet> {
       setState(() => _errorText = _readableFirebaseError(error));
     } catch (error, stackTrace) {
       _reportError('Register failed', error, stackTrace);
-      setState(() => _errorText = 'Could not create your account right now.');
+      setState(
+        () => _errorText = (l10n) => l10n.couldNotCreateYourAccountRightNow,
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -232,12 +239,12 @@ class _SignInSheetState extends State<SignInSheet> {
     final code = _codeController.text.trim();
     if (uid == null) {
       setState(
-        () => _errorText = 'Missing verification context. Sign in again.',
+        () => _errorText = (l10n) => l10n.missingVerificationContextSignInAgain,
       );
       return;
     }
     if (code.length != 6) {
-      setState(() => _errorText = 'Enter the 6-digit code.');
+      setState(() => _errorText = (l10n) => l10n.enterThe6DigitCode);
       return;
     }
 
@@ -254,7 +261,7 @@ class _SignInSheetState extends State<SignInSheet> {
         );
 
         if (!isValid) {
-          setState(() => _errorText = 'Code is invalid or expired.');
+          setState(() => _errorText = (l10n) => l10n.codeIsInvalidOrExpired);
           return;
         }
       } else {
@@ -269,7 +276,7 @@ class _SignInSheetState extends State<SignInSheet> {
       setState(() => _errorText = _readableFirebaseError(error));
     } catch (error, stackTrace) {
       _reportError('Verify code failed', error, stackTrace);
-      setState(() => _errorText = 'Could not verify code right now.');
+      setState(() => _errorText = (l10n) => l10n.couldNotVerifyCodeRightNow);
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -284,7 +291,7 @@ class _SignInSheetState extends State<SignInSheet> {
     final email = _pendingEmail;
     if (uid == null || email == null) {
       setState(
-        () => _errorText = 'Missing verification context. Sign in again.',
+        () => _errorText = (l10n) => l10n.missingVerificationContextSignInAgain,
       );
       return;
     }
@@ -302,14 +309,14 @@ class _SignInSheetState extends State<SignInSheet> {
       await _startVerificationFlow(session: session, issueNewCode: true);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: LText('Verification code reissued.')),
+        SnackBar(content: Text(context.l10n.verificationCodeReissued)),
       );
     } on FirebaseException catch (error, stackTrace) {
       _reportError('Resend code failed', error, stackTrace);
       setState(() => _errorText = _readableFirebaseError(error));
     } catch (error, stackTrace) {
       _reportError('Resend code failed', error, stackTrace);
-      setState(() => _errorText = 'Could not resend code.');
+      setState(() => _errorText = (l10n) => l10n.couldNotResendCode);
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -322,7 +329,7 @@ class _SignInSheetState extends State<SignInSheet> {
 
     final email = _emailController.text.trim();
     if (email.isEmpty) {
-      setState(() => _errorText = 'Email is required.');
+      setState(() => _errorText = (l10n) => l10n.emailIsRequired);
       return;
     }
 
@@ -335,7 +342,7 @@ class _SignInSheetState extends State<SignInSheet> {
       await ServiceLocator.authService.sendPasswordResetCode(email: email);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: LText('Password reset code sent to $email.')),
+        SnackBar(content: Text(context.l10n.passwordResetCodeSentTo(email))),
       );
       setState(() {
         _step = _AuthStep.resetPasswordConfirm;
@@ -348,7 +355,7 @@ class _SignInSheetState extends State<SignInSheet> {
       setState(() => _errorText = _readablePasswordResetError(error));
     } catch (error, stackTrace) {
       _reportError('Password reset code failed', error, stackTrace);
-      setState(() => _errorText = 'Could not send password reset code.');
+      setState(() => _errorText = (l10n) => l10n.couldNotSendPasswordResetCode);
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -365,25 +372,27 @@ class _SignInSheetState extends State<SignInSheet> {
     final confirmPassword = _resetConfirmPasswordController.text.trim();
 
     if (email.isEmpty) {
-      setState(() => _errorText = 'Email is required.');
+      setState(() => _errorText = (l10n) => l10n.emailIsRequired);
       return;
     }
     if (code.length != 6) {
-      setState(() => _errorText = 'Enter the 6-digit code.');
+      setState(() => _errorText = (l10n) => l10n.enterThe6DigitCode);
       return;
     }
     if (newPassword.isEmpty || confirmPassword.isEmpty) {
       setState(
-        () => _errorText = 'New password and confirmation are required.',
+        () => _errorText = (l10n) => l10n.newPasswordAndConfirmationAreRequired,
       );
       return;
     }
     if (newPassword.length < 6) {
-      setState(() => _errorText = 'Password must be at least 6 characters.');
+      setState(
+        () => _errorText = (l10n) => l10n.passwordMustBeAtLeast6Characters,
+      );
       return;
     }
     if (newPassword != confirmPassword) {
-      setState(() => _errorText = 'Passwords do not match.');
+      setState(() => _errorText = (l10n) => l10n.passwordsDoNotMatch);
       return;
     }
 
@@ -401,9 +410,7 @@ class _SignInSheetState extends State<SignInSheet> {
       TextInput.finishAutofillContext(shouldSave: true);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: LText('Password updated. You can sign in now.'),
-        ),
+        SnackBar(content: Text(context.l10n.passwordUpdatedYouCanSignInNow)),
       );
       setState(() {
         _step = _AuthStep.signIn;
@@ -418,7 +425,7 @@ class _SignInSheetState extends State<SignInSheet> {
       setState(() => _errorText = _readablePasswordResetError(error));
     } catch (error, stackTrace) {
       _reportError('Password reset confirm failed', error, stackTrace);
-      setState(() => _errorText = 'Could not reset password right now.');
+      setState(() => _errorText = (l10n) => l10n.couldNotResetPasswordRightNow);
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -440,9 +447,15 @@ class _SignInSheetState extends State<SignInSheet> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                LText(_titleForStep, style: theme.textTheme.headlineSmall),
+                Text(
+                  _titleForStep(context.l10n),
+                  style: theme.textTheme.headlineSmall,
+                ),
                 const SizedBox(height: 8),
-                LText(_subtitleForStep, style: theme.textTheme.bodyMedium),
+                Text(
+                  _subtitleForStep(context.l10n),
+                  style: theme.textTheme.bodyMedium,
+                ),
                 const SizedBox(height: 18),
                 if (_step != _AuthStep.verifyEmail) ...[
                   TextField(
@@ -452,7 +465,7 @@ class _SignInSheetState extends State<SignInSheet> {
                       AutofillHints.username,
                       AutofillHints.email,
                     ],
-                    decoration: InputDecoration(labelText: context.tr('Email')),
+                    decoration: InputDecoration(labelText: context.l10n.email),
                   ),
                   if (_step != _AuthStep.forgotPassword &&
                       _step != _AuthStep.resetPasswordConfirm) ...[
@@ -464,7 +477,7 @@ class _SignInSheetState extends State<SignInSheet> {
                           ? const [AutofillHints.newPassword]
                           : const [AutofillHints.password],
                       decoration: InputDecoration(
-                        labelText: context.tr('Password'),
+                        labelText: context.l10n.password,
                       ),
                     ),
                   ],
@@ -476,7 +489,7 @@ class _SignInSheetState extends State<SignInSheet> {
                     obscureText: true,
                     autofillHints: const [AutofillHints.newPassword],
                     decoration: InputDecoration(
-                      labelText: context.tr('Confirm password'),
+                      labelText: context.l10n.confirmPassword,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -487,9 +500,7 @@ class _SignInSheetState extends State<SignInSheet> {
                         : (value) {
                             setState(() {
                               _acceptedLegalTerms = value ?? false;
-                              if (_acceptedLegalTerms &&
-                                  _errorText ==
-                                      'Accept the Terms of Use, Privacy Policy, and Ads Privacy Policy to create an account.') {
+                              if (_acceptedLegalTerms && _errorText != null) {
                                 _errorText = null;
                               }
                             });
@@ -502,15 +513,15 @@ class _SignInSheetState extends State<SignInSheet> {
                     keyboardType: TextInputType.number,
                     maxLength: 6,
                     decoration: InputDecoration(
-                      labelText: context.tr('6-digit code'),
+                      labelText: context.l10n.message6DigitCode,
                       hintText: _pendingEmail == null
                           ? null
-                          : context.tr('Sent to $_pendingEmail'),
+                          : context.l10n.sentTo(_pendingEmail!),
                     ),
                   ),
                   if (kDebugMode && _debugCode != null)
-                    LText(
-                      'Debug code: $_debugCode',
+                    Text(
+                      context.l10n.debugCode(_debugCode!),
                       style: theme.textTheme.bodySmall,
                     ),
                 ],
@@ -521,9 +532,9 @@ class _SignInSheetState extends State<SignInSheet> {
                     keyboardType: TextInputType.number,
                     maxLength: 6,
                     decoration: InputDecoration(
-                      labelText: context.tr('6-digit code'),
-                      hintText: context.tr(
-                        'Sent to ${_emailController.text.trim()}',
+                      labelText: context.l10n.message6DigitCode,
+                      hintText: context.l10n.sentTo(
+                        _emailController.text.trim(),
                       ),
                     ),
                   ),
@@ -533,7 +544,7 @@ class _SignInSheetState extends State<SignInSheet> {
                     obscureText: true,
                     autofillHints: const [AutofillHints.newPassword],
                     decoration: InputDecoration(
-                      labelText: context.tr('New password'),
+                      labelText: context.l10n.newPassword,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -542,14 +553,14 @@ class _SignInSheetState extends State<SignInSheet> {
                     obscureText: true,
                     autofillHints: const [AutofillHints.newPassword],
                     decoration: InputDecoration(
-                      labelText: context.tr('Confirm new password'),
+                      labelText: context.l10n.confirmNewPassword,
                     ),
                   ),
                 ],
                 if (_errorText != null) ...[
                   const SizedBox(height: 10),
-                  LText(
-                    _errorText!,
+                  Text(
+                    _errorText!(context.l10n),
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.error,
                     ),
@@ -569,7 +580,7 @@ class _SignInSheetState extends State<SignInSheet> {
                             _AuthStep.resetPasswordConfirm =>
                               _confirmPasswordReset,
                           },
-                    child: LText(_primaryButtonLabel),
+                    child: Text(_primaryButtonLabel(context.l10n)),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -583,7 +594,7 @@ class _SignInSheetState extends State<SignInSheet> {
                             _debugCode = null;
                             _codeController.clear();
                           }),
-                    child: const LText('Create account'),
+                    child: Text(context.l10n.createAccount),
                   ),
                 if (_step == _AuthStep.signIn)
                   TextButton(
@@ -597,7 +608,7 @@ class _SignInSheetState extends State<SignInSheet> {
                             _resetPasswordController.clear();
                             _resetConfirmPasswordController.clear();
                           }),
-                    child: const LText('Forgot password?'),
+                    child: Text(context.l10n.forgotPassword),
                   ),
                 if (_step == _AuthStep.register)
                   TextButton(
@@ -610,17 +621,17 @@ class _SignInSheetState extends State<SignInSheet> {
                             _codeController.clear();
                             _acceptedLegalTerms = false;
                           }),
-                    child: const LText('I already have an account'),
+                    child: Text(context.l10n.iAlreadyHaveAnAccount),
                   ),
                 if (_step == _AuthStep.verifyEmail)
                   TextButton(
                     onPressed: _isLoading ? null : _resendCode,
-                    child: const LText('Resend code'),
+                    child: Text(context.l10n.resendCode),
                   ),
                 if (_step == _AuthStep.resetPasswordConfirm)
                   TextButton(
                     onPressed: _isLoading ? null : _sendPasswordResetCode,
-                    child: const LText('Resend code'),
+                    child: Text(context.l10n.resendCode),
                   ),
                 if (_step == _AuthStep.forgotPassword ||
                     _step == _AuthStep.resetPasswordConfirm)
@@ -635,7 +646,7 @@ class _SignInSheetState extends State<SignInSheet> {
                             _resetPasswordController.clear();
                             _resetConfirmPasswordController.clear();
                           }),
-                    child: const LText('Back to sign in'),
+                    child: Text(context.l10n.backToSignIn),
                   ),
               ],
             ),
@@ -645,116 +656,117 @@ class _SignInSheetState extends State<SignInSheet> {
     );
   }
 
-  String get _titleForStep {
+  String _titleForStep(AppLocalizations localizations) {
     switch (_step) {
       case _AuthStep.signIn:
-        return 'Sign in';
+        return localizations.signIn;
       case _AuthStep.register:
-        return 'Create account';
+        return localizations.createAccount;
       case _AuthStep.verifyEmail:
-        return 'Verify email';
+        return localizations.verifyEmail;
       case _AuthStep.forgotPassword:
       case _AuthStep.resetPasswordConfirm:
-        return 'Reset password';
+        return localizations.resetPassword;
     }
   }
 
-  String get _subtitleForStep {
+  String _subtitleForStep(AppLocalizations localizations) {
     switch (_step) {
       case _AuthStep.signIn:
-        return 'Use your email and password.';
+        return localizations.useYourEmailAndPassword;
       case _AuthStep.register:
-        return 'Create your account and continue to setup.';
+        return localizations.createYourAccountAndContinueToSetup;
       case _AuthStep.verifyEmail:
-        return 'Enter the 6-digit verification code.';
+        return localizations.enterThe6DigitVerificationCode;
       case _AuthStep.forgotPassword:
-        return 'We will send a 6-digit password reset code to your email.';
+        return localizations.weWillSendA6DigitPasswordResetCodeToYourEmail;
       case _AuthStep.resetPasswordConfirm:
-        return 'Enter the code from your email and choose a new password.';
+        return localizations.enterTheCodeFromYourEmailAndChooseANewPassword;
     }
   }
 
-  String get _primaryButtonLabel {
+  String _primaryButtonLabel(AppLocalizations localizations) {
     switch (_step) {
       case _AuthStep.signIn:
-        return 'Sign in';
+        return localizations.signIn;
       case _AuthStep.register:
-        return 'Register';
+        return localizations.register;
       case _AuthStep.verifyEmail:
-        return 'Verify';
+        return localizations.verify;
       case _AuthStep.forgotPassword:
-        return 'Send reset code';
+        return localizations.sendResetCode;
       case _AuthStep.resetPasswordConfirm:
-        return 'Set new password';
+        return localizations.setNewPassword;
     }
   }
 
-  String _readablePasswordResetError(AuthServiceException error) {
+  _LocalizedText _readablePasswordResetError(AuthServiceException error) {
     switch (error.code) {
       case 'user-not-found':
-        return 'No account found for that email.';
+        return (l10n) => l10n.noAccountFoundForThatEmail;
       case 'not-found':
-        return 'No active reset code was found. Request a new one.';
+        return (l10n) => l10n.noActiveResetCodeWasFoundRequestANewOne;
       case 'failed-precondition':
-        return 'That reset code is no longer valid. Request a new one.';
+        return (l10n) => l10n.thatResetCodeIsNoLongerValidRequestANewOne;
       default:
         return _readableAuthError(error);
     }
   }
 
-  String _readableAuthError(AuthServiceException error) {
+  _LocalizedText _readableAuthError(AuthServiceException error) {
     switch (error.code) {
       case 'operation-not-allowed':
-        return 'Email/password auth is disabled in Firebase Auth settings.';
+        return (l10n) => l10n.emailPasswordAuthIsDisabledInFirebaseAuthSettings;
       case 'unauthorized-domain':
-        return 'This domain is not authorized for Firebase Auth.';
+        return (l10n) => l10n.thisDomainIsNotAuthorizedForFirebaseAuth;
       case 'admin-restricted-operation':
-        return 'This auth operation is restricted by Firebase project settings.';
+        return (l10n) =>
+            l10n.thisAuthOperationIsRestrictedByFirebaseProjectSettings;
       case 'invalid-api-key':
       case 'app-not-authorized':
-        return 'Firebase web config is invalid for this app/environment.';
+        return (l10n) => l10n.firebaseWebConfigIsInvalidForThisAppEnvironment;
       case 'internal-error':
       case 'unknown':
-        return 'Auth setup issue (${error.code}). Check Firebase Auth provider and authorized domains.';
+        return (l10n) => l10n.authSetupIssue(error.code);
       case 'network-request-failed':
-        return 'Network error. Check connection and try again.';
+        return (l10n) => l10n.networkErrorCheckConnectionAndTryAgain;
       case 'unauthenticated':
-        return 'Your session expired. Sign in again and request a new code.';
+        return (l10n) => l10n.yourSessionExpiredSignInAgainAndRequestANewCode;
       case 'not-found':
-        return 'No active code was found. Request a new code.';
+        return (l10n) => l10n.noActiveCodeWasFoundRequestANewCode;
       case 'deadline-exceeded':
-        return 'That code has expired. Request a new one.';
+        return (l10n) => l10n.thatCodeHasExpiredRequestANewOne;
       case 'resource-exhausted':
-        return 'Too many failed attempts. Request a new code.';
+        return (l10n) => l10n.tooManyFailedAttemptsRequestANewCode;
       case 'invalid-email':
-        return 'Email address format is invalid.';
+        return (l10n) => l10n.emailAddressFormatIsInvalid;
       case 'email-already-in-use':
-        return 'This email is already in use.';
+        return (l10n) => l10n.thisEmailIsAlreadyInUse;
       case 'invalid-argument':
-        return 'The code was not accepted. Check it and try again.';
+        return (l10n) => l10n.theCodeWasNotAcceptedCheckItAndTryAgain;
       case 'weak-password':
-        return 'Password is too weak.';
+        return (l10n) => l10n.passwordIsTooWeak;
       case 'user-not-found':
       case 'wrong-password':
       case 'invalid-credential':
-        return 'Email or password is incorrect.';
+        return (l10n) => l10n.emailOrPasswordIsIncorrect;
       case 'too-many-requests':
-        return 'Too many attempts. Try again later.';
+        return (l10n) => l10n.tooManyAttemptsTryAgainLater;
       default:
-        return 'Authentication failed (${error.code}).';
+        return (l10n) => l10n.authenticationFailedWithCode(error.code);
     }
   }
 
-  String _readableFirebaseError(FirebaseException error) {
+  _LocalizedText _readableFirebaseError(FirebaseException error) {
     switch (error.code) {
       case 'permission-denied':
-        return 'Permission denied by Firestore rules.';
+        return (l10n) => l10n.permissionDeniedByFirestoreRules;
       case 'unavailable':
-        return 'Service temporarily unavailable. Try again.';
+        return (l10n) => l10n.serviceTemporarilyUnavailableTryAgain;
       case 'network-request-failed':
-        return 'Network error. Check connection and try again.';
+        return (l10n) => l10n.networkErrorCheckConnectionAndTryAgain;
       default:
-        return 'Request failed (${error.code}).';
+        return (l10n) => l10n.requestFailedWithCode(error.code);
     }
   }
 
@@ -814,8 +826,10 @@ class _LegalAgreementControl extends StatelessWidget {
               controlAffinity: ListTileControlAffinity.leading,
               contentPadding: EdgeInsets.zero,
               dense: true,
-              title: const LText(
-                'I agree to the Terms of Use, Privacy Policy, and Ads Privacy Policy.',
+              title: Text(
+                context
+                    .l10n
+                    .iAgreeToTheTermsOfUsePrivacyPolicyAndAdsPrivacyPolicy,
               ),
             ),
             Padding(
@@ -826,16 +840,16 @@ class _LegalAgreementControl extends StatelessWidget {
                 children: [
                   TextButton(
                     onPressed: () => openExternalUrl(IConst.termsOfUseUrl),
-                    child: const LText('Terms of Use'),
+                    child: Text(context.l10n.termsOfUse),
                   ),
                   TextButton(
                     onPressed: () => openExternalUrl(IConst.privacyPolicyUrl),
-                    child: const LText('Privacy Policy'),
+                    child: Text(context.l10n.privacyPolicy),
                   ),
                   TextButton(
                     onPressed: () =>
                         openExternalUrl(IConst.privacyPolicyAdsUrl),
-                    child: const LText('Ads Privacy'),
+                    child: Text(context.l10n.adsPrivacy),
                   ),
                 ],
               ),

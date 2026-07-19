@@ -51,24 +51,24 @@ class MarketingLandingPage extends StatelessWidget {
                       children: <Widget>[
                         TextButton(
                           onPressed: () => openSameTabUrl('/privacy-policy/'),
-                          child: const LText('Privacy Policy'),
+                          child: Text(context.l10n.privacyPolicy),
                         ),
                         TextButton(
                           onPressed: () => openSameTabUrl('/terms-of-use/'),
-                          child: const LText('Terms'),
+                          child: Text(context.l10n.terms),
                         ),
                         TextButton(
                           onPressed: () =>
                               openSameTabUrl('/privacy-policy-ads/'),
-                          child: const LText('Ads Privacy'),
+                          child: Text(context.l10n.adsPrivacy),
                         ),
                         TextButton(
                           onPressed: () => openSameTabUrl('/support/'),
-                          child: const LText('Support'),
+                          child: Text(context.l10n.support),
                         ),
                         TextButton(
                           onPressed: () => openSameTabUrl('/delete-account/'),
-                          child: const LText('Delete Account'),
+                          child: Text(context.l10n.deleteAccount),
                         ),
                       ],
                     ),
@@ -77,8 +77,8 @@ class MarketingLandingPage extends StatelessWidget {
                       child: Wrap(
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: <Widget>[
-                          LText(
-                            'Calcrow is delivered by ',
+                          Text(
+                            context.l10n.calcrowIsDeliveredBy,
                             style: theme.textTheme.bodySmall,
                           ),
                           TextButton(
@@ -92,7 +92,7 @@ class MarketingLandingPage extends StatelessWidget {
                               minimumSize: Size.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
-                            child: const LText('Trainvent'),
+                            child: Text(context.l10n.trainvent),
                           ),
                         ],
                       ),
@@ -138,8 +138,8 @@ class _TopBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              LText(
-                'Calcrow',
+              Text(
+                context.l10n.calcrow,
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontFamily: 'Georgia',
                   fontWeight: FontWeight.w700,
@@ -179,8 +179,8 @@ class _HeroCopy extends StatelessWidget {
               color: const Color(0xFFFFE6DB),
               borderRadius: BorderRadius.circular(999),
             ),
-            child: LText(
-              'worklog editor',
+            child: Text(
+              context.l10n.worklogEditor,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: const Color(0xFFB45231),
                 fontWeight: FontWeight.w700,
@@ -188,8 +188,8 @@ class _HeroCopy extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          LText(
-            'Sheet manipulation on the go.',
+          Text(
+            context.l10n.sheetManipulationOnTheGo,
             style: theme.textTheme.headlineLarge?.copyWith(
               fontSize: 48,
               height: 1.0,
@@ -197,8 +197,10 @@ class _HeroCopy extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          LText(
-            'Open CSV, XLSX, or ODS files, edit the focused row in core editor, and save back to local or cloud storage.',
+          Text(
+            context
+                .l10n
+                .openCSVXLSXOrODSFilesEditTheFocusedRowInCoreEditorAndSaveBackToLocalOrCloudStorage,
             style: theme.textTheme.bodyLarge?.copyWith(
               fontSize: 17,
               height: 1.45,
@@ -260,16 +262,16 @@ class _PreviewPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          LText(
-            'Desktop to mobile, optimized to fit.',
+          Text(
+            context.l10n.desktopToMobileOptimizedToFit,
             style: textTheme.headlineSmall?.copyWith(
               color: const Color(0xFFF6F3EE),
               fontFamily: 'Georgia',
             ),
           ),
           const SizedBox(height: 8),
-          LText(
-            'Focused row editing',
+          Text(
+            context.l10n.focusedRowEditing,
             style: textTheme.bodyMedium?.copyWith(
               color: const Color(0xFFB7C1C3),
               height: 1.45,
@@ -322,8 +324,8 @@ class _PreviewPanel extends StatelessWidget {
                 const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: LText(
-                    'Focused row is highlighted',
+                  child: Text(
+                    context.l10n.focusedRowIsHighlighted,
                     style: textTheme.bodySmall?.copyWith(
                       color: const Color(0xFFB7C1C3),
                     ),
@@ -343,8 +345,8 @@ class _PreviewPanel extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                LText(
-                  'Mobile two-column view',
+                Text(
+                  context.l10n.mobileTwoColumnView,
                   style: textTheme.titleMedium?.copyWith(
                     color: const Color(0xFFF6F3EE),
                   ),
@@ -393,8 +395,8 @@ class _PreviewPanel extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                LText(
-                  'Same row, compacted for mobile screens',
+                Text(
+                  context.l10n.sameRowCompactedForMobileScreens,
                   style: textTheme.bodySmall?.copyWith(
                     color: const Color(0xFFB7C1C3),
                   ),
@@ -403,8 +405,8 @@ class _PreviewPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          LText(
-            'Note: this sheet is just an example',
+          Text(
+            context.l10n.noteThisSheetIsJustAnExample,
             style: textTheme.bodyMedium?.copyWith(
               color: const Color(0xFFB7C1C3),
               height: 1.45,
@@ -440,7 +442,7 @@ class _MiniSheetRow extends StatelessWidget {
                       : const Color(0xFF314043),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: LText(
+                child: Text(
                   value,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -478,7 +480,7 @@ class _MobilePreviewCell extends StatelessWidget {
               : const Color(0xFF36474B),
         ),
       ),
-      child: LText(
+      child: Text(
         text,
         textAlign: TextAlign.left,
         style: TextStyle(

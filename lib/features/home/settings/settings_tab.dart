@@ -57,17 +57,17 @@ class _SettingsTabState extends State<SettingsTab> {
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
-            LText('Settings', style: theme.textTheme.headlineLarge),
+            Text(context.l10n.settings, style: theme.textTheme.headlineLarge),
             const SizedBox(height: 12),
             if (session == null)
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.person_outline_rounded),
-                  title: const LText('Signed out'),
-                  subtitle: const LText('Sign in to use Calcrow.'),
+                  title: Text(context.l10n.signedOut),
+                  subtitle: Text(context.l10n.signInToUseCalcrow),
                   trailing: TextButton(
                     onPressed: () => _openSignInSheet(context),
-                    child: const LText('Sign in'),
+                    child: Text(context.l10n.signIn),
                   ),
                 ),
               ),
@@ -78,8 +78,8 @@ class _SettingsTabState extends State<SettingsTab> {
                   children: [
                     ListTile(
                       leading: const Icon(Icons.folder_special_outlined),
-                      title: const LText('Manage SAF folder'),
-                      subtitle: LText(_safFolderSubtitle(null)),
+                      title: Text(context.l10n.manageSAFFolder),
+                      subtitle: Text(_safFolderSubtitle(context.l10n, null)),
                     ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -88,18 +88,18 @@ class _SettingsTabState extends State<SettingsTab> {
                           onPressed: _isUpdatingSafFolder
                               ? null
                               : () => _setSafFolder(),
-                          child: const LText('Set'),
+                          child: Text(context.l10n.set),
                         ),
                         clearButton: TextButton(
                           onPressed: _isUpdatingSafFolder
                               ? null
                               : () => _clearSafFolder(),
-                          child: const LText('Clear'),
+                          child: Text(context.l10n.clear),
                         ),
                       ),
                     ),
                     if (_isUpdatingSafFolder)
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.only(bottom: 12),
                         child: SizedBox(
                           width: 18,
@@ -107,10 +107,12 @@ class _SettingsTabState extends State<SettingsTab> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                       ),
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      child: LText(
-                        'Sign in to save this Android folder setting to your account.',
+                      child: Text(
+                        context
+                            .l10n
+                            .signInToSaveThisAndroidFolderSettingToYourAccount,
                       ),
                     ),
                   ],
@@ -132,18 +134,19 @@ class _SettingsTabState extends State<SettingsTab> {
                           children: [
                             _buildSectionHeader(
                               context,
-                              title: 'Cloud Settings',
-                              subtitle:
-                                  'Manage Google Drive and WebDAV connections.',
+                              title: context.l10n.cloudSettings,
+                              subtitle: context
+                                  .l10n
+                                  .manageGoogleDriveAndWebDAVConnections,
                             ),
                             const Divider(height: 1),
                             ListTile(
                               leading: const Icon(Icons.cloud_sync_outlined),
-                              title: const LText('Active cloud provider'),
+                              title: Text(context.l10n.activeCloudProvider),
                               trailing: DropdownButtonHideUnderline(
                                 child: DropdownButton<CloudSyncProvider>(
                                   value: _selectedCloudProvider(settings),
-                                  hint: const LText('Choose'),
+                                  hint: Text(context.l10n.choose),
                                   onChanged:
                                       _availableCloudProviders(settings).isEmpty
                                       ? null
@@ -159,7 +162,7 @@ class _SettingsTabState extends State<SettingsTab> {
                                         (provider) =>
                                             DropdownMenuItem<CloudSyncProvider>(
                                               value: provider,
-                                              child: LText(
+                                              child: Text(
                                                 _cloudProviderLabel(provider),
                                               ),
                                             ),
@@ -171,8 +174,10 @@ class _SettingsTabState extends State<SettingsTab> {
                             const Divider(height: 1),
                             ListTile(
                               leading: const Icon(Icons.link_rounded),
-                              title: const LText('Connect Google Drive'),
-                              subtitle: LText(_googleDriveSubtitle(settings)),
+                              title: Text(context.l10n.connectGoogleDrive),
+                              subtitle: Text(
+                                _googleDriveSubtitle(context.l10n, settings),
+                              ),
                               trailing: _isLinkingGoogle
                                   ? const SizedBox(
                                       width: 18,
@@ -188,18 +193,20 @@ class _SettingsTabState extends State<SettingsTab> {
                                           settings,
                                         ),
                                       ),
-                                      child: LText(
+                                      child: Text(
                                         _isGoogleDriveLinked(settings)
-                                            ? 'Unlink'
-                                            : 'Link',
+                                            ? context.l10n.unlink
+                                            : context.l10n.link,
                                       ),
                                     ),
                             ),
                             const Divider(height: 1),
                             ListTile(
                               leading: const Icon(Icons.storage_rounded),
-                              title: const LText('Link WebDAV / Nextcloud'),
-                              subtitle: LText(_webDavSubtitle(settings)),
+                              title: Text(context.l10n.linkWebDAVNextcloud),
+                              subtitle: Text(
+                                _webDavSubtitle(context.l10n, settings),
+                              ),
                               trailing: _isLinkingWebDav
                                   ? const SizedBox(
                                       width: 18,
@@ -213,10 +220,10 @@ class _SettingsTabState extends State<SettingsTab> {
                                         session: session,
                                         settings: settings,
                                       ),
-                                      child: LText(
+                                      child: Text(
                                         _webDavEntries(settings).isEmpty
-                                            ? 'Link'
-                                            : 'Manage',
+                                            ? context.l10n.link
+                                            : context.l10n.manage,
                                       ),
                                     ),
                             ),
@@ -232,8 +239,10 @@ class _SettingsTabState extends State<SettingsTab> {
                                 leading: const Icon(
                                   Icons.folder_special_outlined,
                                 ),
-                                title: const LText('Manage SAF folder'),
-                                subtitle: LText(_safFolderSubtitle(settings)),
+                                title: Text(context.l10n.manageSAFFolder),
+                                subtitle: Text(
+                                  _safFolderSubtitle(context.l10n, settings),
+                                ),
                               ),
                               Padding(
                                 padding: const EdgeInsets.fromLTRB(
@@ -247,19 +256,19 @@ class _SettingsTabState extends State<SettingsTab> {
                                     onPressed: _isUpdatingSafFolder
                                         ? null
                                         : () => _setSafFolder(session: session),
-                                    child: const LText('Set'),
+                                    child: Text(context.l10n.set),
                                   ),
                                   clearButton: TextButton(
                                     onPressed: _isUpdatingSafFolder
                                         ? null
                                         : () =>
                                               _clearSafFolder(session: session),
-                                    child: const LText('Clear'),
+                                    child: Text(context.l10n.clear),
                                   ),
                                 ),
                               ),
                               if (_isUpdatingSafFolder)
-                                const Padding(
+                                Padding(
                                   padding: EdgeInsets.only(bottom: 12),
                                   child: SizedBox(
                                     width: 18,
@@ -279,16 +288,17 @@ class _SettingsTabState extends State<SettingsTab> {
                           children: [
                             _buildSectionHeader(
                               context,
-                              title: 'Account Settings',
-                              subtitle:
-                                  'Manage your subscription, privacy, and account access.',
+                              title: context.l10n.accountSettings,
+                              subtitle: context
+                                  .l10n
+                                  .manageYourSubscriptionPrivacyAndAccountAccess,
                             ),
                             const Divider(height: 1),
                             ListTile(
                               leading: const Icon(Icons.alternate_email),
-                              title: const LText('Signed in as'),
+                              title: Text(context.l10n.signedInAs),
                               subtitle: session.email.trim().isEmpty
-                                  ? const LText('No email available.')
+                                  ? Text(context.l10n.noEmailAvailable)
                                   : Text(session.email),
                             ),
                             const Divider(height: 1),
@@ -296,11 +306,13 @@ class _SettingsTabState extends State<SettingsTab> {
                               leading: const Icon(
                                 Icons.workspace_premium_outlined,
                               ),
-                              title: const LText('Entitlement'),
-                              subtitle: LText(
+                              title: Text(context.l10n.entitlement),
+                              subtitle: Text(
                                 settings?.isPro == true
-                                    ? 'Pro enabled.'
-                                    : 'Open subscription and purchase options.',
+                                    ? context.l10n.proEnabled
+                                    : context
+                                          .l10n
+                                          .openSubscriptionAndPurchaseOptions,
                               ),
                               trailing: _isOpeningRevenueCat
                                   ? const SizedBox(
@@ -321,9 +333,11 @@ class _SettingsTabState extends State<SettingsTab> {
                             const Divider(height: 1),
                             ListTile(
                               leading: const Icon(Icons.privacy_tip_outlined),
-                              title: const LText('Data collection'),
-                              subtitle: const LText(
-                                'Manage separate consent for usage analytics and crash or performance diagnostics.',
+                              title: Text(context.l10n.dataCollection2),
+                              subtitle: Text(
+                                context
+                                    .l10n
+                                    .manageSeparateConsentForUsageAnalyticsAndCrashOrPerformanceDiagnostics,
                               ),
                               trailing: const Icon(Icons.chevron_right_rounded),
                               onTap: _openDataCollectionPage,
@@ -331,9 +345,9 @@ class _SettingsTabState extends State<SettingsTab> {
                             const Divider(height: 1),
                             ListTile(
                               leading: const Icon(Icons.password_rounded),
-                              title: const LText('Change password'),
-                              subtitle: const LText(
-                                'Send a reset code to your signed-in email.',
+                              title: Text(context.l10n.changePassword),
+                              subtitle: Text(
+                                context.l10n.sendAResetCodeToYourSignedInEmail,
                               ),
                               trailing: _isChangingPassword
                                   ? const SizedBox(
@@ -352,15 +366,17 @@ class _SettingsTabState extends State<SettingsTab> {
                             const Divider(height: 1),
                             ListTile(
                               leading: const Icon(Icons.logout_rounded),
-                              title: const LText('Sign out'),
+                              title: Text(context.l10n.signOut),
                               onTap: () => ServiceLocator.authService.signOut(),
                             ),
                             const Divider(height: 1),
                             ListTile(
                               leading: const Icon(Icons.delete_outline_rounded),
-                              title: const LText('Delete account'),
-                              subtitle: const LText(
-                                'Open the permanent account deletion flow.',
+                              title: Text(context.l10n.deleteAccount2),
+                              subtitle: Text(
+                                context
+                                    .l10n
+                                    .openThePermanentAccountDeletionFlow,
                               ),
                               onTap: _openDeleteAccountPage,
                             ),
@@ -376,9 +392,11 @@ class _SettingsTabState extends State<SettingsTab> {
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.privacy_tip_outlined),
-                  title: const LText('Data collection'),
-                  subtitle: const LText(
-                    'Manage separate consent for usage analytics and crash or performance diagnostics.',
+                  title: Text(context.l10n.dataCollection2),
+                  subtitle: Text(
+                    context
+                        .l10n
+                        .manageSeparateConsentForUsageAnalyticsAndCrashOrPerformanceDiagnostics,
                   ),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: _openDataCollectionPage,
@@ -419,22 +437,28 @@ class _SettingsTabState extends State<SettingsTab> {
     ];
   }
 
-  String _googleDriveSubtitle(UserSettingsData? settings) {
+  String _googleDriveSubtitle(
+    AppLocalizations localizations,
+    UserSettingsData? settings,
+  ) {
     final linked = _isGoogleDriveLinked(settings);
     if (!linked) {
-      return 'Grant Drive read/write permissions for cloud document sync.';
+      return localizations.grantDriveReadWritePermissionsForCloudDocumentSync;
     }
     final email = settings?.googleDriveEmail;
     if (email != null && email.isNotEmpty) {
-      return 'Linked as $email';
+      return localizations.linkedAs(email);
     }
-    return 'Connected to Google Drive';
+    return localizations.connectedToGoogleDrive;
   }
 
-  String _webDavSubtitle(UserSettingsData? settings) {
+  String _webDavSubtitle(
+    AppLocalizations localizations,
+    UserSettingsData? settings,
+  ) {
     final entries = _webDavEntries(settings);
     if (entries.isEmpty) {
-      return 'Connect a WebDAV or Nextcloud folder using its WebDAV URL.';
+      return localizations.connectAWebDAVOrNextcloudFolderUsingItsWebDAVURL;
     }
     final activeEntryId = settings?.webDavActiveEntryId;
     final activeEntry =
@@ -447,31 +471,38 @@ class _SettingsTabState extends State<SettingsTab> {
       final host = Uri.tryParse(serverUrl)?.host;
       if (host != null && host.isNotEmpty) {
         if (entries.length == 1) {
-          return 'Linked as $username on $host';
+          return localizations.linkedAsOn(username, host);
         }
-        return '${entries.length} WebDAV entries. Active: $username on $host';
+        return localizations.webDavEntriesActiveOn(
+          entries.length,
+          username,
+          host,
+        );
       }
       if (entries.length == 1) {
-        return 'Linked as $username';
+        return localizations.linkedAs(username);
       }
-      return '${entries.length} WebDAV entries. Active: $username';
+      return localizations.webDavEntriesActive(entries.length, username);
     }
-    return 'WebDAV connected';
+    return localizations.webdavConnected;
   }
 
   String _cloudProviderLabel(CloudSyncProvider provider) {
     return ServiceLocator.cloudDocumentService.providerLabel(provider);
   }
 
-  String _safFolderSubtitle(UserSettingsData? settings) {
+  String _safFolderSubtitle(
+    AppLocalizations localizations,
+    UserSettingsData? settings,
+  ) {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
-      return 'Available on Android only.';
+      return localizations.availableOnAndroidOnly;
     }
     final uri = settings?.safTreeUri;
     final runtimeUri = SheetPersistenceService.runtimeSafTreeUri;
     final effectiveUri = (uri == null || uri.isEmpty) ? runtimeUri : uri;
     if (effectiveUri == null || effectiveUri.isEmpty) {
-      return 'No SAF folder configured.';
+      return localizations.noSAFFolderConfigured;
     }
     return effectiveUri;
   }
@@ -487,9 +518,9 @@ class _SettingsTabState extends State<SettingsTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LText(title, style: theme.textTheme.titleMedium),
+          Text(title, style: theme.textTheme.titleMedium),
           const SizedBox(height: 4),
-          LText(subtitle, style: theme.textTheme.bodyMedium),
+          Text(subtitle, style: theme.textTheme.bodyMedium),
         ],
       ),
     );
@@ -513,7 +544,7 @@ class _SettingsTabState extends State<SettingsTab> {
     final messenger = ScaffoldMessenger.of(context);
     if (normalizedEmail.isEmpty) {
       messenger.showSnackBar(
-        const SnackBar(content: LText('No account email is available.')),
+        SnackBar(content: Text(context.l10n.noAccountEmailIsAvailable)),
       );
       return;
     }
@@ -526,13 +557,15 @@ class _SettingsTabState extends State<SettingsTab> {
     } on AuthServiceException catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: LText(_readablePasswordResetError(error))),
+        SnackBar(
+          content: Text(_readablePasswordResetError(context.l10n, error)),
+        ),
       );
       return;
     } catch (_) {
       if (!mounted) return;
       messenger.showSnackBar(
-        const SnackBar(content: LText('Could not send password reset code.')),
+        SnackBar(content: Text(context.l10n.couldNotSendPasswordResetCode)),
       );
       return;
     } finally {
@@ -543,7 +576,9 @@ class _SettingsTabState extends State<SettingsTab> {
 
     if (!mounted) return;
     messenger.showSnackBar(
-      SnackBar(content: LText('Password reset code sent to $normalizedEmail.')),
+      SnackBar(
+        content: Text(context.l10n.passwordResetCodeSentTo(normalizedEmail)),
+      ),
     );
     await _showChangePasswordDialog(normalizedEmail);
   }
@@ -553,44 +588,51 @@ class _SettingsTabState extends State<SettingsTab> {
       context: context,
       builder: (context) => _ChangePasswordDialog(
         email: email,
-        readablePasswordResetError: _readablePasswordResetError,
+        readablePasswordResetError: (error) =>
+            _readablePasswordResetError(context.l10n, error),
       ),
     );
 
     if (didUpdate == true && mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: LText('Password updated.')));
+      ).showSnackBar(SnackBar(content: Text(context.l10n.passwordUpdated)));
     }
   }
 
-  String _readablePasswordResetError(AuthServiceException error) {
+  String _readablePasswordResetError(
+    AppLocalizations localizations,
+    AuthServiceException error,
+  ) {
     switch (error.code) {
       case 'user-not-found':
-        return 'No account found for that email.';
+        return localizations.noAccountFoundForThatEmail;
       case 'not-found':
-        return 'No active reset code was found. Request a new one.';
+        return localizations.noActiveResetCodeWasFoundRequestANewOne;
       case 'failed-precondition':
-        return 'That reset code is no longer valid. Request a new one.';
+        return localizations.thatResetCodeIsNoLongerValidRequestANewOne;
       default:
-        return _readableAuthError(error);
+        return _readableAuthError(localizations, error);
     }
   }
 
-  String _readableAuthError(AuthServiceException error) {
+  String _readableAuthError(
+    AppLocalizations localizations,
+    AuthServiceException error,
+  ) {
     switch (error.code) {
       case 'network-request-failed':
-        return 'Network error. Check connection and try again.';
+        return localizations.networkErrorCheckConnectionAndTryAgain;
       case 'invalid-email':
-        return 'Email address format is invalid.';
+        return localizations.emailAddressFormatIsInvalid;
       case 'invalid-argument':
-        return 'The code was not accepted. Check it and try again.';
+        return localizations.theCodeWasNotAcceptedCheckItAndTryAgain;
       case 'weak-password':
-        return 'Password is too weak.';
+        return localizations.passwordIsTooWeak;
       case 'too-many-requests':
-        return 'Too many attempts. Try again later.';
+        return localizations.tooManyAttemptsTryAgainLater;
       default:
-        return 'Authentication failed (${error.code}).';
+        return localizations.authenticationFailedWithCode(error.code);
     }
   }
 
@@ -610,7 +652,7 @@ class _SettingsTabState extends State<SettingsTab> {
         await ServiceLocator.userRepository.clearGoogleDriveLinked(uid: uid);
         if (!mounted) return;
         messenger.showSnackBar(
-          const SnackBar(content: LText('Google account unlinked.')),
+          SnackBar(content: Text(context.l10n.googleAccountUnlinked)),
         );
       } else {
         late final GoogleDriveLinkResult linkResult;
@@ -641,8 +683,8 @@ class _SettingsTabState extends State<SettingsTab> {
         if (!mounted) return;
         messenger.showSnackBar(
           SnackBar(
-            content: LText(
-              'Google Drive connected: ${linkResult.email}. Choose a Drive file next.',
+            content: Text(
+              context.l10n.googleDriveConnectedChooseFile(linkResult.email),
             ),
           ),
         );
@@ -652,18 +694,22 @@ class _SettingsTabState extends State<SettingsTab> {
         '$_googleDriveLogTag settings link auth error: ${error.message}',
       );
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: LText(error.message)));
+      messenger.showSnackBar(
+        SnackBar(content: Text(context.l10n.googleLinkFailed(error.message))),
+      );
     } on GoogleDriveSyncException catch (error) {
       debugPrint(
         '$_googleDriveLogTag settings link sync error: ${error.message}',
       );
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: LText(error.message)));
+      messenger.showSnackBar(
+        SnackBar(content: Text(context.l10n.googleLinkFailed(error.message))),
+      );
     } catch (error) {
       debugPrint('$_googleDriveLogTag settings link unexpected error: $error');
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: LText('Google link failed: $error')),
+        SnackBar(content: Text(context.l10n.googleLinkFailed('$error'))),
       );
     } finally {
       if (mounted) {
@@ -701,7 +747,7 @@ class _SettingsTabState extends State<SettingsTab> {
           await _unlinkAllWebDavEntries(session: session);
           if (!mounted) return;
           messenger.showSnackBar(
-            const SnackBar(content: LText('All WebDAV entries unlinked.')),
+            SnackBar(content: Text(context.l10n.allWebDAVEntriesUnlinked)),
           );
           break;
       }
@@ -711,7 +757,7 @@ class _SettingsTabState extends State<SettingsTab> {
     } catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: LText('WebDAV update failed: $error')),
+        SnackBar(content: Text(context.l10n.webDavUpdateFailed('$error'))),
       );
     } finally {
       if (mounted) {
@@ -757,8 +803,11 @@ class _SettingsTabState extends State<SettingsTab> {
     if (!mounted) return;
     messenger.showSnackBar(
       SnackBar(
-        content: LText(
-          'WebDAV entry added: ${linkedAccount.username} on ${linkedAccount.hostLabel}.',
+        content: Text(
+          context.l10n.webDavEntryAdded(
+            linkedAccount.username,
+            linkedAccount.hostLabel,
+          ),
         ),
       ),
     );
@@ -773,8 +822,9 @@ class _SettingsTabState extends State<SettingsTab> {
       return;
     }
     final messenger = ScaffoldMessenger.of(context);
+    final alreadyActiveMessage = context.l10n.thisWebDAVEntryIsAlreadyActive;
     final selected = await _showWebDavEntryPickerDialog(
-      title: 'Select WebDAV entry',
+      title: context.l10n.selectWebDAVEntry,
       entries: entries,
       activeEntryId: settings?.webDavActiveEntryId,
     );
@@ -782,9 +832,7 @@ class _SettingsTabState extends State<SettingsTab> {
       return;
     }
     if (settings?.webDavActiveEntryId == selected.id) {
-      messenger.showSnackBar(
-        const SnackBar(content: LText('This WebDAV entry is already active.')),
-      );
+      messenger.showSnackBar(SnackBar(content: Text(alreadyActiveMessage)));
       return;
     }
 
@@ -829,10 +877,10 @@ class _SettingsTabState extends State<SettingsTab> {
     final host = Uri.tryParse(selected.serverUrl)?.host;
     messenger.showSnackBar(
       SnackBar(
-        content: LText(
+        content: Text(
           host == null || host.isEmpty
-              ? 'WebDAV entry active: ${selected.username}.'
-              : 'WebDAV entry active: ${selected.username} on $host.',
+              ? context.l10n.webDavEntryActive(selected.username)
+              : context.l10n.webDavEntryActiveOn(selected.username, host),
         ),
       ),
     );
@@ -848,7 +896,7 @@ class _SettingsTabState extends State<SettingsTab> {
     }
     final messenger = ScaffoldMessenger.of(context);
     final selected = await _showWebDavEntryPickerDialog(
-      title: 'Remove WebDAV entry',
+      title: context.l10n.removeWebDAVEntry,
       entries: entries,
       activeEntryId: settings?.webDavActiveEntryId,
     );
@@ -868,7 +916,9 @@ class _SettingsTabState extends State<SettingsTab> {
     }
     if (!mounted) return;
     messenger.showSnackBar(
-      SnackBar(content: LText('WebDAV entry removed: ${selected.username}.')),
+      SnackBar(
+        content: Text(context.l10n.webDavEntryRemoved(selected.username)),
+      ),
     );
   }
 
@@ -903,7 +953,7 @@ class _SettingsTabState extends State<SettingsTab> {
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
-          content: LText(
+          content: Text(
             '${_cloudProviderLabel(provider)} is now the active cloud provider.',
           ),
         ),
@@ -911,7 +961,9 @@ class _SettingsTabState extends State<SettingsTab> {
     } catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: LText('Could not update cloud provider: $error')),
+        SnackBar(
+          content: Text(context.l10n.couldNotUpdateCloudProvider('$error')),
+        ),
       );
     }
   }
@@ -923,13 +975,13 @@ class _SettingsTabState extends State<SettingsTab> {
       context: context,
       builder: (dialogContext) {
         return SimpleDialog(
-          title: const LText('Manage WebDAV entries'),
+          title: Text(context.l10n.manageWebDAVEntries),
           children: [
             SimpleDialogOption(
               onPressed: () {
                 Navigator.of(dialogContext).pop(_WebDavManagementAction.add);
               },
-              child: const LText('Add WebDAV entry'),
+              child: Text(context.l10n.addWebDAVEntry),
             ),
             if (hasEntries)
               SimpleDialogOption(
@@ -938,7 +990,7 @@ class _SettingsTabState extends State<SettingsTab> {
                     dialogContext,
                   ).pop(_WebDavManagementAction.select);
                 },
-                child: const LText('Select active entry'),
+                child: Text(context.l10n.selectActiveEntry),
               ),
             if (hasEntries)
               SimpleDialogOption(
@@ -947,7 +999,7 @@ class _SettingsTabState extends State<SettingsTab> {
                     dialogContext,
                   ).pop(_WebDavManagementAction.remove);
                 },
-                child: const LText('Remove one entry'),
+                child: Text(context.l10n.removeOneEntry),
               ),
             if (hasEntries)
               SimpleDialogOption(
@@ -956,7 +1008,7 @@ class _SettingsTabState extends State<SettingsTab> {
                     dialogContext,
                   ).pop(_WebDavManagementAction.unlinkAll);
                 },
-                child: const LText('Unlink all entries'),
+                child: Text(context.l10n.unlinkAllEntries),
               ),
           ],
         );
@@ -976,7 +1028,7 @@ class _SettingsTabState extends State<SettingsTab> {
           activeEntryId ?? (entries.isEmpty ? null : entries.first.id),
         );
         return AlertDialog(
-          title: LText(title),
+          title: Text(title),
           content: SizedBox(
             width: 420,
             child: ValueListenableBuilder<String?>(
@@ -988,7 +1040,7 @@ class _SettingsTabState extends State<SettingsTab> {
                     final host = Uri.tryParse(entry.serverUrl)?.host;
                     final subtitle = host == null || host.isEmpty
                         ? entry.serverUrl
-                        : '${entry.username} on $host';
+                        : context.l10n.linkedAsOn(entry.username, host);
                     final isSelected = value == entry.id;
                     return ListTile(
                       leading: Icon(
@@ -1010,7 +1062,7 @@ class _SettingsTabState extends State<SettingsTab> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const LText('Cancel'),
+              child: Text(context.l10n.cancel),
             ),
             FilledButton(
               onPressed: () {
@@ -1020,7 +1072,7 @@ class _SettingsTabState extends State<SettingsTab> {
                 if (selectedEntry.isEmpty) return;
                 Navigator.of(dialogContext).pop(selectedEntry.first);
               },
-              child: const LText('Confirm'),
+              child: Text(context.l10n.confirm),
             ),
           ],
         );
@@ -1041,12 +1093,12 @@ class _SettingsTabState extends State<SettingsTab> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const LText('Enter app password'),
+              title: Text(context.l10n.enterAppPassword),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  LText('Password required for $username'),
+                  Text(context.l10n.passwordRequiredFor(username)),
                   const SizedBox(height: 4),
                   Text(serverUrl, style: Theme.of(context).textTheme.bodySmall),
                   const SizedBox(height: 12),
@@ -1054,10 +1106,8 @@ class _SettingsTabState extends State<SettingsTab> {
                     controller: controller,
                     obscureText: obscurePassword,
                     decoration: InputDecoration(
-                      labelText: context.tr('App password'),
-                      errorText: errorText.isEmpty
-                          ? null
-                          : context.tr(errorText),
+                      labelText: context.l10n.appPassword,
+                      errorText: errorText.isEmpty ? null : errorText,
                       suffixIcon: IconButton(
                         onPressed: () {
                           setDialogState(() {
@@ -1075,7 +1125,7 @@ class _SettingsTabState extends State<SettingsTab> {
                       final password = controller.text.trim();
                       if (password.isEmpty) {
                         setDialogState(() {
-                          errorText = 'App password is required.';
+                          errorText = context.l10n.appPasswordIsRequired;
                         });
                         return;
                       }
@@ -1087,20 +1137,20 @@ class _SettingsTabState extends State<SettingsTab> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const LText('Cancel'),
+                  child: Text(context.l10n.cancel),
                 ),
                 FilledButton(
                   onPressed: () {
                     final password = controller.text.trim();
                     if (password.isEmpty) {
                       setDialogState(() {
-                        errorText = 'App password is required.';
+                        errorText = context.l10n.appPasswordIsRequired;
                       });
                       return;
                     }
                     Navigator.of(dialogContext).pop(password);
                   },
-                  child: const LText('Confirm'),
+                  child: Text(context.l10n.confirm),
                 ),
               ],
             );
@@ -1136,7 +1186,7 @@ class _SettingsTabState extends State<SettingsTab> {
                   (defaultTargetPlatform != TargetPlatform.android &&
                       defaultTargetPlatform != TargetPlatform.iOS)) {
                 setDialogState(() {
-                  errorText = 'QR scan is available on Android and iOS only.';
+                  errorText = context.l10n.qrScanIsAvailableOnAndroidAndIOSOnly;
                 });
                 return;
               }
@@ -1162,8 +1212,9 @@ class _SettingsTabState extends State<SettingsTab> {
                 if (scannedServerUrl != null) {
                   setDialogState(() {
                     serverUrlController.text = scannedServerUrl;
-                    errorText =
-                        'Server URL imported from QR. Enter username and app password to continue.';
+                    errorText = context
+                        .l10n
+                        .serverURLImportedFromQREnterUsernameAndAppPasswordToContinue;
                   });
                   return;
                 }
@@ -1173,14 +1224,16 @@ class _SettingsTabState extends State<SettingsTab> {
                 if (scannedPassword != null) {
                   setDialogState(() {
                     passwordController.text = scannedPassword;
-                    errorText =
-                        'App password imported from QR. Enter server URL and username to continue.';
+                    errorText = context
+                        .l10n
+                        .appPasswordImportedFromQREnterServerURLAndUsernameToContinue;
                   });
                   return;
                 }
                 setDialogState(() {
-                  errorText =
-                      'QR code was read, but the format is not supported. Use URL, username, and app password fields.';
+                  errorText = context
+                      .l10n
+                      .qrCodeWasReadButTheFormatIsNotSupportedUseURLUsernameAndAppPasswordFields;
                 });
                 return;
               }
@@ -1202,7 +1255,7 @@ class _SettingsTabState extends State<SettingsTab> {
                   password.isEmpty) {
                 setDialogState(() {
                   errorText =
-                      'Enter the WebDAV URL, username, and app password.';
+                      context.l10n.enterTheWebDAVURLUsernameAndAppPassword;
                 });
                 return null;
               }
@@ -1214,7 +1267,7 @@ class _SettingsTabState extends State<SettingsTab> {
             }
 
             return AlertDialog(
-              title: const LText('Link WebDAV / Nextcloud'),
+              title: Text(context.l10n.linkWebDAVNextcloud),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1223,7 +1276,7 @@ class _SettingsTabState extends State<SettingsTab> {
                       controller: serverUrlController,
                       keyboardType: TextInputType.url,
                       decoration: InputDecoration(
-                        labelText: context.tr('WebDAV URL'),
+                        labelText: context.l10n.webDavUrl,
                         hintText:
                             'https://cloud.example.com/remote.php/dav/files/you/',
                       ),
@@ -1233,7 +1286,7 @@ class _SettingsTabState extends State<SettingsTab> {
                       controller: usernameController,
                       keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
-                        labelText: context.tr('Username'),
+                        labelText: context.l10n.username,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -1247,7 +1300,7 @@ class _SettingsTabState extends State<SettingsTab> {
                         }
                       },
                       decoration: InputDecoration(
-                        labelText: context.tr('App password'),
+                        labelText: context.l10n.appPassword,
                         suffixIcon: IconButton(
                           onPressed: () {
                             setDialogState(() {
@@ -1264,8 +1317,10 @@ class _SettingsTabState extends State<SettingsTab> {
                     ),
                     if (kIsWeb) ...[
                       const SizedBox(height: 12),
-                      const LText(
-                        'If phone works but web fails, this is usually CORS/TLS on the WebDAV server.',
+                      Text(
+                        context
+                            .l10n
+                            .ifPhoneWorksButWebFailsThisIsUsuallyCORSTLSOnTheWebDAVServer,
                       ),
                     ],
                     const SizedBox(height: 12),
@@ -1274,12 +1329,12 @@ class _SettingsTabState extends State<SettingsTab> {
                       child: OutlinedButton.icon(
                         onPressed: scanQrCode,
                         icon: const Icon(Icons.qr_code_scanner_outlined),
-                        label: const LText('Scan passkey QR'),
+                        label: Text(context.l10n.scanPasskeyQR),
                       ),
                     ),
                     if (errorText != null) ...[
                       const SizedBox(height: 12),
-                      LText(
+                      Text(
                         errorText!,
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.error,
@@ -1292,7 +1347,7 @@ class _SettingsTabState extends State<SettingsTab> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const LText('Cancel'),
+                  child: Text(context.l10n.cancel),
                 ),
                 FilledButton(
                   onPressed: () {
@@ -1301,7 +1356,7 @@ class _SettingsTabState extends State<SettingsTab> {
                       Navigator.of(dialogContext).pop(result);
                     }
                   },
-                  child: const LText('Link'),
+                  child: Text(context.l10n.link),
                 ),
               ],
             );
@@ -1334,11 +1389,17 @@ class _SettingsTabState extends State<SettingsTab> {
       await PurchasesService.instance.refreshCustomerInfo();
     } on PurchasesServiceException catch (error) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: LText(error.message)));
+      messenger.showSnackBar(
+        SnackBar(content: Text(error.localizedMessage(context.l10n))),
+      );
     } catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: LText('Could not open subscription options: $error')),
+        SnackBar(
+          content: Text(
+            context.l10n.couldNotOpenSubscriptionOptionsDetails('$error'),
+          ),
+        ),
       );
     } finally {
       if (mounted) {
@@ -1363,8 +1424,8 @@ class _SettingsTabState extends State<SettingsTab> {
       if (!mounted || opened) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: LText(
-            'Open ${IConst.deleteAccountUrl} in a browser to continue.',
+          content: Text(
+            context.l10n.openInBrowserToContinue(IConst.deleteAccountUrl),
           ),
         ),
       );
@@ -1375,7 +1436,7 @@ class _SettingsTabState extends State<SettingsTab> {
     final messenger = ScaffoldMessenger.of(context);
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
       messenger.showSnackBar(
-        const SnackBar(content: LText('SAF folder setup is Android-only.')),
+        SnackBar(content: Text(context.l10n.safFolderSetupIsAndroidOnly)),
       );
       return;
     }
@@ -1389,7 +1450,7 @@ class _SettingsTabState extends State<SettingsTab> {
       if (treeUri == null || treeUri.isEmpty) {
         if (!mounted) return;
         messenger.showSnackBar(
-          const SnackBar(content: LText('SAF folder selection canceled.')),
+          SnackBar(content: Text(context.l10n.safFolderSelectionCanceled)),
         );
         return;
       }
@@ -1397,8 +1458,8 @@ class _SettingsTabState extends State<SettingsTab> {
       if (!_sheetPersistenceService.canUseSafTreeUri(normalizedTreeUri)) {
         if (!mounted) return;
         messenger.showSnackBar(
-          const SnackBar(
-            content: LText('Could not acquire a writable SAF folder URI.'),
+          SnackBar(
+            content: Text(context.l10n.couldNotAcquireAWritableSAFFolderURI),
           ),
         );
         return;
@@ -1419,19 +1480,19 @@ class _SettingsTabState extends State<SettingsTab> {
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
-          content: LText(
+          content: Text(
             syncedToSettings
                 ? (session == null
-                      ? 'SAF folder saved for this app session.'
-                      : 'SAF folder saved in settings.')
-                : 'SAF folder saved for this app session. Settings sync failed.',
+                      ? context.l10n.safFolderSavedForSession
+                      : context.l10n.safFolderSavedInSettings)
+                : context.l10n.safFolderSavedSettingsSyncFailed,
           ),
         ),
       );
     } catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: LText('Could not set SAF folder: $error')),
+        SnackBar(content: Text(context.l10n.couldNotSetSafFolder('$error'))),
       );
     } finally {
       if (mounted) {
@@ -1450,12 +1511,12 @@ class _SettingsTabState extends State<SettingsTab> {
       SheetPersistenceService.setRuntimeSafTreeUri(null);
       if (!mounted) return;
       messenger.showSnackBar(
-        const SnackBar(content: LText('SAF folder cleared.')),
+        SnackBar(content: Text(context.l10n.safFolderCleared)),
       );
     } catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: LText('Could not clear SAF folder: $error')),
+        SnackBar(content: Text(context.l10n.couldNotClearSafFolder('$error'))),
       );
     } finally {
       if (mounted) {
@@ -1537,7 +1598,7 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _errorText = 'Could not reset password right now.';
+        _errorText = context.l10n.couldNotResetPasswordRightNow;
         _isSubmitting = false;
       });
     }
@@ -1549,16 +1610,16 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
     required String confirm,
   }) {
     if (code.length != 6) {
-      return 'Enter the 6-digit code.';
+      return context.l10n.enterThe6DigitCode;
     }
     if (password.isEmpty || confirm.isEmpty) {
-      return 'New password and confirmation are required.';
+      return context.l10n.newPasswordAndConfirmationAreRequired;
     }
     if (password.length < 6) {
-      return 'Password must be at least 6 characters.';
+      return context.l10n.passwordMustBeAtLeast6Characters;
     }
     if (password != confirm) {
-      return 'Passwords do not match.';
+      return context.l10n.passwordsDoNotMatch;
     }
     return null;
   }
@@ -1566,22 +1627,20 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const LText('Change password'),
+      title: Text(context.l10n.changePassword),
       content: SingleChildScrollView(
         child: AutofillGroup(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              LText('Enter the code sent to ${widget.email}.'),
+              Text(context.l10n.enterCodeSentTo(widget.email)),
               const SizedBox(height: 12),
               TextField(
                 controller: _codeController,
                 enabled: !_isSubmitting,
                 keyboardType: TextInputType.number,
                 textInputAction: TextInputAction.next,
-                decoration: InputDecoration(
-                  labelText: context.tr('Reset code'),
-                ),
+                decoration: InputDecoration(labelText: context.l10n.resetCode),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -1591,7 +1650,7 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
                 autofillHints: const [AutofillHints.newPassword],
                 textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
-                  labelText: context.tr('New password'),
+                  labelText: context.l10n.newPassword,
                 ),
               ),
               const SizedBox(height: 12),
@@ -1603,12 +1662,12 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _submit(),
                 decoration: InputDecoration(
-                  labelText: context.tr('Confirm new password'),
+                  labelText: context.l10n.confirmNewPassword,
                 ),
               ),
               if (_errorText != null) ...[
                 const SizedBox(height: 12),
-                LText(
+                Text(
                   _errorText!,
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
@@ -1620,7 +1679,7 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
       actions: [
         TextButton(
           onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-          child: const LText('Cancel'),
+          child: Text(context.l10n.cancel),
         ),
         FilledButton(
           onPressed: _isSubmitting ? null : _submit,
@@ -1630,7 +1689,7 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const LText('Update'),
+              : Text(context.l10n.update),
         ),
       ],
     );
@@ -2075,7 +2134,7 @@ class _WebDavQrScannerPageState extends State<_WebDavQrScannerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const LText('Scan passkey QR')),
+      appBar: AppBar(title: Text(context.l10n.scanPasskeyQR)),
       body: MobileScanner(controller: _controller, onDetect: _onDetect),
     );
   }

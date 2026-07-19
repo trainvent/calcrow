@@ -19,7 +19,7 @@ class _LogbookEditingModeBehavior extends _EditingModeBehavior {
   EditorOpenMode get openMode => EditorOpenMode.dateBasedOpenEnd;
 
   @override
-  String get pickButtonLabel => 'Pick';
+  String pickButtonLabel(AppLocalizations localizations) => localizations.pick;
 
   @override
   bool get showsDateOpenEndActions => true;
@@ -41,8 +41,10 @@ class _LogbookEditingModeBehavior extends _EditingModeBehavior {
     final selection = state._selectEditorTargetRowForSheetData(sheetData);
     if (!selection.usedDateColumn) {
       ScaffoldMessenger.of(state.context).showSnackBar(
-        const SnackBar(
-          content: LText('Date-based open-end needs a detected date column.'),
+        SnackBar(
+          content: Text(
+            state.context.l10n.dateBasedOpenEndNeedsADetectedDateColumn,
+          ),
         ),
       );
       return null;

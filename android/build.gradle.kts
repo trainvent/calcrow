@@ -1,3 +1,5 @@
+import org.gradle.api.tasks.compile.JavaCompile
+
 allprojects {
     repositories {
         google()
@@ -17,6 +19,16 @@ subprojects {
 }
 subprojects {
     project.evaluationDependsOn(":app")
+}
+
+// Some Flutter plugins still publish JVM 8 metadata. The app itself targets
+// JVM 17; silence only javac's obsolete source/target notice for dependencies.
+subprojects {
+    if (name != "app") {
+        tasks.withType<JavaCompile>().configureEach {
+            options.compilerArgs.add("-Xlint:-options")
+        }
+    }
 }
 
 tasks.register<Delete>("clean") {

@@ -169,14 +169,16 @@ class _CreateDocPageState extends State<CreateDocPage> {
   Future<void> _openTemplates() async {
     final template = await showDialog<DocumentTemplate>(
       context: context,
-      builder: (context) =>
-          const TemplatesDialogue(templates: documentTemplates),
+      builder: (context) => TemplatesDialogue(templates: documentTemplates),
     );
     if (!mounted || template == null) return;
-    _applyTemplate(template);
+    _applyTemplate(template, context.l10n);
   }
 
-  void _applyTemplate(DocumentTemplate template) {
+  void _applyTemplate(
+    DocumentTemplate template,
+    AppLocalizations localizations,
+  ) {
     for (final column in _columns) {
       column.dispose();
     }
@@ -187,7 +189,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
         ..addAll(
           template.columns.map(
             (column) => _ColumnDraft(
-              header: column.header,
+              header: column.header(localizations),
               type: column.type,
               currencyCode: column.currencyCode,
             ),
@@ -209,16 +211,16 @@ class _CreateDocPageState extends State<CreateDocPage> {
         .toList();
 
     if (headers.isEmpty) {
-      setState(() => _errorText = 'Add at least one column.');
+      setState(() => _errorText = context.l10n.addAtLeastOneColumn);
       return;
     }
     final normalizedHeaders = headers.map((header) => header.toLowerCase());
     if (normalizedHeaders.toSet().length != headers.length) {
-      setState(() => _errorText = 'Column names must be unique.');
+      setState(() => _errorText = context.l10n.columnNamesMustBeUnique);
       return;
     }
     if (!valueTypes.any((type) => type == 'date')) {
-      setState(() => _errorText = 'Dates open end needs one date column.');
+      setState(() => _errorText = context.l10n.datesOpenEndNeedsOneDateColumn);
       return;
     }
 
@@ -301,7 +303,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
       context: context,
       builder: (context) {
         return SimpleDialog(
-          title: const LText('Select currency'),
+          title: Text(context.l10n.selectCurrency),
           children: FieldTypeGuesser.currencyCodes
               .map(
                 (currencyCode) => SimpleDialogOption(
@@ -357,7 +359,9 @@ class _CreateDocPageState extends State<CreateDocPage> {
     final column = _columns[index];
     final headerField = TextField(
       controller: column.headerController,
-      decoration: InputDecoration(labelText: context.tr('Column ${index + 1}')),
+      decoration: InputDecoration(
+        labelText: context.l10n.columnNumber(index + 1),
+      ),
       onChanged: (_) {
         if (_errorText != null) {
           setState(() => _errorText = null);
@@ -366,14 +370,14 @@ class _CreateDocPageState extends State<CreateDocPage> {
     );
     final typeField = TypeDropdownList<FieldType>(
       initialValue: column.type,
-      labelText: context.tr('Type'),
+      labelText: context.l10n.type,
       options: FieldType.createOptions,
       labelFor: (type) => _typeLabelForColumn(type, column),
       iconFor: TypeDropdownList.iconForFieldType,
       onChanged: (value) => _handleColumnTypeChanged(column, value),
     );
     final removeButton = IconButton(
-      tooltip: context.tr('Remove column'),
+      tooltip: context.l10n.removeColumn,
       onPressed: _columns.length <= 1 ? null : () => _removeColumn(index),
       icon: const Icon(Icons.remove_circle_outline_rounded),
     );
@@ -416,14 +420,14 @@ class _CreateDocPageState extends State<CreateDocPage> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const LText('Create Document'),
+        title: Text(context.l10n.createDocument),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: TextButton.icon(
               onPressed: _openTemplates,
               icon: const Icon(Icons.dashboard_customize_outlined),
-              label: const LText('Templates'),
+              label: Text(context.l10n.templates),
             ),
           ),
         ],
@@ -441,7 +445,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
                     TextField(
                       controller: _fileNameController,
                       decoration: InputDecoration(
-                        labelText: context.tr('File name'),
+                        labelText: context.l10n.fileName,
                         suffixText: _fileNameSuffixForFormat(
                           _fileNameController.text,
                           _format,
@@ -453,19 +457,19 @@ class _CreateDocPageState extends State<CreateDocPage> {
                     SegmentedButton<SheetFileFormat>(
                       segments: <ButtonSegment<SheetFileFormat>>[
                         if (widget.initialSetup?.allowsCsv != false)
-                          const ButtonSegment<SheetFileFormat>(
+                          ButtonSegment<SheetFileFormat>(
                             value: SheetFileFormat.csv,
-                            label: LText('CSV'),
+                            label: Text(context.l10n.csv),
                             icon: Icon(Icons.table_rows_outlined),
                           ),
-                        const ButtonSegment<SheetFileFormat>(
+                        ButtonSegment<SheetFileFormat>(
                           value: SheetFileFormat.xlsx,
-                          label: LText('XLSX'),
+                          label: Text(context.l10n.xlsx),
                           icon: Icon(Icons.grid_on_rounded),
                         ),
-                        const ButtonSegment<SheetFileFormat>(
+                        ButtonSegment<SheetFileFormat>(
                           value: SheetFileFormat.ods,
-                          label: LText('ODS'),
+                          label: Text(context.l10n.ods),
                           icon: Icon(Icons.grid_view_rounded),
                         ),
                       ],
@@ -480,17 +484,15 @@ class _CreateDocPageState extends State<CreateDocPage> {
                     Row(
                       children: [
                         Expanded(
-                          child: LText(
-                            'Fields',
+                          child: Text(
+                            context.l10n.fields,
                             style: theme.textTheme.titleMedium,
                           ),
                         ),
                         IconButton(
-                          tooltip: context.tr(
-                            _isArranging
-                                ? 'Finish arranging'
-                                : 'Arrange fields',
-                          ),
+                          tooltip: _isArranging
+                              ? context.l10n.finishArranging
+                              : context.l10n.arrangeFields,
                           onPressed: _columns.length <= 1
                               ? null
                               : () => setState(
@@ -505,7 +507,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
                         TextButton.icon(
                           onPressed: _addColumn,
                           icon: const Icon(Icons.add_rounded),
-                          label: const LText('Add field'),
+                          label: Text(context.l10n.addField),
                         ),
                       ],
                     ),
@@ -516,7 +518,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
                     ),
                     if (_errorText != null) ...[
                       const SizedBox(height: 8),
-                      LText(
+                      Text(
                         _errorText!,
                         style: TextStyle(color: theme.colorScheme.error),
                       ),
@@ -536,14 +538,14 @@ class _CreateDocPageState extends State<CreateDocPage> {
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const LText('Cancel'),
+                  child: Text(context.l10n.cancel),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton(
                   onPressed: _submit,
-                  child: const LText('Continue'),
+                  child: Text(context.l10n.continueLabel),
                 ),
               ),
             ],

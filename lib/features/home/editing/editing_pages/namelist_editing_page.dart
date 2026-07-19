@@ -19,7 +19,7 @@ class _NamelistEditingModeBehavior extends _EditingModeBehavior {
   EditorOpenMode get openMode => EditorOpenMode.textBased;
 
   @override
-  String get pickButtonLabel => 'Pick';
+  String pickButtonLabel(AppLocalizations localizations) => localizations.pick;
 
   @override
   bool get showsTextEntryActions => true;

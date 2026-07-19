@@ -145,7 +145,7 @@ class _BannerAdTileState extends State<_BannerAdTile> {
     if (!_isLoaded || _bannerAd == null) {
       return _PromoUpgradeTile(
         isUpgradeEnabled: true,
-        debugDiagnosticMessage: _debugAdDiagnosticMessage(),
+        debugDiagnosticMessage: _debugAdDiagnosticMessage(context.l10n),
       );
     }
 
@@ -202,16 +202,17 @@ class _BannerAdTileState extends State<_BannerAdTile> {
     _lastLoadFailure = null;
   }
 
-  String? _debugAdDiagnosticMessage() {
+  String? _debugAdDiagnosticMessage(AppLocalizations localizations) {
     if (!kDebugMode || _lastLoadFailure == null) {
       return null;
     }
 
     return switch (_lastLoadFailure!.kind) {
-      _BannerLoadFailureKind.noFill => 'Ad unavailable now (Google no fill).',
+      _BannerLoadFailureKind.noFill =>
+        localizations.adUnavailableNowGoogleNoFill,
       _BannerLoadFailureKind.appIssue =>
-        'Ad unavailable due to app/config issue.',
-      _BannerLoadFailureKind.unknown => 'Ad unavailable (unknown cause).',
+        localizations.adUnavailableDueToAppConfigIssue,
+      _BannerLoadFailureKind.unknown => localizations.adUnavailableUnknownCause,
     };
   }
 
@@ -344,15 +345,15 @@ class _PromoUpgradeTile extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const LText(
-                    'Free plan',
+                  Text(
+                    context.l10n.freePlan,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
                   ),
-                  LText(
+                  Text(
                     debugDiagnosticMessage ??
-                        'Upgrade to remove this slot and unlock Pro.',
+                        context.l10n.upgradeToRemoveThisSlotAndUnlockPro,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 11),
@@ -371,7 +372,7 @@ class _PromoUpgradeTile extends StatelessWidget {
               onPressed: isUpgradeEnabled
                   ? (onUpgradeTap ?? _defaultUpgradeTap(context))
                   : null,
-              child: const LText('Upgrade'),
+              child: Text(context.l10n.upgrade),
             ),
           ],
         ),
@@ -394,11 +395,17 @@ class _PromoUpgradeTile extends StatelessWidget {
         );
         await PurchasesService.instance.presentPaywall();
       } on PurchasesServiceException catch (error) {
-        messenger.showSnackBar(SnackBar(content: LText(error.message)));
+        if (!context.mounted) return;
+        messenger.showSnackBar(
+          SnackBar(content: Text(error.localizedMessage(context.l10n))),
+        );
       } catch (error) {
+        if (!context.mounted) return;
         messenger.showSnackBar(
           SnackBar(
-            content: LText('Could not open subscription options: $error'),
+            content: Text(
+              context.l10n.couldNotOpenSubscriptionOptionsDetails('$error'),
+            ),
           ),
         );
       }

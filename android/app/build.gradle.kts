@@ -1,6 +1,6 @@
-import org.gradle.api.tasks.compile.JavaCompile
 import java.util.Properties
 import java.util.Base64
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.android.application")
@@ -45,10 +45,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
-    }
-
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "de.lemarq.calcrow"
@@ -81,15 +77,16 @@ android {
     }
 }
 
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
+    }
+}
+
 flutter {
     source = "../.."
 }
 
 dependencies {
     implementation("androidx.activity:activity-ktx:1.10.1")
-}
-
-tasks.withType<JavaCompile>().configureEach {
-    options.compilerArgs.add("-Xlint:deprecation")
-    options.compilerArgs.add("-Xlint:unchecked")
 }

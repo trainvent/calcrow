@@ -15,12 +15,15 @@ class RowDefinementWidget extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            LText('Row-Definement', style: theme.textTheme.titleMedium),
+            Text(
+              context.l10n.rowDefinement,
+              style: theme.textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
             TextField(
               controller: dateController,
               readOnly: true,
-              decoration: InputDecoration(labelText: context.tr('Date')),
+              decoration: InputDecoration(labelText: context.l10n.date),
             ),
           ],
         ),

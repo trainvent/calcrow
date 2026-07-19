@@ -4,7 +4,10 @@ import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
 
 import '../../sheet_type_logic/sheet_file_models.dart';
+import '../../../l10n/app_localizations.dart';
 import 'sheet_persistence_service.dart';
+
+enum LocalDocumentFailure { couldNotRead, couldNotReopen }
 
 typedef ParseSheetData =
     Future<SheetData> Function({
@@ -56,6 +59,7 @@ class LocalDocumentService {
   Future<LocalDocumentSelection?> pickDocumentForEditor({
     required List<XTypeGroup> acceptedTypeGroups,
     required String? Function(XFile file) readXFilePath,
+    required String confirmButtonText,
   }) async {
     Uint8List bytes = Uint8List(0);
     String fileName = 'imported_document';
@@ -83,7 +87,7 @@ class LocalDocumentService {
     } else {
       final file = await openFile(
         acceptedTypeGroups: acceptedTypeGroups,
-        confirmButtonText: 'Open document',
+        confirmButtonText: confirmButtonText,
       );
       if (file == null) return null;
       fileName = file.name;
@@ -92,7 +96,7 @@ class LocalDocumentService {
     }
 
     if (bytes.isEmpty) {
-      throw const LocalDocumentException('Could not read document content.');
+      throw const LocalDocumentException(LocalDocumentFailure.couldNotRead);
     }
 
     final hasSafTarget =
@@ -112,10 +116,12 @@ class LocalDocumentService {
     required List<XTypeGroup> acceptedTypeGroups,
     required ParseSheetData parseSheetData,
     required String? Function(XFile file) readXFilePath,
+    required String confirmButtonText,
   }) async {
     final selection = await pickDocumentForEditor(
       acceptedTypeGroups: acceptedTypeGroups,
       readXFilePath: readXFilePath,
+      confirmButtonText: confirmButtonText,
     );
     if (selection == null) return null;
     return openSelectedDocumentForEditor(
@@ -164,9 +170,7 @@ class LocalDocumentService {
     }
 
     if (bytes.isEmpty) {
-      throw const LocalDocumentException(
-        'Could not reopen the remembered local document.',
-      );
+      throw const LocalDocumentException(LocalDocumentFailure.couldNotReopen);
     }
 
     final sheetData = await parseSheetData(
@@ -189,10 +193,17 @@ class LocalDocumentService {
 }
 
 class LocalDocumentException implements Exception {
-  const LocalDocumentException(this.message);
+  const LocalDocumentException(this.failure);
 
-  final String message;
+  final LocalDocumentFailure failure;
+
+  String localizedMessage(AppLocalizations localizations) => switch (failure) {
+    LocalDocumentFailure.couldNotRead =>
+      localizations.couldNotReadDocumentContent,
+    LocalDocumentFailure.couldNotReopen =>
+      localizations.couldNotReopenTheRememberedLocalDocument,
+  };
 
   @override
-  String toString() => message;
+  String toString() => failure.name;
 }

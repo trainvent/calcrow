@@ -19,7 +19,8 @@ class _DiaryEditingModeBehavior extends _EditingModeBehavior {
   EditorOpenMode get openMode => EditorOpenMode.dateBased;
 
   @override
-  String get pickButtonLabel => 'Jump Today';
+  String pickButtonLabel(AppLocalizations localizations) =>
+      localizations.jumpToday;
 
   @override
   Future<_OpeningSelection?> resolveOpening(
@@ -30,8 +31,10 @@ class _DiaryEditingModeBehavior extends _EditingModeBehavior {
     if (!selection.usedDateColumn || !selection.foundMatchingDateRow) {
       ScaffoldMessenger.of(state.context).showSnackBar(
         SnackBar(
-          content: LText(
-            'Date-based opening is blocked because ${_EditingPageBaseState._formatDate(DateTime.now())} was not found in the detected date column.',
+          content: Text(
+            state.context.l10n.dateBasedOpeningBlocked(
+              _EditingPageBaseState._formatDate(DateTime.now()),
+            ),
           ),
         ),
       );

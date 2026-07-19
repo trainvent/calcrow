@@ -64,8 +64,8 @@ class _TimespanWidgetState extends State<TimespanWidget> {
               controller: _hoursController,
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
-                labelText: context.tr('Hours'),
-                hintText: context.tr('0'),
+                labelText: context.l10n.hours,
+                hintText: context.l10n.zero,
                 suffixText: 'h',
               ),
               onChanged: (_) => _handleDurationChanged(),
@@ -78,8 +78,8 @@ class _TimespanWidgetState extends State<TimespanWidget> {
               controller: _minutesController,
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
-                labelText: context.tr('Minutes'),
-                hintText: context.tr('0'),
+                labelText: context.l10n.minutes,
+                hintText: context.l10n.zero,
                 suffixText: 'min',
               ),
               onChanged: (_) => _handleDurationChanged(),

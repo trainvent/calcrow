@@ -1,9 +1,12 @@
 import 'dart:convert';
+import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart';
+
+import '../../../l10n/app_localizations.dart';
 
 enum WebDavErrorKind {
   browserBlocked,
@@ -14,9 +17,33 @@ enum WebDavErrorKind {
   unknown,
 }
 
+enum WebDavMessage {
+  enterValidUrl,
+  endpointUseExactUrl,
+  couldNotValidateUrl,
+  credentialsMissing,
+  folderPathUnsupported,
+  folderPathCouldNotOpen,
+  listFolderFailed,
+  invalidFolderResponse,
+  entryNameUnsupported,
+  folderEntryCouldNotOpen,
+  filePathUnsupported,
+  filePathCouldNotOpen,
+  downloadFailed,
+  filePathCouldNotSave,
+  uploadFailed,
+  signInFailed,
+  endpointRejected,
+  serverResponded,
+  serverUnreachable,
+  browserServerUnreachable,
+  browserBlocked,
+}
+
 class WebDavException implements Exception {
   const WebDavException(
-    this.message, {
+    this.messageKey, {
     this.statusCode,
     this.kind = WebDavErrorKind.unknown,
     this.technicalDetails,
@@ -24,7 +51,7 @@ class WebDavException implements Exception {
     this.requestUri,
   });
 
-  final String message;
+  final WebDavMessage messageKey;
   final int? statusCode;
   final WebDavErrorKind kind;
   final String? technicalDetails;
@@ -132,7 +159,7 @@ class WebDavService {
     if (requestedUri == null ||
         !requestedUri.hasScheme ||
         requestedUri.host.isEmpty) {
-      throw const WebDavException('Enter a valid WebDAV URL.');
+      throw const WebDavException(WebDavMessage.enterValidUrl);
     }
 
     final validatedUri = await _resolveAndValidateWebDavUri(
@@ -190,14 +217,14 @@ class WebDavService {
 
     if (lastMethodNotAllowed != null) {
       throw const WebDavException(
-        'WebDAV endpoint rejected PROPFIND (405). Use the exact WebDAV folder URL. For Nextcloud, this is usually https://<host>/remote.php/dav/files/<username>/',
+        WebDavMessage.endpointUseExactUrl,
         statusCode: 405,
         kind: WebDavErrorKind.methodNotAllowed,
       );
     }
 
     throw const WebDavException(
-      'Could not validate the WebDAV URL.',
+      WebDavMessage.couldNotValidateUrl,
       kind: WebDavErrorKind.unknown,
     );
   }
@@ -283,9 +310,7 @@ class WebDavService {
         serverUrl.isEmpty ||
         username.isEmpty ||
         password.isEmpty) {
-      throw const WebDavException(
-        'WebDAV credentials are missing on this device. Re-link the account in Settings.',
-      );
+      throw const WebDavException(WebDavMessage.credentialsMissing);
     }
     return WebDavCredentials(
       serverUrl: serverUrl,
@@ -308,12 +333,12 @@ class WebDavService {
       );
     } on FormatException {
       throw const WebDavException(
-        'This WebDAV folder path contains unsupported characters.',
+        WebDavMessage.folderPathUnsupported,
         kind: WebDavErrorKind.unknown,
       );
     } on ArgumentError {
       throw const WebDavException(
-        'This WebDAV folder path could not be opened.',
+        WebDavMessage.folderPathCouldNotOpen,
         kind: WebDavErrorKind.unknown,
       );
     }
@@ -326,7 +351,7 @@ class WebDavService {
     );
     if (response.statusCode != 207 && response.statusCode != 200) {
       throw WebDavException(
-        'Could not list WebDAV folder (${response.statusCode}).',
+        WebDavMessage.listFolderFailed,
         statusCode: response.statusCode,
         kind: WebDavErrorKind.http,
         requestMethod: 'PROPFIND',
@@ -342,17 +367,17 @@ class WebDavService {
       );
     } on XmlException {
       throw const WebDavException(
-        'The WebDAV server returned an invalid folder response.',
+        WebDavMessage.invalidFolderResponse,
         kind: WebDavErrorKind.unknown,
       );
     } on FormatException {
       throw const WebDavException(
-        'A file or folder name in this WebDAV directory uses unsupported characters.',
+        WebDavMessage.entryNameUnsupported,
         kind: WebDavErrorKind.unknown,
       );
     } on ArgumentError {
       throw const WebDavException(
-        'This WebDAV folder contains an entry that could not be opened.',
+        WebDavMessage.folderEntryCouldNotOpen,
         kind: WebDavErrorKind.unknown,
       );
     }
@@ -371,12 +396,12 @@ class WebDavService {
       );
     } on FormatException {
       throw const WebDavException(
-        'This WebDAV file path contains unsupported characters.',
+        WebDavMessage.filePathUnsupported,
         kind: WebDavErrorKind.unknown,
       );
     } on ArgumentError {
       throw const WebDavException(
-        'This WebDAV file path could not be opened.',
+        WebDavMessage.filePathCouldNotOpen,
         kind: WebDavErrorKind.unknown,
       );
     }
@@ -388,7 +413,7 @@ class WebDavService {
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw WebDavException(
-        'Could not download WebDAV file (${response.statusCode}).',
+        WebDavMessage.downloadFailed,
         statusCode: response.statusCode,
         kind: WebDavErrorKind.http,
         requestMethod: 'GET',
@@ -414,12 +439,12 @@ class WebDavService {
       );
     } on FormatException {
       throw const WebDavException(
-        'This WebDAV file path contains unsupported characters.',
+        WebDavMessage.filePathUnsupported,
         kind: WebDavErrorKind.unknown,
       );
     } on ArgumentError {
       throw const WebDavException(
-        'This WebDAV file path could not be saved.',
+        WebDavMessage.filePathCouldNotSave,
         kind: WebDavErrorKind.unknown,
       );
     }
@@ -433,7 +458,7 @@ class WebDavService {
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw WebDavException(
-        'Could not upload WebDAV file (${response.statusCode}).',
+        WebDavMessage.uploadFailed,
         statusCode: response.statusCode,
         kind: WebDavErrorKind.http,
         requestMethod: 'PUT',
@@ -468,7 +493,7 @@ class WebDavService {
 
     if (response.statusCode == 401 || response.statusCode == 403) {
       throw WebDavException(
-        'WebDAV sign-in failed. Check the username and app password.',
+        WebDavMessage.signInFailed,
         statusCode: 401,
         kind: WebDavErrorKind.auth,
         requestMethod: 'PROPFIND',
@@ -477,7 +502,7 @@ class WebDavService {
     }
     if (response.statusCode == 405) {
       throw WebDavException(
-        'WebDAV endpoint rejected PROPFIND (405).',
+        WebDavMessage.endpointRejected,
         statusCode: 405,
         kind: WebDavErrorKind.methodNotAllowed,
         requestMethod: 'PROPFIND',
@@ -486,7 +511,7 @@ class WebDavService {
     }
     if (response.statusCode != 207 && response.statusCode != 200) {
       throw WebDavException(
-        'WebDAV server responded with ${response.statusCode}. Check that the URL points to a valid WebDAV folder.',
+        WebDavMessage.serverResponded,
         statusCode: response.statusCode,
         kind: WebDavErrorKind.http,
         requestMethod: 'PROPFIND',
@@ -520,7 +545,7 @@ class WebDavService {
     if (streamedResponse.statusCode == 401 ||
         streamedResponse.statusCode == 403) {
       throw WebDavException(
-        'WebDAV sign-in failed. Check the username and app password.',
+        WebDavMessage.signInFailed,
         statusCode: streamedResponse.statusCode,
         kind: WebDavErrorKind.auth,
         requestMethod: method,
@@ -635,7 +660,7 @@ class WebDavService {
   }) {
     if (!_isWebBuild) {
       return WebDavException(
-        'Could not reach the WebDAV server. Check the URL and network access.',
+        WebDavMessage.serverUnreachable,
         kind: WebDavErrorKind.network,
         technicalDetails: error.toString(),
         requestMethod: method,
@@ -650,7 +675,7 @@ class WebDavService {
         lower.contains('cors');
     if (!looksLikeBrowserCorsIssue) {
       return WebDavException(
-        'Could not reach the WebDAV server from this browser. Check URL, HTTPS certificate, and network access.',
+        WebDavMessage.browserServerUnreachable,
         kind: WebDavErrorKind.network,
         technicalDetails: error.toString(),
         requestMethod: method,
@@ -659,7 +684,7 @@ class WebDavService {
     }
 
     return WebDavException(
-      'Browser blocked the WebDAV request (likely CORS/TLS). Allow this app origin in WebDAV CORS and permit methods PROPFIND/GET/PUT with headers Authorization, Depth, and Content-Type.',
+      WebDavMessage.browserBlocked,
       kind: WebDavErrorKind.browserBlocked,
       technicalDetails: error.toString(),
       requestMethod: method,
@@ -755,4 +780,63 @@ class WebDavService {
   String _passwordKey(String uid) => '$_passwordPrefix:$uid';
   String _entryPasswordKey(String uid, String entryId) =>
       '$_entryPasswordPrefix:$uid:$entryId';
+}
+
+extension WebDavExceptionLocalization on WebDavException {
+  String localizedMessage(
+    AppLocalizations localizations,
+  ) => switch (messageKey) {
+    WebDavMessage.enterValidUrl => localizations.enterAValidWebDAVURL,
+    WebDavMessage.endpointUseExactUrl =>
+      localizations.webDavEndpointUseExactUrl,
+    WebDavMessage.couldNotValidateUrl =>
+      localizations.couldNotValidateTheWebDAVURL,
+    WebDavMessage.credentialsMissing =>
+      localizations
+          .webdavCredentialsAreMissingOnThisDeviceReLinkTheAccountInSettings,
+    WebDavMessage.folderPathUnsupported =>
+      localizations.thisWebDAVFolderPathContainsUnsupportedCharacters,
+    WebDavMessage.folderPathCouldNotOpen =>
+      localizations.thisWebDAVFolderPathCouldNotBeOpened,
+    WebDavMessage.listFolderFailed => localizations.couldNotListWebDavFolder(
+      statusCode ?? 0,
+    ),
+    WebDavMessage.invalidFolderResponse =>
+      localizations.theWebDAVServerReturnedAnInvalidFolderResponse,
+    WebDavMessage.entryNameUnsupported =>
+      localizations
+          .aFileOrFolderNameInThisWebDAVDirectoryUsesUnsupportedCharacters,
+    WebDavMessage.folderEntryCouldNotOpen =>
+      localizations.thisWebDAVFolderContainsAnEntryThatCouldNotBeOpened,
+    WebDavMessage.filePathUnsupported =>
+      localizations.thisWebDAVFilePathContainsUnsupportedCharacters,
+    WebDavMessage.filePathCouldNotOpen =>
+      localizations.thisWebDAVFilePathCouldNotBeOpened,
+    WebDavMessage.downloadFailed => localizations.couldNotDownloadWebDavFile(
+      statusCode ?? 0,
+    ),
+    WebDavMessage.filePathCouldNotSave =>
+      localizations.thisWebDAVFilePathCouldNotBeSaved,
+    WebDavMessage.uploadFailed => localizations.couldNotUploadWebDavFile(
+      statusCode ?? 0,
+    ),
+    WebDavMessage.signInFailed =>
+      localizations.webdavSignInFailedCheckTheUsernameAndAppPassword,
+    WebDavMessage.endpointRejected =>
+      localizations.webdavEndpointRejectedPROPFIND405,
+    WebDavMessage.serverResponded => localizations.webDavServerRespondedWith(
+      statusCode ?? 0,
+    ),
+    WebDavMessage.serverUnreachable =>
+      localizations.couldNotReachTheWebDAVServerCheckTheURLAndNetworkAccess,
+    WebDavMessage.browserServerUnreachable =>
+      localizations
+          .couldNotReachTheWebDAVServerFromThisBrowserCheckURLHTTPSCertificateAndNetworkAccess,
+    WebDavMessage.browserBlocked =>
+      localizations
+          .browserBlockedTheWebDAVRequestLikelyCORSTLSAllowThisAppOriginInWebDAVCORSAndPermitMethodsPROPFINDGETPUTWithHeadersAuthorizationDepthAndContentType,
+  };
+
+  String get message =>
+      localizedMessage(lookupAppLocalizations(const Locale('en')));
 }

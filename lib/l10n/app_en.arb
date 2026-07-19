@@ -1,0 +1,900 @@
+{
+  "@@locale": "en",
+  "message6DigitCode": "6-digit code",
+  "activeCloudProvider": "Active cloud provider",
+  "adConsentResetOnThisDevice": "Ad consent reset on this device.",
+  "adPrivacyChoicesUpdated": "Ad privacy choices updated.",
+  "addField": "Add field",
+  "addWebDAVEntry": "Add WebDAV entry",
+  "adjust": "Adjust",
+  "adsPrivacy": "Ads Privacy",
+  "adsPrivacyChoices": "Ads privacy choices",
+  "adsPrivacyPolicy": "Ads privacy policy",
+  "allWebDAVEntriesUnlinked": "All WebDAV entries unlinked.",
+  "anonymousUsagePatternsToUnderstandWhichScreensAndFlowsAreUsed": "Anonymous usage patterns to understand which screens and flows are used.",
+  "appPassword": "App password",
+  "back": "Back",
+  "backToSignIn": "Back to sign in",
+  "bothCategoriesStayOffUntilYouExplicitlyEnableThemHereYouCanTurnThemOffAgainAtAnyTime": "Both categories stay off until you explicitly enable them here. You can turn them off again at any time.",
+  "cachedFieldTypesCleared": "Cached field types cleared.",
+  "cancel": "Cancel",
+  "changePassword": "Change password",
+  "choose": "Choose",
+  "chooseADocumentFromGetStarted": "Choose a document from Get Started.",
+  "chooseAnyRowFromTheSheet": "Choose any row from the sheet.",
+  "chooseAGoogleDriveOrWebDAVFolder": "Choose a Google Drive or WebDAV folder.",
+  "chooseOrCreateTheActiveCloudSyncFile": "Choose or create the active cloud sync file.",
+  "chooseOrCreateTheGoogleDriveFileUsedForSync": "Choose or create the Google Drive file used for sync.",
+  "chooseOrCreateTheWebDAVFileUsedForSync": "Choose or create the WebDAV file used for sync.",
+  "chooseASaveLocationOnThisDevice": "Choose a save location on this device.",
+  "chooseAWritableAndroidFolder": "Choose a writable Android folder.",
+  "chooseDocument": "Choose Document",
+  "chooseFolder": "Choose Folder",
+  "chooseSAFFolder": "Choose SAF Folder",
+  "chooseSyncFile": "Choose sync file",
+  "clear": "Clear",
+  "clearCache": "Clear cache",
+  "clearCachedFieldTypes": "Clear cached field types",
+  "clearCachedFieldTypes2": "Clear cached field types?",
+  "clearEditableFields": "Clear editable fields",
+  "clearEditor": "Clear editor",
+  "clearNote": "Clear note",
+  "clearRememberedCloudFile": "Clear remembered cloud file",
+  "clearRememberedLocalFile": "Clear remembered local file",
+  "close": "Close",
+  "closeTemplates": "Close templates",
+  "cloud": "Cloud",
+  "cloudDocument": "Cloud document",
+  "cloudSettings": "Cloud Settings",
+  "column": "Column",
+  "confirm": "Confirm",
+  "confirmFieldFormats": "Confirm field formats",
+  "confirmNewPassword": "Confirm new password",
+  "confirmPassword": "Confirm password",
+  "connectACloudProviderInSettingsFirst": "Connect a cloud provider in Settings first.",
+  "connectGoogleDrive": "Connect Google Drive",
+  "continueLabel": "Continue",
+  "couldNotAcquireAWritableSAFFolderURI": "Could not acquire a writable SAF folder URI.",
+  "couldNotOpenTheFileInAnotherApp": "Could not open the file in another app.",
+  "couldNotReadCSVFileContent": "Could not read CSV file content.",
+  "couldNotReopenTheRememberedLocalFileChooseItAgain": "Could not reopen the remembered local file. Choose it again.",
+  "currentFileIsNotSAFBackedUseSaveAsIsInPreviewOrReopenViaSAF": "Current file is not SAF-backed. Use \"Save as is\" in Preview, or reopen via SAF.",
+  "couldNotOpenSavedSyncFileChooseAnotherOne": "Could not open saved sync file. Choose another one.",
+  "couldNotSendPasswordResetCode": "Could not send password reset code.",
+  "crashLogsNonFatalErrorsAndPerformanceMonitoringToDiagnoseFailuresAndSlowPaths": "Crash logs, non-fatal errors, and performance monitoring to diagnose failures and slow paths.",
+  "crashReportsAndPerformance": "Crash reports and performance",
+  "createAccount": "Create account",
+  "createDocument": "Create Document",
+  "createDocumentCanceled": "Create document canceled.",
+  "createCSV": "Create CSV",
+  "createXLSX": "Create XLSX",
+  "createODS": "Create ODS",
+  "createNew": "Create New",
+  "createNew2": "Create new",
+  "createNewEntryMode": "Create new entry mode.",
+  "createNewEntry": "Create new entry",
+  "createNewCSV": "Create New CSV",
+  "currentBehavior": "Current behavior",
+  "currentFile": "Current File",
+  "dataCollection": "Data Collection",
+  "dataCollection2": "Data collection",
+  "date": "Date",
+  "defaultLabel": "default",
+  "dateBasedOpenEndNeedsADetectedDateColumn": "Date-based open-end needs a detected date column.",
+  "deleteAccount": "Delete Account",
+  "deleteAccount2": "Delete account",
+  "defineColumnsAndFieldTypesForAFreshSheet": "Define columns and field types for a fresh sheet.",
+  "details": "Details",
+  "summary": "Summary",
+  "kind": "Kind",
+  "origin": "Origin",
+  "requestHost": "Request host",
+  "requestPath": "Request path",
+  "requestMethod": "Request method",
+  "requiredCORSMethods": "Required CORS methods",
+  "requiredCORSHeaders": "Required CORS headers",
+  "technicalDetails": "Technical details",
+  "unknown": "unknown",
+  "browserBlocked": "browser_blocked",
+  "network": "network",
+  "auth": "auth",
+  "methodNotAllowed": "method_not_allowed",
+  "desktopToMobileOptimizedToFit": "Desktop to mobile, optimized to fit.",
+  "diary": "Diary",
+  "discard": "Discard",
+  "editorCleared": "Editor cleared.",
+  "email": "Email",
+  "end": "End",
+  "enterAppPassword": "Enter app password",
+  "entitlement": "Entitlement",
+  "everyTemplateStartsWithDateAsTheFirstColumnPickAStartingPointThenRenameAddRemoveAndReorderTheRemainingFieldsBeforeCreatingTheDocument": "Every template starts with Date as the first column. Pick a starting point, then rename, add, remove, and reorder the remaining fields before creating the document.",
+  "explainOpeningModes": "Explain opening modes",
+  "falseLabel": "FALSE",
+  "fieldFormatsConfirmed": "Field formats confirmed.",
+  "fields": "Fields",
+  "fileName": "File name",
+  "focusedRowEditing": "Focused row editing",
+  "focusedRowIsHighlighted": "Focused row is highlighted",
+  "focusBlockersWins": "Focus, blockers, wins...",
+  "folder": "Folder",
+  "forgotPassword": "Forgot password?",
+  "freePlan": "Free plan",
+  "gotIt": "Got it",
+  "helpImproveCalcrow": "Help Improve Calcrow",
+  "hours": "Hours",
+  "howToOpenTheSheet": "How to open the sheet",
+  "iAgreeToTheTermsOfUsePrivacyPolicyAndAdsPrivacyPolicy": "I agree to the Terms of Use, Privacy Policy, and Ads Privacy Policy.",
+  "iAlreadyHaveAnAccount": "I already have an account",
+  "ifPhoneWorksButWebFailsThisIsUsuallyCORSTLSOnTheWebDAVServer": "If phone works but web fails, this is usually CORS/TLS on the WebDAV server.",
+  "keepOff": "Keep Off",
+  "link": "Link",
+  "linkWebDAVNextcloud": "Link WebDAV / Nextcloud",
+  "local": "Local",
+  "localDocument": "Local document",
+  "logbook": "Logbook",
+  "manageSAFFolder": "Manage SAF folder",
+  "manageSeparateConsentForUsageAnalyticsAndCrashOrPerformanceDiagnostics": "Manage separate consent for usage analytics and crash or performance diagnostics.",
+  "manageWebDAVEntries": "Manage WebDAV entries",
+  "manage": "Manage",
+  "manageGoogleDriveAndWebDAVConnections": "Manage Google Drive and WebDAV connections.",
+  "manageYourSubscriptionPrivacyAndAccountAccess": "Manage your subscription, privacy, and account access.",
+  "manageWidgets": "Manage widgets",
+  "minutes": "Minutes",
+  "mobileTwoColumnView": "Mobile two-column view",
+  "monthly": "Monthly",
+  "moveDown": "Move down",
+  "moveUp": "Move up",
+  "namelist": "Namelist",
+  "newLabel": "New",
+  "newPassword": "New password",
+  "newRowSubmitted": "New row submitted.",
+  "noAccountEmailIsAvailable": "No account email is available.",
+  "noEditableFieldTypesToReset": "No editable field types to reset.",
+  "noEntryFoundForThisDate": "No entry found for this date.",
+  "noFileLoadedYet": "No file loaded yet.",
+  "noEmailAvailable": "No email available.",
+  "noSAFFolderConfigured": "No SAF folder configured.",
+  "noRecentOpeningConfigurationsSavedYet": "No recent opening configurations saved yet.",
+  "noSAFTargetSelectedOpenASAFBackedFileOrConfigureSAFFolderInSettingsOrUseSaveAsIsInPreview": "No SAF target selected. Open a SAF-backed file or configure SAF folder in Settings, or use \"Save as is\" in Preview.",
+  "noteThisSheetIsJustAnExample": "Note: this sheet is just an example",
+  "notes": "Notes",
+  "openACSVXLSXOrODSDocument": "Open a CSV, XLSX, or ODS document",
+  "openCSVXLSXOrODS": "Open CSV, XLSX, or ODS.",
+  "openTheExistingRowForTodayAndKeepOneEntryPerDay": "Open the existing row for today and keep one entry per day.",
+  "openTodayIfItExistsOtherwiseStartANewRowForToday": "Open today if it exists, otherwise start a new row for today.",
+  "chooseAnExistingNamedEntryFromATextColumnAndEditThatRow": "Choose an existing named entry from a text column and edit that row.",
+  "yourTableNeedsADateColumnWithOnePreparedRowPerDay": "Your table needs a date column with one prepared row per day.",
+  "yourTableNeedsADateColumnCalcrowCanAddTodayAsANewRow": "Your table needs a date column; Calcrow can add today as a new row.",
+  "yourTableNeedsAnEditableTextColumnWithTheEntryNames": "Your table needs an editable text column with the entry names.",
+  "openSubscriptionAndPurchaseOptions": "Open subscription and purchase options.",
+  "openCSVXLSXOrODSCalcrowDetectsTheFileTypeAutomatically": "Open CSV, XLSX, or ODS. Calcrow detects the file type automatically.",
+  "openCSVXLSXOrODSFilesEditTheFocusedRowInCoreEditorAndSaveBackToLocalOrCloudStorage": "Open CSV, XLSX, or ODS files, edit the focused row in core editor, and save back to local or cloud storage.",
+  "openedDocumentInAnotherApp": "Opened document in another app.",
+  "openingDocument": "Opening document...",
+  "openingMode": "Opening Mode",
+  "openingMode2": "Opening mode",
+  "openingModes": "Opening modes",
+  "password": "Password",
+  "passwordUpdated": "Password updated.",
+  "passwordUpdatedYouCanSignInNow": "Password updated. You can sign in now.",
+  "pauseMin": "Pause (min)",
+  "pickSAFFolder": "Pick SAF folder",
+  "pickRow": "Pick row",
+  "pickRow2": "Pick Row",
+  "pickEntry": "Pick Entry",
+  "preparingEditorFields": "Preparing editor fields...",
+  "previous": "Previous",
+  "privacyControls": "Privacy controls",
+  "privacyPolicy": "Privacy Policy",
+  "proEnabled": "Pro enabled.",
+  "readHowCalcrowAndGoogleAdMobHandleConsentChoicesForTheEEAUKSwitzerlandAndApplicableUSStatePrivacyRules": "Read how Calcrow and Google AdMob handle consent choices for the EEA, UK, Switzerland, and applicable US state privacy rules.",
+  "rememberedCloudSyncFileCleared": "Remembered cloud sync file cleared.",
+  "rememberedLocalFileClearedPickAFileAgainAnytime": "Remembered local file cleared. Pick a file again anytime.",
+  "removeColumn": "Remove column",
+  "removeOneEntry": "Remove one entry",
+  "removeWebDAVEntry": "Remove WebDAV entry",
+  "resendCode": "Resend code",
+  "reset": "Reset",
+  "resetAdConsent": "Reset ad consent",
+  "resetAdConsent2": "Reset ad consent?",
+  "resetCode": "Reset code",
+  "rowUpdatedFileSaveCanceled": "Row updated. File save canceled.",
+  "rowDefinement": "Row-Definement",
+  "row": "Row",
+  "safFolderCleared": "SAF folder cleared.",
+  "safFolderSelectionCanceled": "SAF folder selection canceled.",
+  "safFolderSetupIsAndroidOnly": "SAF folder setup is Android-only.",
+  "safSaveCanceledUseSaveAsIsInPreview": "SAF save canceled. Use \"Save as is\" in Preview.",
+  "safSaveIsNotAvailableHereUseSaveAsIsInPreview": "SAF save is not available here. Use \"Save as is\" in Preview.",
+  "safStreamWriteFailedUseSaveAsIsInPreview": "SAF stream write failed. Use \"Save as is\" in Preview.",
+  "sameRowCompactedForMobileScreens": "Same row, compacted for mobile screens",
+  "save": "Save",
+  "saveChoices": "Save Choices",
+  "saveIntoTheFolderConfiguredInSettings": "Save into the folder configured in Settings.",
+  "saveNewDocument": "Save New Document",
+  "saveTheCurrentRowBeforeStartingANewOne": "Save the current row before starting a new one?",
+  "scanPasskeyQR": "Scan passkey QR",
+  "selectActiveEntry": "Select active entry",
+  "selectLocalFile": "Select Local File",
+  "selectWebDAVEntry": "Select WebDAV entry",
+  "selectCurrency": "Select currency",
+  "selectDate": "Select date",
+  "selector": "Selector",
+  "set": "Set",
+  "setRecent": "Set Recent",
+  "setRecent2": "Set recent",
+  "settings": "Settings",
+  "sheetManipulationOnTheGo": "Sheet manipulation on the go.",
+  "sheetSeparation": "Sheet separation",
+  "sheet": "Sheet",
+  "sheetPreview": "Sheet Preview",
+  "signIn": "Sign in",
+  "signInOrCreateAccount": "Sign in or create account",
+  "signInToSaveThisAndroidFolderSettingToYourAccount": "Sign in to save this Android folder setting to your account.",
+  "signInToUseCalcrow": "Sign in to use Calcrow.",
+  "signInToUseRecentOpeningConfigurations": "Sign in to use recent opening configurations.",
+  "signOut": "Sign out",
+  "signedInAs": "Signed in as",
+  "signedInWelcomeToCalcrow": "Signed in. Welcome to Calcrow.",
+  "signedOut": "Signed out",
+  "smartData": "Smart Data",
+  "start": "Start",
+  "startFromAFreshMonthlySheet": "Start from a fresh monthly sheet",
+  "support": "Support",
+  "templates": "Templates",
+  "terms": "Terms",
+  "termsOfUse": "Terms of Use",
+  "textBasedOpeningNeedsAtLeastOneEditableTextColumnForNewEntries": "Text-based opening needs at least one editable text column for new entries.",
+  "theSelectedCSVIsEmpty": "The selected CSV is empty.",
+  "thisFolderHasNoSubfolders": "This folder has no subfolders.",
+  "thisFolderHasNoSupportedCSVXLSXOrODSFilesYetOpenAnotherFolderOrCreateANewSyncFileHere": "This folder has no supported CSV, XLSX, or ODS files yet. Open another folder or create a new sync file here.",
+  "thisSAFSourceCannotBeOverwrittenDirectlyReopenFromAWritableFolderViaSAFOrUseSaveAsIs": "This SAF source cannot be overwritten directly. Reopen from a writable folder via SAF, or use \"Save as is\".",
+  "thisWebDAVEntryIsAlreadyActive": "This WebDAV entry is already active.",
+  "total": "Total",
+  "trueLabel": "TRUE",
+  "type": "Type",
+  "unlinkAllEntries": "Unlink all entries",
+  "unlink": "Unlink",
+  "unsavedRowEdits": "Unsaved row edits",
+  "update": "Update",
+  "upgrade": "Upgrade",
+  "upOneFolder": "Up one folder",
+  "usageAnalytics": "Usage analytics",
+  "availableOnAndroidOnly": "Available on Android only.",
+  "connectAWebDAVOrNextcloudFolderUsingItsWebDAVURL": "Connect a WebDAV or Nextcloud folder using its WebDAV URL.",
+  "connectedToGoogleDrive": "Connected to Google Drive",
+  "grantDriveReadWritePermissionsForCloudDocumentSync": "Grant Drive read/write permissions for cloud document sync.",
+  "webdavConnected": "WebDAV connected",
+  "adUnavailableNowGoogleNoFill": "Ad unavailable now (Google no fill).",
+  "adUnavailableDueToAppConfigIssue": "Ad unavailable due to app/config issue.",
+  "adUnavailableUnknownCause": "Ad unavailable (unknown cause).",
+  "useCurrentSAFFolder": "Use current SAF folder",
+  "useTheseFormats": "Use these formats",
+  "useThisFolder": "Use This Folder",
+  "verificationCodeReissued": "Verification code reissued.",
+  "webdavErrorDetails": "WebDAV error details",
+  "wellbeing": "Wellbeing",
+  "widgetLayoutIsLockedBecauseThisCSVAlreadyHasEntries": "Widget layout is locked because this CSV already has entries.",
+  "workhours": "Workhours",
+  "worklogEditor": "worklog editor",
+  "yearly": "Yearly",
+  "accountSettings": "Account Settings",
+  "advanced": "Advanced",
+  "arrangeFields": "Arrange fields",
+  "calcrowDailyEditor": "Calcrow Daily Editor",
+  "core": "Core",
+  "editor": "Editor",
+  "finishArranging": "Finish arranging",
+  "getStarted": "Get Started",
+  "hideFieldTypes": "Hide field types",
+  "jumpToday": "Jump Today",
+  "nextRow": "Next Row",
+  "pick": "Pick",
+  "showFieldTypes": "Show field types",
+  "submitNew": "Submit New",
+  "text": "Text",
+  "boolean": "boolean",
+  "date2": "date",
+  "duration": "duration",
+  "email2": "email",
+  "float": "float",
+  "integer": "integer",
+  "money": "money",
+  "phone": "phone",
+  "text2": "text",
+  "time": "time",
+  "minutesOrHHMMSS": "Minutes or HH:MM:SS",
+  "trueOrFALSE": "TRUE or FALSE",
+  "amount": "Amount",
+  "bikeKm": "Bike km",
+  "client": "Client",
+  "clientA": "Client A",
+  "clientB": "Client B",
+  "clientC": "Client C",
+  "customer": "Customer",
+  "customerService": "Customer Service",
+  "energy": "Energy",
+  "expenses": "Expenses",
+  "guestlist": "Guestlist",
+  "health": "Health",
+  "invoices": "Invoices",
+  "location": "Location",
+  "mood": "Mood",
+  "name": "Name",
+  "phone2": "Phone",
+  "project": "Project",
+  "reps": "Reps",
+  "runKm": "Run km",
+  "sets": "Sets",
+  "squats": "Squats",
+  "status": "Status",
+  "steps": "Steps",
+  "swimKm": "Swim km",
+  "workDone": "Work done",
+  "aCleanDayByDayTimesheetWithBreaksAndNotes": "A clean day-by-day timesheet with breaks and notes.",
+  "basicInvoiceTrackingWithDatesClientsAndTotals": "Basic invoice tracking with dates, clients, and totals.",
+  "bringAnExistingFileOrGenerateAFullMonthTableWithYourPreferredDateStyle": "Bring an existing file or generate a full month table with your preferred date style.",
+  "calcrowGivesYouOneCleanDailyEditorSoYouUpdateLogsFastOnYourPhone": "Calcrow gives you one clean daily editor so you update logs fast on your phone.",
+  "cleanAndPressWeight": "Clean and Press weight",
+  "barbellCurlWeight": "Barbell Curl weight",
+  "behindTheNeckPressWeight": "Behind-the-neck Press weight",
+  "uprightRowWeight": "Upright Row weight",
+  "barbellSquatWeight": "Barbell Squat weight",
+  "barbellRowWeight": "Barbell Row weight",
+  "barbellBenchPressWeight": "Barbell Bench Press weight",
+  "barbellPulloverWeight": "Barbell Pullover weight",
+  "importOrCreateMonthlyCSVInstantly": "Import or create monthly CSV instantly",
+  "invoice": "Invoice",
+  "keepDataLocalSyncWhenYouChoose": "Keep data local, sync when you choose",
+  "logCustomerVisitsBillableTimeExpensesAndOutcomes": "Log customer visits, billable time, expenses, and outcomes.",
+  "namesContactsAndRSVPStatusForAnEvent": "Names, contacts, and RSVP status for an event.",
+  "pullUps": "Pull-ups",
+  "pushUps": "Push-ups",
+  "startOfflineLaterConnectAccountSyncAndBackupsWithoutChangingYourWorkflow": "Start offline. Later connect account sync and backups without changing your workflow.",
+  "trackTrainingSessionsWithoutTurningTheSheetIntoAFitnessApp": "Track training sessions without turning the sheet into a fitness app.",
+  "trackSwimBikeRunAndStrengthWorkInOneRow": "Track swim, bike, run, and strength work in one row.",
+  "trackWorkdaysInUnderAMinute": "Track workdays in under a minute",
+  "triathlonTrainingTrackerPlus": "Triathlon Training Tracker Plus",
+  "workoutLikeBruceLee": "Workout like Bruce Lee",
+  "acceptTheTermsOfUsePrivacyPolicyAndAdsPrivacyPolicyToCreateAnAccount": "Accept the Terms of Use, Privacy Policy, and Ads Privacy Policy to create an account.",
+  "codeIsInvalidOrExpired": "Code is invalid or expired.",
+  "couldNotCreateYourAccountRightNow": "Could not create your account right now.",
+  "couldNotResendCode": "Could not resend code.",
+  "couldNotResetPasswordRightNow": "Could not reset password right now.",
+  "couldNotSignInRightNow": "Could not sign in right now.",
+  "couldNotVerifyCodeRightNow": "Could not verify code right now.",
+  "createYourAccountAndContinueToSetup": "Create your account and continue to setup.",
+  "emailAndPasswordAreRequired": "Email and password are required.",
+  "emailPasswordAndConfirmationAreRequired": "Email, password and confirmation are required.",
+  "emailAddressFormatIsInvalid": "Email address format is invalid.",
+  "emailIsRequired": "Email is required.",
+  "emailOrPasswordIsIncorrect": "Email or password is incorrect.",
+  "emailPasswordAuthIsDisabledInFirebaseAuthSettings": "Email/password auth is disabled in Firebase Auth settings.",
+  "enterThe6DigitCode": "Enter the 6-digit code.",
+  "enterThe6DigitVerificationCode": "Enter the 6-digit verification code.",
+  "enterTheCodeFromYourEmailAndChooseANewPassword": "Enter the code from your email and choose a new password.",
+  "firebaseWebConfigIsInvalidForThisAppEnvironment": "Firebase web config is invalid for this app/environment.",
+  "missingVerificationContextSignInAgain": "Missing verification context. Sign in again.",
+  "networkErrorCheckConnectionAndTryAgain": "Network error. Check connection and try again.",
+  "newPasswordAndConfirmationAreRequired": "New password and confirmation are required.",
+  "noAccountFoundForThatEmail": "No account found for that email.",
+  "noActiveCodeWasFoundRequestANewCode": "No active code was found. Request a new code.",
+  "noActiveResetCodeWasFoundRequestANewOne": "No active reset code was found. Request a new one.",
+  "passwordIsTooWeak": "Password is too weak.",
+  "passwordMustBeAtLeast6Characters": "Password must be at least 6 characters.",
+  "passwordsDoNotMatch": "Passwords do not match.",
+  "permissionDeniedByFirestoreRules": "Permission denied by Firestore rules.",
+  "register": "Register",
+  "requestFailed": "Request failed.",
+  "resetPassword": "Reset password",
+  "sendResetCode": "Send reset code",
+  "serviceTemporarilyUnavailableTryAgain": "Service temporarily unavailable. Try again.",
+  "setNewPassword": "Set new password",
+  "thatCodeHasExpiredRequestANewOne": "That code has expired. Request a new one.",
+  "thatResetCodeIsNoLongerValidRequestANewOne": "That reset code is no longer valid. Request a new one.",
+  "theCodeWasNotAcceptedCheckItAndTryAgain": "The code was not accepted. Check it and try again.",
+  "thisAuthOperationIsRestrictedByFirebaseProjectSettings": "This auth operation is restricted by Firebase project settings.",
+  "thisDomainIsNotAuthorizedForFirebaseAuth": "This domain is not authorized for Firebase Auth.",
+  "thisEmailIsAlreadyInUse": "This email is already in use.",
+  "tooManyAttemptsTryAgainLater": "Too many attempts. Try again later.",
+  "tooManyFailedAttemptsRequestANewCode": "Too many failed attempts. Request a new code.",
+  "useYourEmailAndPassword": "Use your email and password.",
+  "verify": "Verify",
+  "verifyEmail": "Verify email",
+  "weWillSendA6DigitPasswordResetCodeToYourEmail": "We will send a 6-digit password reset code to your email.",
+  "yourSessionExpiredSignInAgainAndRequestANewCode": "Your session expired. Sign in again and request a new code.",
+  "addAtLeastOneColumn": "Add at least one column.",
+  "columnNamesMustBeUnique": "Column names must be unique.",
+  "datesOpenEndNeedsOneDateColumn": "Dates open end needs one date column.",
+  "cachedFieldTypesDoNotMatchLogbook": "Cached field types do not match Logbook.",
+  "cachedFieldTypesDoNotMatchNamelist": "Cached field types do not match Namelist.",
+  "appPasswordIsRequired": "App password is required.",
+  "appPasswordImportedFromQREnterServerURLAndUsernameToContinue": "App password imported from QR. Enter server URL and username to continue.",
+  "enterTheWebDAVURLUsernameAndAppPassword": "Enter the WebDAV URL, username, and app password.",
+  "qrCodeWasReadButTheFormatIsNotSupportedUseURLUsernameAndAppPasswordFields": "QR code was read, but the format is not supported. Use URL, username, and app password fields.",
+  "qrScanIsAvailableOnAndroidAndIOSOnly": "QR scan is available on Android and iOS only.",
+  "serverURLImportedFromQREnterUsernameAndAppPasswordToContinue": "Server URL imported from QR. Enter username and app password to continue.",
+  "username": "Username",
+  "enterAValidWebDAVURL": "Enter a valid WebDAV URL.",
+  "couldNotValidateTheWebDAVURL": "Could not validate the WebDAV URL.",
+  "webdavCredentialsAreMissingOnThisDeviceReLinkTheAccountInSettings": "WebDAV credentials are missing on this device. Re-link the account in Settings.",
+  "thisWebDAVFolderPathContainsUnsupportedCharacters": "This WebDAV folder path contains unsupported characters.",
+  "thisWebDAVFolderPathCouldNotBeOpened": "This WebDAV folder path could not be opened.",
+  "theWebDAVServerReturnedAnInvalidFolderResponse": "The WebDAV server returned an invalid folder response.",
+  "aFileOrFolderNameInThisWebDAVDirectoryUsesUnsupportedCharacters": "A file or folder name in this WebDAV directory uses unsupported characters.",
+  "thisWebDAVFolderContainsAnEntryThatCouldNotBeOpened": "This WebDAV folder contains an entry that could not be opened.",
+  "thisWebDAVFilePathContainsUnsupportedCharacters": "This WebDAV file path contains unsupported characters.",
+  "thisWebDAVFilePathCouldNotBeOpened": "This WebDAV file path could not be opened.",
+  "thisWebDAVFilePathCouldNotBeSaved": "This WebDAV file path could not be saved.",
+  "webdavSignInFailedCheckTheUsernameAndAppPassword": "WebDAV sign-in failed. Check the username and app password.",
+  "webdavEndpointRejectedPROPFIND405": "WebDAV endpoint rejected PROPFIND (405).",
+  "couldNotReachTheWebDAVServerCheckTheURLAndNetworkAccess": "Could not reach the WebDAV server. Check the URL and network access.",
+  "couldNotReachTheWebDAVServerFromThisBrowserCheckURLHTTPSCertificateAndNetworkAccess": "Could not reach the WebDAV server from this browser. Check URL, HTTPS certificate, and network access.",
+  "browserBlockedTheWebDAVRequestLikelyCORSTLSAllowThisAppOriginInWebDAVCORSAndPermitMethodsPROPFINDGETPUTWithHeadersAuthorizationDepthAndContentType": "Browser blocked the WebDAV request (likely CORS/TLS). Allow this app origin in WebDAV CORS and permit methods PROPFIND/GET/PUT with headers Authorization, Depth, and Content-Type.",
+  "couldNotReadCloudDocumentContent": "Could not read cloud document content.",
+  "noCloudProviderIsActiveChooseGoogleDriveOrWebDAVInSettingsFirst": "No cloud provider is active. Choose Google Drive or WebDAV in Settings first.",
+  "couldNotReadDocumentContent": "Could not read document content.",
+  "openDocument": "Open document",
+  "saveCsv": "Save CSV",
+  "saveXlsx": "Save XLSX",
+  "saveOds": "Save ODS",
+  "importCsv": "Import CSV",
+  "upgradeToRemoveThisSlotAndUnlockPro": "Upgrade to remove this slot and unlock Pro.",
+  "firstFieldMustStayForOpeningMode": "The first field must stay {type} for this opening mode.",
+  "@firstFieldMustStayForOpeningMode": {"placeholders": {"type": {"type": "String"}}},
+  "rowUpdatedDownloadedFileAs": "Row updated. Downloaded updated file as {location}.",
+  "@rowUpdatedDownloadedFileAs": {"placeholders": {"location": {"type": "String"}}},
+  "rowSavedToAppStorageAt": "Row saved to app storage at {location}.",
+  "@rowSavedToAppStorageAt": {"placeholders": {"location": {"type": "String"}}},
+  "rowSavedToLocation": "Row saved to {location}.",
+  "@rowSavedToLocation": {"placeholders": {"location": {"type": "String"}}},
+  "rowSavedFutureSavesOverwrite": "Row saved to {location}. Future saves will overwrite this file.",
+  "@rowSavedFutureSavesOverwrite": {"placeholders": {"location": {"type": "String"}}},
+  "loadedSameDateEntry": "Loaded same-date entry {current}/{total}. Edit and submit a new row if needed.",
+  "@loadedSameDateEntry": {"placeholders": {"current": {"type": "int"}, "total": {"type": "int"}}},
+  "rowNumber": "row {number}",
+  "@rowNumber": {"placeholders": {"number": {"type": "int"}}},
+  "newRow": "new row",
+  "setDatatypesCalculatedFieldsReadOnly": "Set datatypes and bear in mind that calculated fields are read-only.",
+  "noUsableTypeRowPickFormats": "This file has no usable type row yet. Pick the editable field formats once before saving.",
+  "activeSheet": "Active sheet: {sheetName}",
+  "@activeSheet": {"placeholders": {"sheetName": {"type": "String"}}},
+  "rsvpField": "RSVP",
+  "pauseField": "Pause",
+  "couldNotReopenTheRememberedLocalDocument": "Could not reopen the remembered local document.",
+  "driveMetadataIsIncomplete": "Drive metadata is incomplete.",
+  "googleDriveAuthorizationWasCanceled": "Google Drive authorization was canceled.",
+  "googleAccountEmailIsUnavailable": "Google account email is unavailable.",
+  "googleAccountUnlinked": "Google account unlinked.",
+  "googleDriveIsNotConnectedInThisSessionConnectGoogleDriveAgainToRefreshAccess": "Google Drive is not connected in this session. Connect Google Drive again to refresh access.",
+  "purchasesAreUnavailableRightNowPleaseTryAgainLater": "Purchases are unavailable right now. Please try again later.",
+  "purchasesAreUnavailableInThisBuildPleaseUpdateTheAppAndTryAgain": "Purchases are unavailable in this build. Please update the app and try again.",
+  "couldNotOpenSubscriptionOptionsPleaseTryAgainLater": "Could not open subscription options. Please try again later.",
+  "revenuecatPaywallsAreNotSupportedOnWebBuilds": "RevenueCat paywalls are not supported on web builds.",
+  "revenuecatCustomerCenterIsNotSupportedOnWebBuilds": "RevenueCat customer center is not supported on web builds.",
+  "purchasesUnavailableMissingConfiguration": "Purchases are unavailable in this build. The App Store build is missing its purchase configuration.",
+  "purchasesTemporarilyUnavailable": "Purchases are temporarily unavailable. Please try again later.",
+  "openThePermanentAccountDeletionFlow": "Open the permanent account deletion flow.",
+  "sendAResetCodeToYourSignedInEmail": "Send a reset code to your signed-in email.",
+  "theSelectedDocumentHasNoNamedSheets": "The selected document has no named sheets.",
+  "theSelectedODSHasNoContentXml": "The selected ODS has no content.xml.",
+  "theSelectedODSHasNoSpreadsheetBody": "The selected ODS has no spreadsheet body.",
+  "theSelectedODSHasNoSheets": "The selected ODS has no sheets.",
+  "theSelectedODSSheetIsEmpty": "The selected ODS sheet is empty.",
+  "theSelectedXLSXHasNoSheets": "The selected XLSX has no sheets.",
+  "theSelectedXLSXSheetIsEmpty": "The selected XLSX sheet is empty.",
+  "firstRowHasNoHeaderTitles": "First row has no header titles.",
+  "noODSSheetIsSelected": "No ODS sheet is selected.",
+  "noXLSXWorkbookIsLoaded": "No XLSX workbook is loaded.",
+  "couldNotEncodeODSDocument": "Could not encode ODS document.",
+  "couldNotCreateODSDocument": "Could not create ODS document.",
+  "couldNotEncodeXLSXWorkbook": "Could not encode XLSX workbook.",
+  "chooseSeparatelyWhetherCalcrowMayCollectAnonymousUsageAnalyticsAndTechnicalCrashOrPerformanceDiagnostics": "Choose separately whether Calcrow may collect anonymous usage analytics and technical crash or performance diagnostics.",
+  "chooseSeparatelyWhetherCalcrowMayCollectAnonymousUsageAnalyticsTechnicalCrashOrPerformanceDiagnosticsAndAdPrivacyPreferencesWhereSupported": "Choose separately whether Calcrow may collect anonymous usage analytics, technical crash or performance diagnostics, and ad privacy preferences where supported.",
+  "manageYourGoogleAdPrivacyChoicesThisEntryPointMustStayAvailableAfterConsentIsCollected": "Manage your Google ad privacy choices. This entry point must stay available after consent is collected.",
+  "googleDoesNotCurrentlyRequireAPersistentAdPrivacyOptionsButtonOnThisDeviceOrRegion": "Google does not currently require a persistent ad privacy options button on this device or region.",
+  "refreshAdPrivacyChoicesAndReviewTheLatestGoogleConsentOptionsForThisDevice": "Refresh ad privacy choices and review the latest Google consent options for this device.",
+  "clearTheCurrentAdMobConsentStateOnThisDeviceAdsStayDisabledUntilGoogleCollectsConsentAgain": "Clear the current AdMob consent state on this device. Ads stay disabled until Google collects consent again.",
+  "clearAnyStoredAdMobConsentStateOnThisDeviceAndForceTheGoogleConsentFlowToAskAgainLater": "Clear any stored AdMob consent state on this device and force the Google consent flow to ask again later.",
+  "collectAnonymousUsagePatternsToUnderstandWhichScreensAndFlowsAreUsed": "Collect anonymous usage patterns to understand which screens and flows are used.",
+  "usageAnalyticsAreNotAvailableOnThisPlatform": "Usage analytics are not available on this platform.",
+  "sendCrashLogsNonFatalErrorsAndPerformanceMonitoringDataToHelpAnalyzeAppFailuresAndSlowPaths": "Send crash logs, non-fatal errors, and performance monitoring data to help analyze app failures and slow paths.",
+  "crashReportingAndPerformanceMonitoringAreOnlyAvailableOnSupportedMobileBuilds": "Crash reporting and performance monitoring are only available on supported mobile builds.",
+  "usageAnalyticsEnabled": "Usage analytics enabled.",
+  "usageAnalyticsDisabled": "Usage analytics disabled.",
+  "crashReportingAndPerformanceMonitoringEnabled": "Crash reporting and performance monitoring enabled.",
+  "crashReportingAndPerformanceMonitoringDisabled": "Crash reporting and performance monitoring disabled.",
+  "calcrowIsDeliveredBy": "Calcrow is delivered by ",
+  "chooseWhetherCalcrowMayCollectAnonymousUsageAnalyticsAndTechnicalCrashOrPerformanceDiagnosticsYouCanChangeBothLaterInSettings": "Choose whether Calcrow may collect anonymous usage analytics and technical crash or performance diagnostics. You can change both later in Settings.",
+  "thisClearsTheCurrentGoogleAdMobConsentStateOnThisDeviceTheNextConsentRefreshMayAskAgainBeforeAdsCanBeRequested": "This clears the current Google AdMob consent state on this device. The next consent refresh may ask again before ads can be requested.",
+  "passwordResetCodeSentTo": "Password reset code sent to {email}.",
+  "@passwordResetCodeSentTo": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "sentTo": "Sent to {email}",
+  "@sentTo": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "passwordRequiredFor": "Password required for {username}",
+  "@passwordRequiredFor": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "enterCodeSentTo": "Enter the code sent to {email}.",
+  "@enterCodeSentTo": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "columnNumber": "Column {number}",
+  "@columnNumber": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "selectedLocalDocument": "Selected local document {fileName}.",
+  "@selectedLocalDocument": {
+    "placeholders": {
+      "fileName": {
+        "type": "String"
+      }
+    }
+  },
+  "selectedLocalFile": "Selected local file: {fileName}",
+  "@selectedLocalFile": {
+    "placeholders": {
+      "fileName": {
+        "type": "String"
+      }
+    }
+  },
+  "openedLocalDocument": "Opened local document {fileName}.",
+  "@openedLocalDocument": {
+    "placeholders": {
+      "fileName": {
+        "type": "String"
+      }
+    }
+  },
+  "openedCloudDocument": "Opened {provider} document {fileName}.",
+  "@openedCloudDocument": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      },
+      "fileName": {
+        "type": "String"
+      }
+    }
+  },
+  "importedRows": "Imported {fileName} ({rowCount} rows).",
+  "@importedRows": {
+    "placeholders": {
+      "fileName": {
+        "type": "String"
+      },
+      "rowCount": {
+        "type": "int"
+      }
+    }
+  },
+  "noRowsFoundFor": "No rows found for {date}.",
+  "@noRowsFoundFor": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "webDavEntryRemoved": "WebDAV entry removed: {username}.",
+  "@webDavEntryRemoved": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "manageGoogleDriveSyncFile": "Manage Google Drive sync file: {fileName}",
+  "@manageGoogleDriveSyncFile": {
+    "placeholders": {
+      "fileName": {
+        "type": "String"
+      }
+    }
+  },
+  "manageWebDavSyncFile": "Manage WebDAV sync file: {fileName}",
+  "@manageWebDavSyncFile": {
+    "placeholders": {
+      "fileName": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotCompleteAction": "Could not {action}: {details}",
+  "@couldNotCompleteAction": {
+    "placeholders": {
+      "action": {
+        "type": "String"
+      },
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "importFailed": "Import failed: {details}",
+  "@importFailed": {
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "googleLinkFailed": "Google link failed: {details}",
+  "@googleLinkFailed": {
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "webDavUpdateFailed": "WebDAV update failed: {details}",
+  "@webDavUpdateFailed": {
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "rowSavedButFileWriteFailed": "Row saved in app, but file write failed: {details}",
+  "@rowSavedButFileWriteFailed": {
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotOpenSubscriptionOptionsDetails": "Could not open subscription options: {details}",
+  "@couldNotOpenSubscriptionOptionsDetails": {
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotUpdateUsageAnalytics": "Could not update usage analytics: {details}",
+  "@couldNotUpdateUsageAnalytics": {
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotUpdateCrashReporting": "Could not update crash reporting: {details}",
+  "@couldNotUpdateCrashReporting": {
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotOpenAdPrivacyChoices": "Could not open ad privacy choices: {details}",
+  "@couldNotOpenAdPrivacyChoices": {
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotRefreshAdPrivacyChoices": "Could not refresh ad privacy choices: {details}",
+  "@couldNotRefreshAdPrivacyChoices": {
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotOpenAdsPrivacyPolicy": "Could not open ads privacy policy: {details}",
+  "@couldNotOpenAdsPrivacyPolicy": {
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotResetAdConsent": "Could not reset ad consent: {details}",
+  "@couldNotResetAdConsent": {
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotClearCachedFieldTypes": "Could not clear cached field types: {details}",
+  "@couldNotClearCachedFieldTypes": {
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotSelectDocument": "Could not select document: {details}",
+  "@couldNotSelectDocument": {
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotOpenCloudDocument": "Could not open cloud document: {details}",
+  "@couldNotOpenCloudDocument": {
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotCreateLocalDocument": "Could not create local document: {details}",
+  "@couldNotCreateLocalDocument": {
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotCreateCloudDocument": "Could not create cloud document: {details}",
+  "@couldNotCreateCloudDocument": {
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotUpdateCloudProvider": "Could not update cloud provider: {details}",
+  "@couldNotUpdateCloudProvider": {
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotSetSafFolder": "Could not set SAF folder: {details}",
+  "@couldNotSetSafFolder": {
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotClearSafFolder": "Could not clear SAF folder: {details}",
+  "@couldNotClearSafFolder": {
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "zero": "0",
+  "csv": "CSV",
+  "calcrow": "Calcrow",
+  "ods": "ODS",
+  "trainvent": "Trainvent",
+  "webDavUrl": "WebDAV URL",
+  "xlsx": "XLSX",
+  "http": "http",
+  "yyyyMmDd": "YYYY-MM-DD",
+  "hhMmSs": "HH:MM:SS",
+  "exampleInteger": "e.g. 123",
+  "exampleDecimal": "e.g. 123.45 or 123,45",
+  "exampleEmail": "name@example.com",
+  "examplePhone": "e.g. +49 123 456789",
+  "moneyWithCurrency": "money ({currencyCode})",
+  "@moneyWithCurrency": {
+    "placeholders": {"currencyCode": {"type": "String"}}
+  },
+  "typeLabel": "Type: {type}",
+  "@typeLabel": {
+    "placeholders": {"type": {"type": "String"}}
+  },
+  "typeLabelFixed": "Type: {type} (fixed)",
+  "@typeLabelFixed": {
+    "placeholders": {"type": {"type": "String"}}
+  },
+  "typeLabelHoursAndMinutes": "Type: {type} (enter hours and minutes)",
+  "@typeLabelHoursAndMinutes": {
+    "placeholders": {"type": {"type": "String"}}
+  },
+  "debugCode": "Debug code: {code}",
+  "@debugCode": {"placeholders": {"code": {"type": "String"}}},
+  "authenticationFailedWithCode": "Authentication failed ({code}).",
+  "@authenticationFailedWithCode": {"placeholders": {"code": {"type": "String"}}},
+  "requestFailedWithCode": "Request failed ({code}).",
+  "@requestFailedWithCode": {"placeholders": {"code": {"type": "String"}}},
+  "authSetupIssue": "Auth setup issue ({code}). Check Firebase Auth provider and authorized domains.",
+  "@authSetupIssue": {"placeholders": {"code": {"type": "String"}}},
+  "linkedAs": "Linked as {username}",
+  "@linkedAs": {"placeholders": {"username": {"type": "String"}}},
+  "linkedAsOn": "Linked as {username} on {host}",
+  "@linkedAsOn": {"placeholders": {"username": {"type": "String"}, "host": {"type": "String"}}},
+  "webDavEntriesActive": "{count} WebDAV entries. Active: {username}",
+  "@webDavEntriesActive": {"placeholders": {"count": {"type": "int"}, "username": {"type": "String"}}},
+  "webDavEntriesActiveOn": "{count} WebDAV entries. Active: {username} on {host}",
+  "@webDavEntriesActiveOn": {"placeholders": {"count": {"type": "int"}, "username": {"type": "String"}, "host": {"type": "String"}}},
+  "chooseRowFor": "Choose a row for {date}.",
+  "@chooseRowFor": {"placeholders": {"date": {"type": "String"}}},
+  "rowsAndColumns": "{rowCount} rows • {columnCount} columns",
+  "@rowsAndColumns": {"placeholders": {"rowCount": {"type": "int"}, "columnCount": {"type": "int"}}},
+  "googleDrive": "Google Drive",
+  "webDav": "WebDAV",
+  "localEditingTip": "Tip: pick a local file first, then edit daily rows. For cloud-based files, connect Google Drive or WebDAV in Settings and use Edit Cloud Document here.",
+  "cloudEditingTip": "Tip: connect Google Drive or WebDAV in Settings, then use Edit Cloud Document here.",
+  "openAnExistingCsvFromThisDevice": "Open an existing CSV from this device",
+  "dateBasedOpeningBlocked": "Date-based opening is blocked because {date} was not found in the detected date column.",
+  "@dateBasedOpeningBlocked": {"placeholders": {"date": {"type": "String"}}},
+  "couldNotOpenAdsPrivacyPolicyVisit": "Could not open ads privacy policy. Visit {url} in a browser.",
+  "@couldNotOpenAdsPrivacyPolicyVisit": {"placeholders": {"url": {"type": "String"}}},
+  "googleDriveConnectedChooseFile": "Google Drive connected: {email}. Choose a Drive file next.",
+  "@googleDriveConnectedChooseFile": {"placeholders": {"email": {"type": "String"}}},
+  "webDavEntryAdded": "WebDAV entry added: {username} on {host}.",
+  "@webDavEntryAdded": {"placeholders": {"username": {"type": "String"}, "host": {"type": "String"}}},
+  "webDavEntryActive": "WebDAV entry active: {username}.",
+  "@webDavEntryActive": {"placeholders": {"username": {"type": "String"}}},
+  "webDavEntryActiveOn": "WebDAV entry active: {username} on {host}.",
+  "@webDavEntryActiveOn": {"placeholders": {"username": {"type": "String"}, "host": {"type": "String"}}},
+  "openInBrowserToContinue": "Open {url} in a browser to continue.",
+  "@openInBrowserToContinue": {"placeholders": {"url": {"type": "String"}}},
+  "safFolderSavedForSession": "SAF folder saved for this app session.",
+  "safFolderSavedInSettings": "SAF folder saved in settings.",
+  "safFolderSavedSettingsSyncFailed": "SAF folder saved for this app session. Settings sync failed.",
+  "myDrive": "My Drive",
+  "webDavRoot": "WebDAV root",
+  "googleSheets": "Google Sheets",
+  "openAction": "Open",
+  "createAction": "Create",
+  "clearRememberedFieldTypes": "Clear the remembered field types for {fileName}? Calcrow will infer or ask for field types the next time you open it.",
+  "@clearRememberedFieldTypes": {"placeholders": {"fileName": {"type": "String"}}},
+  "loadedEntries": "Loaded {fileName} ({entryCount} entries).",
+  "@loadedEntries": {"placeholders": {"fileName": {"type": "String"}, "entryCount": {"type": "int"}}},
+  "loadedEntriesFromTabSafReady": "Loaded {fileName} ({entryCount} entries) from tab {sheetName}. SAF target ready.",
+  "@loadedEntriesFromTabSafReady": {"placeholders": {"fileName": {"type": "String"}, "entryCount": {"type": "int"}, "sheetName": {"type": "String"}}},
+  "loadedEntriesFromTabSafMissing": "Loaded {fileName} ({entryCount} entries) from tab {sheetName}. SAF target not detected.",
+  "@loadedEntriesFromTabSafMissing": {"placeholders": {"fileName": {"type": "String"}, "entryCount": {"type": "int"}, "sheetName": {"type": "String"}}},
+  "loadedEntriesFromSheetSafReady": "Loaded {fileName} ({entryCount} entries) from sheet {sheetName}. SAF target ready.",
+  "@loadedEntriesFromSheetSafReady": {"placeholders": {"fileName": {"type": "String"}, "entryCount": {"type": "int"}, "sheetName": {"type": "String"}}},
+  "loadedEntriesFromSheetSafMissing": "Loaded {fileName} ({entryCount} entries) from sheet {sheetName}. SAF target not detected.",
+  "@loadedEntriesFromSheetSafMissing": {"placeholders": {"fileName": {"type": "String"}, "entryCount": {"type": "int"}, "sheetName": {"type": "String"}}},
+  "loadedGoogleSheetEntries": "Loaded Google Sheet {fileName} ({entryCount} entries) from tab {sheetName}.",
+  "@loadedGoogleSheetEntries": {"placeholders": {"fileName": {"type": "String"}, "entryCount": {"type": "int"}, "sheetName": {"type": "String"}}},
+  "multiSheetStartsWith": "Uses a multi-sheet format such as XLSX. Starts with {sheetName}.",
+  "@multiSheetStartsWith": {"placeholders": {"sheetName": {"type": "String"}}},
+  "yearTabsStartWith": "CSV saves one year. XLSX can keep separate year tabs. Starts with {sheetName}.",
+  "@yearTabsStartWith": {"placeholders": {"sheetName": {"type": "String"}}},
+  "createdFile": "Created {fileName}.",
+  "@createdFile": {"placeholders": {"fileName": {"type": "String"}}},
+  "createdFileInFolder": "Created {fileName} in {folderName}.",
+  "@createdFileInFolder": {"placeholders": {"fileName": {"type": "String"}, "folderName": {"type": "String"}}},
+  "connectGoogleDriveOrWebDavInSettingsFirst": "Connect Google Drive or WebDAV in Settings first.",
+  "couldNotListWebDavFolder": "Could not list WebDAV folder ({statusCode}).",
+  "@couldNotListWebDavFolder": {"placeholders": {"statusCode": {"type": "int"}}},
+  "couldNotDownloadWebDavFile": "Could not download WebDAV file ({statusCode}).",
+  "@couldNotDownloadWebDavFile": {"placeholders": {"statusCode": {"type": "int"}}},
+  "couldNotUploadWebDavFile": "Could not upload WebDAV file ({statusCode}).",
+  "@couldNotUploadWebDavFile": {"placeholders": {"statusCode": {"type": "int"}}},
+  "webDavServerRespondedWith": "WebDAV server responded with {statusCode}. Check that the URL points to a valid WebDAV folder.",
+  "@webDavServerRespondedWith": {"placeholders": {"statusCode": {"type": "int"}}},
+  "webDavEndpointUseExactUrl": "WebDAV endpoint rejected PROPFIND (405). Use the exact WebDAV folder URL. For Nextcloud, this is usually https://<host>/remote.php/dav/files/<username>/"
+}
