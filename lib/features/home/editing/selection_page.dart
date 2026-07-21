@@ -20,11 +20,10 @@ import 'package:calcrow/core/prefills/document_prefill.dart';
 import 'package:calcrow/core/prefills/document_prefill_cache.dart';
 
 import 'create_doc_page.dart';
+import 'choose_file_location_page.dart';
 import 'editing_pages/editing_page_base.dart';
 
 enum _SetupAction { open, create }
-
-enum _CreateDestination { local, cloud }
 
 enum _LocalCreateTarget { currentSafFolder, pickSafFolder }
 
@@ -726,17 +725,19 @@ class _SelectionPageState extends State<SelectionPage> {
       separation: separation,
       createdAt: createdAt,
     );
-    final draft = await Navigator.of(context).push<DocumentDraft>(
+    await Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (context) => CreateDocPage(initialSetup: initialSetup),
+        builder: (context) => CreateDocPage(
+          initialSetup: initialSetup,
+          showLocalLocation: _supportsLocalFileEditing,
+          onCreate: _createDocumentFromDraft,
+        ),
       ),
     );
     if (!mounted) return;
-    if (draft == null) {
+    if (_activeEditor == null) {
       setState(() => _documentSetupAction = _SetupAction.open);
-      return;
     }
-    await _createDocumentFromDraft(draft);
   }
 
   Future<LogbookSeparation?> _pickLogbookSeparation(DateTime createdAt) {
@@ -784,7 +785,7 @@ class _SelectionPageState extends State<SelectionPage> {
     );
   }
 
-  Future<void> _createDocumentFromDraft(DocumentDraft draft) async {
+  Future<bool> _createDocumentFromDraft(DocumentDraft draft) async {
     setState(() {
       _documentOpenMode = EditorOpenMode.dateBasedOpenEnd;
       _documentSetupAction = _SetupAction.create;
@@ -804,25 +805,19 @@ class _SelectionPageState extends State<SelectionPage> {
       xlsxSheetName: draft.xlsxSheetName,
       workbook: _workbookForDraft(draft),
     );
-    final destination = await showDialog<_CreateDestination>(
-      context: context,
-      builder: (context) =>
-          _CreateDestinationDialog(showLocal: _supportsLocalFileEditing),
-    );
-    if (!mounted) return;
-    if (destination == null) {
-      setState(() => _documentSetupAction = _SetupAction.open);
-      return;
-    }
-    switch (destination) {
-      case _CreateDestination.local:
-        await _createLocalDocument(sheetData, draft.prefills);
-      case _CreateDestination.cloud:
-        await _createCloudDocument(sheetData, draft.prefills);
-    }
+    return switch (draft.destination) {
+      CreateDestination.local => _createLocalDocument(
+        sheetData,
+        draft.prefills,
+      ),
+      CreateDestination.cloud => _createCloudDocument(
+        sheetData,
+        draft.prefills,
+      ),
+    };
   }
 
-  Future<void> _createLocalDocument(
+  Future<bool> _createLocalDocument(
     SheetData sheetData,
     List<DocumentPrefill> prefills,
   ) async {
@@ -830,7 +825,7 @@ class _SelectionPageState extends State<SelectionPage> {
     try {
       final bytes = SheetFileService.buildBytes(sheetData);
       final preferredSafTreeUri = await _safTreeUriForNewLocalDocument();
-      if (!mounted) return;
+      if (!mounted) return false;
       final result = await _sheetPersistenceService.persistBytes(
         PersistRequest(
           bytes: bytes,
@@ -847,7 +842,7 @@ class _SelectionPageState extends State<SelectionPage> {
               : PersistMode.safPreferred,
         ),
       );
-      if (!mounted) return;
+      if (!mounted) return false;
 
       await TypeHintCache.rememberCsvTypes(
         fileName: result.resolvedFileName,
@@ -855,7 +850,7 @@ class _SelectionPageState extends State<SelectionPage> {
         valueTypes: sheetData.valueTypes,
       );
       await _rememberDocumentPrefills(
-        documentKey: localPrefillDocumentKey(result.savedPath),
+        documentKey: documentPrefillKey(result.resolvedFileName),
         fileName: result.resolvedFileName,
         prefills: prefills,
       );
@@ -870,14 +865,15 @@ class _SelectionPageState extends State<SelectionPage> {
         target: LocalEditorDocumentTarget(existingPath: result.savedPath),
         successMessage: localizations.createdFile(result.resolvedFileName),
       );
+      return true;
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() => _documentSetupAction = _SetupAction.open);
       if (error is StateError && error.message == 'Save canceled.') {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(context.l10n.createDocumentCanceled)),
         );
-        return;
+        return false;
       }
       if (error is StateError &&
           error.message == 'Could not acquire a writable SAF folder URI.') {
@@ -886,24 +882,26 @@ class _SelectionPageState extends State<SelectionPage> {
             content: Text(context.l10n.couldNotAcquireAWritableSAFFolderURI),
           ),
         );
-        return;
+        return false;
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(context.l10n.couldNotCreateLocalDocument('$error')),
         ),
       );
+      return false;
     }
   }
 
-  Future<void> _createCloudDocument(
+  Future<bool> _createCloudDocument(
     SheetData sheetData,
     List<DocumentPrefill> prefills,
   ) async {
     final localizations = context.l10n;
     final folder = await _pickCloudCreateFolder();
-    if (!mounted || folder == null) return;
+    if (!mounted || folder == null) return false;
 
+    var created = false;
     await _runWithDocumentOpeningIndicator(() async {
       try {
         final bytes = SheetFileService.buildBytes(sheetData);
@@ -929,10 +927,7 @@ class _SelectionPageState extends State<SelectionPage> {
           valueTypes: sheetData.valueTypes,
         );
         await _rememberDocumentPrefills(
-          documentKey: cloudPrefillDocumentKey(
-            metadata.provider.name,
-            metadata.id,
-          ),
+          documentKey: documentPrefillKey(metadata.name),
           fileName: metadata.name,
           prefills: prefills,
         );
@@ -955,6 +950,7 @@ class _SelectionPageState extends State<SelectionPage> {
             folder.name,
           ),
         );
+        created = true;
       } on CloudDocumentException catch (error) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -969,6 +965,7 @@ class _SelectionPageState extends State<SelectionPage> {
         );
       }
     });
+    return created;
   }
 
   Future<void> _rememberDocumentPrefills({
@@ -1940,43 +1937,6 @@ class _DocumentSourceTile extends StatelessWidget {
             color: selected ? theme.colorScheme.primary : null,
           ),
       onTap: onTap,
-    );
-  }
-}
-
-class _CreateDestinationDialog extends StatelessWidget {
-  const _CreateDestinationDialog({required this.showLocal});
-
-  final bool showLocal;
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(context.l10n.saveNewDocument),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (showLocal)
-            ListTile(
-              leading: const Icon(Icons.folder_open_rounded),
-              title: Text(context.l10n.local),
-              subtitle: Text(context.l10n.chooseASaveLocationOnThisDevice),
-              onTap: () => Navigator.of(context).pop(_CreateDestination.local),
-            ),
-          ListTile(
-            leading: const Icon(Icons.cloud_outlined),
-            title: Text(context.l10n.cloud),
-            subtitle: Text(context.l10n.chooseAGoogleDriveOrWebDAVFolder),
-            onTap: () => Navigator.of(context).pop(_CreateDestination.cloud),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(context.l10n.cancel),
-        ),
-      ],
     );
   }
 }

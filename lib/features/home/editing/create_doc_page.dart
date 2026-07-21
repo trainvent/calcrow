@@ -6,6 +6,7 @@ import 'package:calcrow/core/sheet_type_logic/field_type.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_service.dart';
 import 'package:calcrow/core/prefills/document_prefill.dart';
+import 'package:calcrow/features/home/editing/choose_file_location_page.dart';
 import 'package:calcrow/features/home/editing/define_prefills_page.dart';
 import 'package:calcrow/features/home/editing/widgets/moving_tile_widget.dart';
 import 'package:calcrow/app/widgets/type_dropdown_list.dart';
@@ -16,6 +17,7 @@ class DocumentDraft {
     required this.format,
     required this.headers,
     required this.valueTypes,
+    required this.destination,
     this.prefills = const <DocumentPrefill>[],
     this.xlsxSheetName,
   });
@@ -24,14 +26,22 @@ class DocumentDraft {
   final SheetFileFormat format;
   final List<String> headers;
   final List<String> valueTypes;
+  final CreateDestination destination;
   final List<DocumentPrefill> prefills;
   final String? xlsxSheetName;
 }
 
 class CreateDocPage extends StatefulWidget {
-  const CreateDocPage({super.key, this.initialSetup});
+  const CreateDocPage({
+    super.key,
+    this.initialSetup,
+    this.showLocalLocation = true,
+    this.onCreate,
+  });
 
   final CreateDocInitialSetup? initialSetup;
+  final bool showLocalLocation;
+  final Future<bool> Function(DocumentDraft draft)? onCreate;
 
   @override
   State<CreateDocPage> createState() => _CreateDocPageState();
@@ -236,23 +246,49 @@ class _CreateDocPageState extends State<CreateDocPage> {
     );
     if (!mounted || prefills == null) return;
 
-    Navigator.of(context).pop(
-      DocumentDraft(
-        fileName: _fileNameWithFormat(
-          _fileNameController.text,
-          _format,
-          yearSuffix: widget.initialSetup?.fileNameYearSuffixFor(_format),
+    DocumentDraft draftFor(CreateDestination destination) => DocumentDraft(
+      fileName: _fileNameWithFormat(
+        _fileNameController.text,
+        _format,
+        yearSuffix: widget.initialSetup?.fileNameYearSuffixFor(_format),
+      ),
+      format: _format,
+      headers: headers,
+      valueTypes: valueTypes,
+      destination: destination,
+      prefills: prefills,
+      xlsxSheetName:
+          _format == SheetFileFormat.xlsx || _format == SheetFileFormat.ods
+          ? widget.initialSetup?.xlsxSheetName
+          : null,
+    );
+
+    final navigator = Navigator.of(context);
+    final creationRoute = ModalRoute.of(context);
+    var creationHandledOnLocationPage = false;
+    final destination = await navigator.push<CreateDestination>(
+      MaterialPageRoute(
+        builder: (context) => ChooseFileLocationPage(
+          showLocal: widget.showLocalLocation,
+          onSelected: widget.onCreate == null
+              ? null
+              : (destination) async {
+                  final created = await widget.onCreate!(draftFor(destination));
+                  if (!created) return false;
+                  creationHandledOnLocationPage = true;
+                  if (creationRoute != null) {
+                    navigator.removeRoute(creationRoute);
+                  }
+                  return true;
+                },
         ),
-        format: _format,
-        headers: headers,
-        valueTypes: valueTypes,
-        prefills: prefills,
-        xlsxSheetName:
-            _format == SheetFileFormat.xlsx || _format == SheetFileFormat.ods
-            ? widget.initialSetup?.xlsxSheetName
-            : null,
       ),
     );
+    if (!mounted || destination == null || creationHandledOnLocationPage) {
+      return;
+    }
+
+    navigator.pop(draftFor(destination));
   }
 
   String _valueTypeForColumn(_ColumnDraft column) {

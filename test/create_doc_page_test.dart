@@ -1,9 +1,66 @@
+import 'dart:async';
+
 import 'package:calcrow/features/home/editing/create_doc_page.dart';
+import 'package:calcrow/features/home/editing/choose_file_location_page.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('location page remains until document creation completes', (
+    tester,
+  ) async {
+    final creation = Completer<bool>();
+    DocumentDraft? submittedDraft;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Column(
+              children: [
+                const Text('Selection backdrop'),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).push<void>(
+                    MaterialPageRoute(
+                      builder: (context) => CreateDocPage(
+                        onCreate: (draft) {
+                          submittedDraft = draft;
+                          return creation.future;
+                        },
+                      ),
+                    ),
+                  ),
+                  child: const Text('Open creator'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open creator'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Create Document'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Local'));
+    await tester.pump();
+
+    expect(submittedDraft?.destination, CreateDestination.local);
+    expect(find.text('Choose File Location'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text('Selection backdrop'), findsNothing);
+
+    creation.complete(true);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Choose File Location'), findsNothing);
+    expect(find.text('Create Document'), findsNothing);
+    expect(find.text('Selection backdrop'), findsOneWidget);
+  });
+
   testWidgets('plain create setup defaults to CSV without sheet separation', (
     tester,
   ) async {
@@ -16,9 +73,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Create Document'));
     await tester.pumpAndSettle();
+    await _chooseLocalLocation(tester);
 
     expect(result?.fileName, 'calcrow_sheet.csv');
     expect(result?.format, SheetFileFormat.csv);
+    expect(result?.destination, CreateDestination.local);
     expect(result?.xlsxSheetName, isNull);
   });
 
@@ -46,6 +105,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Create Document'));
     await tester.pumpAndSettle();
+    await _chooseLocalLocation(tester);
 
     expect(result?.fileName, 'calcrow_sheet_2026.xlsx');
     expect(result?.format, SheetFileFormat.xlsx);
@@ -70,6 +130,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Create Document'));
     await tester.pumpAndSettle();
+    await _chooseLocalLocation(tester);
 
     expect(result?.fileName, 'calcrow_sheet_2026.csv');
     expect(result?.format, SheetFileFormat.csv);
@@ -95,6 +156,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Create Document'));
     await tester.pumpAndSettle();
+    await _chooseLocalLocation(tester);
 
     expect(result?.fileName, 'calcrow_sheet.xlsx');
     expect(result?.format, SheetFileFormat.xlsx);
@@ -123,6 +185,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Create Document'));
     await tester.pumpAndSettle();
+    await _chooseLocalLocation(tester);
 
     expect(result?.fileName, 'calcrow_sheet_2026.ods');
     expect(result?.format, SheetFileFormat.ods);
@@ -302,6 +365,7 @@ void main() {
     expect(find.textContaining('Distance / Repetitions: 12km'), findsOneWidget);
     await tester.tap(find.text('Create Document'));
     await tester.pumpAndSettle();
+    await _chooseLocalLocation(tester);
 
     expect(result?.prefills, hasLength(1));
     expect(result?.prefills.single.name, 'Daily jog');
@@ -365,6 +429,12 @@ Future<void> _scrollTemplateIntoView(WidgetTester tester, String label) async {
 
 Future<void> _chooseTemplate(WidgetTester tester, String fileName) async {
   await tester.tap(find.byKey(ValueKey('select-template-$fileName')));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _chooseLocalLocation(WidgetTester tester) async {
+  expect(find.text('Choose File Location'), findsOneWidget);
+  await tester.tap(find.text('Local'));
   await tester.pumpAndSettle();
 }
 

@@ -111,6 +111,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get chooseDocument => 'Dokument auswählen';
 
   @override
+  String get chooseFileLocation => 'Dateispeicherort auswählen';
+
+  @override
   String get chooseFolder => 'Ordner auswählen';
 
   @override

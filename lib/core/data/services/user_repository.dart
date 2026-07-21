@@ -434,15 +434,23 @@ class UserRepository {
   Future<List<DocumentPrefill>?> readDocumentPrefills({
     required String uid,
     required String documentKey,
+    required String fileName,
   }) async {
     final settings = await _dbService.getUserSettings(uid);
     final entries = _parseDocumentPrefillEntries(settings?['documentPrefills']);
     final normalizedKey = documentKey.trim();
-    final entry = _firstWhereOrNull(
+    final exactEntry = _firstWhereOrNull(
       entries,
       (candidate) => candidate.documentKey == normalizedKey,
     );
-    return entry?.prefills;
+    if (exactEntry != null) return exactEntry.prefills;
+    final normalizedFileName = fileName.trim().toLowerCase();
+    if (normalizedFileName.isEmpty) return null;
+    return _firstWhereOrNull(
+      entries,
+      (candidate) =>
+          candidate.fileName.trim().toLowerCase() == normalizedFileName,
+    )?.prefills;
   }
 
   Future<void> rememberDocumentPrefills({

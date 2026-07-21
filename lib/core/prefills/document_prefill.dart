@@ -76,3 +76,6 @@ String localPrefillDocumentKey(String path) => 'local:${path.trim()}';
 
 String cloudPrefillDocumentKey(String provider, String documentId) =>
     'cloud:${provider.trim()}:${documentId.trim()}';
+
+String documentPrefillKey(String fileName) =>
+    'file:${fileName.trim().toLowerCase()}';

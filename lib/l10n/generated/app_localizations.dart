@@ -273,6 +273,12 @@ abstract class AppLocalizations {
   /// **'Choose Document'**
   String get chooseDocument;
 
+  /// No description provided for @chooseFileLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose File Location'**
+  String get chooseFileLocation;
+
   /// No description provided for @chooseFolder.
   ///
   /// In en, this message translates to:

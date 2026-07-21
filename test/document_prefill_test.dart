@@ -27,6 +27,44 @@ void main() {
     expect(decoded?.isAvailableOn(DateTime(2026, 7, 23)), isFalse);
   });
 
+  test('filename cache key is stable across case and surrounding spaces', () {
+    expect(
+      documentPrefillKey(' Dynamic_Workout.XLSX '),
+      documentPrefillKey('dynamic_workout.xlsx'),
+    );
+  });
+
+  test(
+    'filename lookup migrates a prefill from an old Android SAF key',
+    () async {
+      const fileName = 'dynamic_workout_tracker.xlsx';
+      await DocumentPrefillCache.write(
+        localPrefillDocumentKey(
+          'content://provider/tree/primary%3ADocuments%2F$fileName',
+        ),
+        const <DocumentPrefill>[
+          DocumentPrefill(
+            name: 'Morning jog',
+            values: <String, String>{'Exercize': 'Running'},
+          ),
+        ],
+      );
+
+      final prefills = await DocumentPrefillCache.readForFileName(
+        fileName,
+        legacyDocumentKeys: const <String>[
+          'local:content://provider/document/another-id',
+        ],
+      );
+
+      expect(prefills.single.name, 'Morning jog');
+      expect(
+        await DocumentPrefillCache.read(documentPrefillKey(fileName)),
+        hasLength(1),
+      );
+    },
+  );
+
   testWidgets('simple editor shows matching prefills and applies all values', (
     tester,
   ) async {
@@ -65,7 +103,7 @@ void main() {
               'Notes',
             ],
             valueTypes: <String>['date', 'text', 'text', 'duration', 'text'],
-            readOnlyColumns: <bool>[true, false, false, false, false],
+            readOnlyColumns: <bool>[false, false, false, false, false],
             rows: <List<String>>[],
             csvDelimiter: ',',
             hasTypeRow: false,
@@ -84,11 +122,37 @@ void main() {
 
     expect(find.text('Daily jog'), findsOneWidget);
     expect(find.text('Intervals'), findsNothing);
+    expect(find.byIcon(Icons.auto_awesome_rounded), findsNothing);
+    expect(
+      find.text('Choose an option to fill its saved values into this row.'),
+      findsNothing,
+    );
+    final labelCenter = tester.getCenter(find.text('Prefill'));
+    final optionCenter = tester.getCenter(find.text('Daily jog'));
+    expect((labelCenter.dy - optionCenter.dy).abs(), lessThan(8));
+    final prefillButton = tester.widget<OutlinedButton>(
+      find.byKey(const ValueKey('document-prefill-Daily jog')),
+    );
+    final clearButton = tester.widget<IconButton>(
+      find.byKey(const ValueKey('clear-document-input-fields')),
+    );
+    expect(prefillButton.style?.backgroundColor, isNull);
+    expect(clearButton.style?.backgroundColor, isNull);
+    expect(find.byIcon(Icons.backspace_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.brush_outlined), findsNothing);
     await tester.tap(find.byKey(const ValueKey('document-prefill-Daily jog')));
     await tester.pump();
 
     expect(_fieldValue(tester, 'Exercize'), 'Jog');
     expect(_fieldValue(tester, 'Distance / Repetitions'), '12km');
+
+    final dateBeforeClearing = _fieldValue(tester, 'Date');
+    await tester.tap(find.byKey(const ValueKey('clear-document-input-fields')));
+    await tester.pump();
+
+    expect(_fieldValue(tester, 'Date'), dateBeforeClearing);
+    expect(_fieldValue(tester, 'Exercize'), isEmpty);
+    expect(_fieldValue(tester, 'Distance / Repetitions'), isEmpty);
   });
 }
 

@@ -24,6 +24,7 @@ import 'package:calcrow/core/prefills/document_prefill.dart';
 import 'package:calcrow/core/prefills/document_prefill_cache.dart';
 import 'package:calcrow/features/home/sheet/sheet_preview_store.dart';
 import 'package:calcrow/app/widgets/type_dropdown_list.dart';
+import 'package:calcrow/app/widgets/document_prefill_selector.dart';
 import 'package:calcrow/app/widgets/type_based_input_fields/type_based_input_field.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:trainvent_general/trainvent_general.dart';
@@ -401,9 +402,13 @@ class _EditingPageBaseState extends State<EditingPageBase>
     final documentKey = _prefillKeyForDocument(sheetData, target: target);
     if (documentKey == null) return;
     _documentPrefillKey = documentKey;
+    final legacyKeys = _legacyPrefillKeys(sheetData, target: target);
 
     try {
-      final cached = await DocumentPrefillCache.read(documentKey);
+      final cached = await DocumentPrefillCache.readForFileName(
+        sheetData.fileName,
+        legacyDocumentKeys: legacyKeys,
+      );
       if (mounted && _documentPrefillKey == documentKey) {
         setState(() => _documentPrefills = cached);
       }
@@ -418,6 +423,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
       final remote = await ServiceLocator.userRepository.readDocumentPrefills(
         uid: session.uid,
         documentKey: documentKey,
+        fileName: sheetData.fileName,
       );
       if (remote == null) return;
       await DocumentPrefillCache.write(documentKey, remote);
@@ -433,15 +439,27 @@ class _EditingPageBaseState extends State<EditingPageBase>
     SheetData sheetData, {
     EditorDocumentTarget? target,
   }) {
+    final fileName = target is CloudEditorDocumentTarget
+        ? target.fileName
+        : sheetData.fileName;
+    if (fileName.trim().isEmpty) return null;
+    return documentPrefillKey(fileName);
+  }
+
+  List<String> _legacyPrefillKeys(
+    SheetData sheetData, {
+    EditorDocumentTarget? target,
+  }) {
     if (target is CloudEditorDocumentTarget) {
-      return cloudPrefillDocumentKey(target.provider.name, target.fileId);
+      return <String>[
+        cloudPrefillDocumentKey(target.provider.name, target.fileId),
+      ];
     }
     final path = target is LocalEditorDocumentTarget
         ? target.existingPath
         : sheetData.path;
-    final normalizedPath = path?.trim();
-    if (normalizedPath == null || normalizedPath.isEmpty) return null;
-    return localPrefillDocumentKey(normalizedPath);
+    if (path == null || path.trim().isEmpty) return const <String>[];
+    return <String>[localPrefillDocumentKey(path)];
   }
 
   void _applyDocumentPrefill(DocumentPrefill prefill) {
@@ -2596,35 +2614,10 @@ class _EditingPageBaseState extends State<EditingPageBase>
         ],
         if (!hasPendingTypeSelection) ...[
           if (availablePrefills.isNotEmpty) ...[
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      context.l10n.prefill,
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(context.l10n.choosePrefillDescription),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final prefill in availablePrefills)
-                          ActionChip(
-                            key: ValueKey('document-prefill-${prefill.name}'),
-                            avatar: const Icon(Icons.auto_awesome_rounded),
-                            label: Text(prefill.name),
-                            onPressed: () => _applyDocumentPrefill(prefill),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+            DocumentPrefillSelector(
+              label: context.l10n.prefill,
+              prefills: availablePrefills,
+              onSelected: _applyDocumentPrefill,
             ),
             const SizedBox(height: 10),
           ],
@@ -2662,6 +2655,21 @@ class _EditingPageBaseState extends State<EditingPageBase>
                             ? context.l10n.typeLabelHoursAndMinutes(helperType)
                             : context.l10n.typeLabel(helperType)
                       : null;
+                  final inputField = TypeBasedInputField(
+                    controller: _documentControllers[index],
+                    labelText: header,
+                    rawType: type,
+                    readOnly: isReadOnly,
+                    forceDuration: isDurationField,
+                    helperText: helperText,
+                    minLines: header.toLowerCase().contains('note') ? 2 : 1,
+                    maxLines: header.toLowerCase().contains('note') ? 4 : 1,
+                    parseDate: _parseDateFromCellValue,
+                    formatDate: _formatDate,
+                    onChanged: type.trim().toLowerCase() == 'date'
+                        ? () => setState(() {})
+                        : null,
+                  );
                   return Padding(
                     key: ValueKey<String>(
                       '${_documentEditingRowIndex}_${index}_$header',
@@ -2669,21 +2677,30 @@ class _EditingPageBaseState extends State<EditingPageBase>
                     padding: EdgeInsets.only(
                       bottom: index == _documentHeaders.length - 1 ? 0 : 10,
                     ),
-                    child: TypeBasedInputField(
-                      controller: _documentControllers[index],
-                      labelText: header,
-                      rawType: type,
-                      readOnly: isReadOnly,
-                      forceDuration: isDurationField,
-                      helperText: helperText,
-                      minLines: header.toLowerCase().contains('note') ? 2 : 1,
-                      maxLines: header.toLowerCase().contains('note') ? 4 : 1,
-                      parseDate: _parseDateFromCellValue,
-                      formatDate: _formatDate,
-                      onChanged: type.trim().toLowerCase() == 'date'
-                          ? () => setState(() {})
-                          : null,
-                    ),
+                    child: isReadOnly && index == dateColumn
+                        ? Row(
+                            children: [
+                              Expanded(child: inputField),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                key: const ValueKey(
+                                  'clear-document-input-fields',
+                                ),
+                                tooltip: context.l10n.clearEditableFields,
+                                visualDensity: VisualDensity.compact,
+                                constraints: const BoxConstraints.tightFor(
+                                  width: 42,
+                                  height: 42,
+                                ),
+                                onPressed: _clearEditableFields,
+                                icon: const Icon(
+                                  Icons.backspace_outlined,
+                                  size: 20,
+                                ),
+                              ),
+                            ],
+                          )
+                        : inputField,
                   );
                 }).where((widget) => widget is! SizedBox).toList(),
               ),
