@@ -29,6 +29,7 @@ void main() {
     expect(find.text('Choose Document'), findsOneWidget);
     expect(find.text('Create Document'), findsOneWidget);
     expect(find.text('Editor'), findsNothing);
+    expect(find.byIcon(Icons.person_outline_rounded), findsNothing);
   });
 
   testWidgets('embedded editor keeps surrounding bottom navigation visible', (
@@ -38,10 +39,43 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Editor'), findsOneWidget);
-    expect(find.text('Current File'), findsOneWidget);
+    expect(find.text('worklog.csv'), findsWidgets);
+    expect(find.text('Current File'), findsNothing);
     expect(find.text('Save'), findsWidgets);
+    expect(find.byIcon(Icons.person_outline_rounded), findsNothing);
+    expect(find.byIcon(Icons.accessibility_new_rounded), findsNothing);
+    expect(find.byKey(const ValueKey('editor-overflow-menu')), findsOneWidget);
+    expect(find.text('Adjust'), findsNothing);
+    expect(find.text('Open'), findsNothing);
     expect(find.byKey(_EmbeddedEditorHarness.bottomNavKey), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('editor-overflow-menu')));
+    await tester.pumpAndSettle();
+    expect(find.text('Field formats'), findsOneWidget);
+    expect(find.text('Define prefills'), findsOneWidget);
+    expect(find.text('Verbose mode'), findsOneWidget);
+    expect(find.text('Details'), findsOneWidget);
+    expect(find.text('Open'), findsOneWidget);
+    final fieldFormatsLeft = tester.getTopLeft(find.text('Field formats')).dx;
+    final verboseLeft = tester.getTopLeft(find.text('Verbose mode')).dx;
+    expect((fieldFormatsLeft - verboseLeft).abs(), lessThan(1));
+
+    await tester.tap(find.byKey(const ValueKey('editor-menu-details')));
+    await tester.pumpAndSettle();
+    expect(find.text('Current File'), findsOneWidget);
+    expect(find.text('worklog.csv - new row'), findsOneWidget);
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('editor-overflow-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('editor-menu-verbose')));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byIcon(Icons.accessibility_new_rounded), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Hide field types'));
+    await tester.pump();
+    expect(find.byIcon(Icons.accessibility_new_rounded), findsNothing);
   });
 
   testWidgets('editor back action returns to get started in place', (
@@ -56,7 +90,7 @@ void main() {
 
     expect(find.text('Selector'), findsOneWidget);
     expect(find.text('Opening Mode'), findsOneWidget);
-    expect(find.text('Editor'), findsNothing);
+    expect(find.text('worklog.csv'), findsNothing);
     expect(find.byKey(_EmbeddedEditorHarness.bottomNavKey), findsOneWidget);
   });
 
@@ -87,6 +121,7 @@ void main() {
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 
+    await _openEditorDetails(tester);
     expect(find.textContaining('row 1'), findsOneWidget);
     expect(find.text('steady'), findsOneWidget);
     expect(find.textContaining('new row'), findsNothing);
@@ -166,6 +201,7 @@ void main() {
     SheetPreviewStore.pickRow(1);
     await tester.pump();
 
+    await _openEditorDetails(tester);
     expect(find.textContaining('row 2'), findsOneWidget);
     expect(find.text('11:00'), findsOneWidget);
   });
@@ -199,6 +235,7 @@ void main() {
     SheetPreviewStore.pickRow(1);
     await tester.pump();
 
+    await _openEditorDetails(tester);
     expect(find.textContaining('row 2'), findsOneWidget);
     expect(find.text('Bob'), findsOneWidget);
   });
@@ -278,8 +315,10 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    await tester.tap(find.text('Adjust'));
-    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('editor-overflow-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('adjust-field-formats')));
+    await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('field-type-options-0-date')), findsOne);
     expect(
@@ -310,8 +349,10 @@ void main() {
     SheetPreviewStore.cancelRowPick();
     await tester.pump();
 
-    await tester.tap(find.text('Adjust'));
-    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('editor-overflow-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('adjust-field-formats')));
+    await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('field-type-options-0-text')), findsOne);
     expect(
@@ -319,6 +360,16 @@ void main() {
       findsNothing,
     );
   });
+}
+
+Future<void> _openEditorDetails(WidgetTester tester) async {
+  final menu = find.byKey(const ValueKey('editor-overflow-menu'));
+  await tester.ensureVisible(menu);
+  await tester.pump();
+  await tester.tap(menu);
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const ValueKey('editor-menu-details')));
+  await tester.pumpAndSettle();
 }
 
 class _EmbeddedEditorHarness extends StatefulWidget {

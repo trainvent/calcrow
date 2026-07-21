@@ -23,6 +23,7 @@ import 'package:calcrow/core/sheet_type_logic/type_hint_cache.dart';
 import 'package:calcrow/core/prefills/document_prefill.dart';
 import 'package:calcrow/core/prefills/document_prefill_cache.dart';
 import 'package:calcrow/features/home/sheet/sheet_preview_store.dart';
+import 'package:calcrow/features/home/editing/define_prefills_page.dart';
 import 'package:calcrow/app/widgets/type_dropdown_list.dart';
 import 'package:calcrow/app/widgets/document_prefill_selector.dart';
 import 'package:calcrow/app/widgets/type_based_input_fields/type_based_input_field.dart';
@@ -38,6 +39,8 @@ enum _WidgetBlock { rowDefinement, workhours, smartData, wellbeing, notes }
 enum EditorOpenMode { dateBased, dateBasedOpenEnd, textBased }
 
 enum _UnsavedEditsChoice { save, discard, cancel }
+
+enum _EditorAdjustAction { details, fieldFormats, prefills, verbose, open }
 
 class EditingPageBase extends StatefulWidget {
   const EditingPageBase({
@@ -1168,6 +1171,116 @@ class _EditingPageBaseState extends State<EditingPageBase>
     }
   }
 
+  void _handleEditorMenuAction(_EditorAdjustAction action) {
+    switch (action) {
+      case _EditorAdjustAction.details:
+        unawaited(_showDocumentDetails());
+      case _EditorAdjustAction.fieldFormats:
+        _resetTypeSelection();
+      case _EditorAdjustAction.prefills:
+        unawaited(_editDocumentPrefills());
+      case _EditorAdjustAction.verbose:
+        _toggleFieldTypes();
+      case _EditorAdjustAction.open:
+        unawaited(_openLocalDocumentFolderOrDocument());
+    }
+  }
+
+  List<PopupMenuEntry<_EditorAdjustAction>> _editorMenuItems(
+    BuildContext context,
+  ) {
+    return <PopupMenuEntry<_EditorAdjustAction>>[
+      PopupMenuItem<_EditorAdjustAction>(
+        key: const ValueKey('editor-menu-details'),
+        value: _EditorAdjustAction.details,
+        child: Text(context.l10n.details),
+      ),
+      if (_canOpenLocalDocumentFromHeader)
+        PopupMenuItem<_EditorAdjustAction>(
+          key: const ValueKey('editor-menu-open'),
+          value: _EditorAdjustAction.open,
+          child: Text(context.l10n.openAction),
+        ),
+      const PopupMenuDivider(),
+      PopupMenuItem<_EditorAdjustAction>(
+        key: const ValueKey('adjust-field-formats'),
+        value: _EditorAdjustAction.fieldFormats,
+        enabled: _documentPendingTypeSelectionColumns.isEmpty,
+        child: Text(context.l10n.fieldFormats),
+      ),
+      PopupMenuItem<_EditorAdjustAction>(
+        key: const ValueKey('adjust-prefills'),
+        value: _EditorAdjustAction.prefills,
+        enabled: _documentPendingTypeSelectionColumns.isEmpty,
+        child: Text(context.l10n.definePrefills),
+      ),
+      PopupMenuItem<_EditorAdjustAction>(
+        key: const ValueKey('editor-menu-verbose'),
+        value: _EditorAdjustAction.verbose,
+        child: Row(
+          children: [
+            Expanded(child: Text(context.l10n.verboseMode)),
+            if (_showFieldTypes) ...[
+              const SizedBox(width: 16),
+              const Icon(Icons.check_rounded, size: 20),
+            ],
+          ],
+        ),
+      ),
+    ];
+  }
+
+  Future<void> _showDocumentDetails() {
+    final isEditingExisting = _documentEditingRowIndex < _documentRows.length;
+    final targetLabel = isEditingExisting
+        ? context.l10n.rowNumber(_documentEditingRowIndex + 1)
+        : context.l10n.newRow;
+    final isSheetDocumentSource =
+        _documentImportedFormat == SheetFileFormat.xlsx ||
+        _documentImportedFormat == SheetFileFormat.ods ||
+        _documentImportedFormat == SheetFileFormat.gsheet;
+    final sheetName = _documentImportedSheetName?.trim();
+    final activeSheetLabel = isSheetDocumentSource
+        ? ((sheetName == null || sheetName.isEmpty)
+              ? context.l10n.defaultLabel
+              : sheetName)
+        : null;
+    final fileName = _documentImportedFileName?.trim();
+
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(context.l10n.currentFile),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              fileName == null || fileName.isEmpty
+                  ? targetLabel
+                  : '$fileName - $targetLabel',
+            ),
+            if (activeSheetLabel != null) ...[
+              const SizedBox(height: 8),
+              Text(context.l10n.activeSheet(activeSheetLabel)),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(context.l10n.close),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool get _canOpenLocalDocumentFromHeader =>
+      _supportsLocalFileEditing &&
+      (_documentDocumentTarget == null ||
+          _documentDocumentTarget is LocalEditorDocumentTarget);
+
   String _editorTypeOptionFor(String type) {
     if (FieldTypeGuesser.isMoneyType(type)) return 'money';
     if (FieldTypeGuesser.isIntegerType(type)) return 'integer';
@@ -1241,6 +1354,46 @@ class _EditingPageBaseState extends State<EditingPageBase>
     setState(() {
       _documentPendingTypeSelectionColumns = editableColumns;
     });
+  }
+
+  Future<void> _editDocumentPrefills() async {
+    final updatedPrefills = await Navigator.of(context)
+        .push<List<DocumentPrefill>>(
+          MaterialPageRoute(
+            builder: (context) => DefinePrefillsPage(
+              headers: _documentHeaders,
+              valueTypes: _documentValueTypes,
+              initialPrefills: _documentPrefills,
+              submitLabel: context.l10n.save,
+            ),
+          ),
+        );
+    if (!mounted || updatedPrefills == null) return;
+
+    setState(() => _documentPrefills = updatedPrefills);
+    final fileName = _documentImportedFileName?.trim();
+    if (fileName == null || fileName.isEmpty) return;
+    final documentKey = documentPrefillKey(fileName);
+    _documentPrefillKey = documentKey;
+    try {
+      await DocumentPrefillCache.write(documentKey, updatedPrefills);
+    } catch (_) {
+      // Remote storage may still preserve the changes.
+    }
+
+    if (!ServiceLocator.isSetup) return;
+    final session = ServiceLocator.authService.currentSession;
+    if (session == null) return;
+    try {
+      await ServiceLocator.userRepository.rememberDocumentPrefills(
+        uid: session.uid,
+        documentKey: documentKey,
+        fileName: fileName,
+        prefills: updatedPrefills,
+      );
+    } catch (_) {
+      // The local cache remains authoritative while remote storage is offline.
+    }
   }
 
   Future<void> _rememberCurrentTypeHints() async {
@@ -2347,32 +2500,34 @@ class _EditingPageBaseState extends State<EditingPageBase>
               visibleWidgets: _visibleWidgets,
               trailingActions: !_isAdvancedMode && _hasDocumentSchema
                   ? [
-                      IconButton(
-                        tooltip: _showFieldTypes
-                            ? context.l10n.hideFieldTypes
-                            : context.l10n.showFieldTypes,
-                        onPressed: _toggleFieldTypes,
-                        icon: AnimatedBuilder(
-                          animation: _typeTogglePulse,
-                          builder: (context, child) {
-                            if (!_showFieldTypes) {
-                              return child!;
-                            }
-                            final pulse = _typeTogglePulse.value;
-                            return Transform.scale(
-                              scale: 1 + (pulse * 0.16),
-                              child: Icon(
-                                Icons.accessibility_new_rounded,
-                                color: Color.lerp(
-                                  theme.colorScheme.error,
-                                  Colors.redAccent,
-                                  pulse,
+                      if (_showFieldTypes)
+                        IconButton(
+                          tooltip: context.l10n.hideFieldTypes,
+                          onPressed: _toggleFieldTypes,
+                          icon: AnimatedBuilder(
+                            animation: _typeTogglePulse,
+                            builder: (context, child) {
+                              final pulse = _typeTogglePulse.value;
+                              return Transform.scale(
+                                scale: 1 + (pulse * 0.16),
+                                child: Icon(
+                                  Icons.accessibility_new_rounded,
+                                  color: Color.lerp(
+                                    theme.colorScheme.error,
+                                    Colors.redAccent,
+                                    pulse,
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
-                          child: const Icon(Icons.accessibility_new_rounded),
+                              );
+                            },
+                          ),
                         ),
+                      PopupMenuButton<_EditorAdjustAction>(
+                        key: const ValueKey('editor-overflow-menu'),
+                        tooltip: context.l10n.adjust,
+                        icon: const Icon(Icons.more_vert_rounded),
+                        onSelected: _handleEditorMenuAction,
+                        itemBuilder: _editorMenuItems,
                       ),
                     ]
                   : const <Widget>[],
@@ -2480,7 +2635,6 @@ class _EditingPageBaseState extends State<EditingPageBase>
     }
 
     final dateColumn = _documentDateColumnIndex();
-    final isEditingExisting = _documentEditingRowIndex < _documentRows.length;
     final validPendingTypeSelectionColumns =
         _documentPendingTypeSelectionColumns
             .where(
@@ -2491,26 +2645,13 @@ class _EditingPageBaseState extends State<EditingPageBase>
             )
             .toList();
     final hasPendingTypeSelection = validPendingTypeSelectionColumns.isNotEmpty;
-    final targetLabel = isEditingExisting
-        ? context.l10n.rowNumber(_documentEditingRowIndex + 1)
-        : context.l10n.newRow;
     final isSheetDocumentSource =
         _documentImportedFormat == SheetFileFormat.xlsx ||
         _documentImportedFormat == SheetFileFormat.ods ||
         _documentImportedFormat == SheetFileFormat.gsheet;
-    final sheetName = _documentImportedSheetName?.trim();
-    final activeSheetLabel = isSheetDocumentSource
-        ? ((sheetName == null || sheetName.isEmpty)
-              ? context.l10n.defaultLabel
-              : sheetName)
-        : null;
     final pendingTypeSelectionMessage = isSheetDocumentSource
         ? context.l10n.setDatatypesCalculatedFieldsReadOnly
         : context.l10n.noUsableTypeRowPickFormats;
-    final canOpenLocalDocumentFromCard =
-        (_supportsLocalFileEditing && _documentDocumentTarget == null) ||
-        (_supportsLocalFileEditing &&
-            _documentDocumentTarget is LocalEditorDocumentTarget);
     final canCreateOpenEndDateRow = _modeBehavior.showsDateOpenEndActions;
     final prefillDate = dateColumn == null
         ? DateTime.now()
@@ -2521,64 +2662,6 @@ class _EditingPageBaseState extends State<EditingPageBase>
 
     return Column(
       children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        context.l10n.currentFile,
-                        style: theme.textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _documentImportedFileName == null
-                                  ? targetLabel
-                                  : '${_documentImportedFileName!} - $targetLabel',
-                              style: theme.textTheme.bodyMedium,
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (activeSheetLabel != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          context.l10n.activeSheet(activeSheetLabel),
-                          style: theme.textTheme.bodySmall,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: hasPendingTypeSelection
-                      ? null
-                      : _resetTypeSelection,
-                  child: Text(context.l10n.adjust),
-                ),
-                if (canOpenLocalDocumentFromCard)
-                  TextButton(
-                    onPressed: _openLocalDocumentFolderOrDocument,
-                    child: Text(
-                      _documentDocumentTarget is LocalEditorDocumentTarget
-                          ? 'Open'
-                          : 'Open Document',
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
         if (hasPendingTypeSelection) ...[
           Card(
             child: Padding(
@@ -2979,7 +3062,10 @@ class _EditingPageBaseState extends State<EditingPageBase>
   String get _headerTitle {
     if (!_isAdvancedMode) {
       if (_hasDocumentSchema) {
-        return context.l10n.editor;
+        final fileName = _documentImportedFileName?.trim();
+        return fileName == null || fileName.isEmpty
+            ? context.l10n.editor
+            : fileName;
       }
       return context.l10n.getStarted;
     }
@@ -3163,7 +3249,12 @@ class _TopHeader extends StatelessWidget {
               const SizedBox(width: 10),
             ],
             Expanded(
-              child: Text(headerTitle, style: theme.textTheme.titleMedium),
+              child: Text(
+                headerTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleMedium,
+              ),
             ),
             if (isAdvancedMode && setupDone)
               PopupMenuButton<_WidgetBlock>(
@@ -3186,11 +3277,6 @@ class _TopHeader extends StatelessWidget {
               ),
             if (showModeSwitch) const SizedBox(width: 6),
             ...trailingActions,
-            if (trailingActions.isNotEmpty) const SizedBox(width: 6),
-            const CircleAvatar(
-              radius: 16,
-              child: Icon(Icons.person_outline_rounded, size: 18),
-            ),
           ],
         ),
       ),

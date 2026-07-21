@@ -1466,10 +1466,6 @@ class _SelectionPageState extends State<SelectionPage> {
                         style: theme.textTheme.titleMedium,
                       ),
                     ),
-                    const CircleAvatar(
-                      radius: 16,
-                      child: Icon(Icons.person_outline_rounded, size: 18),
-                    ),
                   ],
                 ),
               ),

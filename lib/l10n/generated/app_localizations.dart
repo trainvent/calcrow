@@ -772,6 +772,12 @@ abstract class AppLocalizations {
   /// **'Field formats confirmed.'**
   String get fieldFormatsConfirmed;
 
+  /// No description provided for @fieldFormats.
+  ///
+  /// In en, this message translates to:
+  /// **'Field formats'**
+  String get fieldFormats;
+
   /// No description provided for @fields.
   ///
   /// In en, this message translates to:
@@ -3862,6 +3868,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Open'**
   String get openAction;
+
+  /// No description provided for @verboseMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Verbose mode'**
+  String get verboseMode;
 
   /// No description provided for @createAction.
   ///

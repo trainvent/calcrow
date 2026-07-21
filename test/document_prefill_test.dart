@@ -153,6 +153,30 @@ void main() {
     expect(_fieldValue(tester, 'Date'), dateBeforeClearing);
     expect(_fieldValue(tester, 'Exercize'), isEmpty);
     expect(_fieldValue(tester, 'Distance / Repetitions'), isEmpty);
+
+    await tester.tap(find.byKey(const ValueKey('editor-overflow-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('adjust-prefills')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Define prefills'), findsOneWidget);
+    expect(find.text('Daily jog'), findsOneWidget);
+    expect(find.text('Intervals'), findsOneWidget);
+    await tester.tap(find.byTooltip('Delete prefill').first);
+    await tester.pump();
+    await tester.tap(find.byTooltip('Delete prefill').first);
+    await tester.pump();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Daily jog'), findsNothing);
+    expect(find.text('Prefill'), findsNothing);
+    expect(
+      await DocumentPrefillCache.read(
+        documentPrefillKey('dynamic_workout_tracker.csv'),
+      ),
+      isEmpty,
+    );
   });
 }
 

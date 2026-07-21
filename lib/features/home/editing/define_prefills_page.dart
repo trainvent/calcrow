@@ -12,11 +12,13 @@ class DefinePrefillsPage extends StatefulWidget {
     required this.headers,
     required this.valueTypes,
     this.initialPrefills = const <DocumentPrefill>[],
+    this.submitLabel,
   });
 
   final List<String> headers;
   final List<String> valueTypes;
   final List<DocumentPrefill> initialPrefills;
+  final String? submitLabel;
 
   @override
   State<DefinePrefillsPage> createState() => _DefinePrefillsPageState();
@@ -109,7 +111,7 @@ class _DefinePrefillsPageState extends State<DefinePrefillsPage> {
             context,
           ).pop(List<DocumentPrefill>.unmodifiable(_prefills)),
           icon: const Icon(Icons.check_rounded),
-          label: Text(context.l10n.createDocument),
+          label: Text(widget.submitLabel ?? context.l10n.createDocument),
         ),
       ),
     );

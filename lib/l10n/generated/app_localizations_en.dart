@@ -368,6 +368,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fieldFormatsConfirmed => 'Field formats confirmed.';
 
   @override
+  String get fieldFormats => 'Field formats';
+
+  @override
   String get fields => 'Fields';
 
   @override
@@ -2198,6 +2201,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get openAction => 'Open';
+
+  @override
+  String get verboseMode => 'Verbose mode';
 
   @override
   String get createAction => 'Create';

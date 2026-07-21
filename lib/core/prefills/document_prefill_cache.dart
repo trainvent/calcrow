@@ -38,7 +38,7 @@ class DocumentPrefillCache {
     }
 
     var prefills = decodeAt(primaryKey);
-    if (prefills.isNotEmpty) return prefills;
+    if (cache.containsKey(primaryKey)) return prefills;
 
     for (final legacyKey in legacyDocumentKeys) {
       prefills = decodeAt(legacyKey);
