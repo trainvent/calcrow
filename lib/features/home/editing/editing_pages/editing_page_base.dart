@@ -230,6 +230,10 @@ class _EditingPageBaseState extends State<EditingPageBase>
   late final _EditingModeBehavior _modeBehavior;
   int? _documentTextSelectionColumnIndex;
   String? _documentTextSelectionValue;
+  bool _isDocumentSaving = false;
+  bool _documentSaveFailed = false;
+  bool _saveDocumentAgain = false;
+  bool _showQueuedSaveError = false;
 
   @override
   void initState() {
@@ -277,6 +281,13 @@ class _EditingPageBaseState extends State<EditingPageBase>
   bool get _hasDocumentControllersReady =>
       _documentControllers.length == _documentHeaders.length &&
       _documentReadOnlyColumns.length == _documentHeaders.length;
+
+  bool get _showsInlineSaveStatus {
+    final dateColumn = _documentDateColumnIndex();
+    if (dateColumn == null || !_isFixedDateField(dateColumn)) return false;
+    return dateColumn >= _documentReadOnlyColumns.length ||
+        !_documentReadOnlyColumns[dateColumn];
+  }
 
   Future<void> _loadInitialDocument() async {
     final loaded = await _loadProfileData(
@@ -807,6 +818,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
         values,
         _documentHeaders.length,
       );
+      _documentSaveFailed = false;
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -816,8 +828,58 @@ class _EditingPageBaseState extends State<EditingPageBase>
     });
   }
 
-  Future<bool> _saveDocumentRow() =>
-      _saveDocumentRowInternal(mode: PersistMode.safPreferred);
+  Future<void> _requestDocumentSave({bool showError = false}) async {
+    if (!_hasUnsavedRowEdits) return;
+    if (_isDocumentSaving) {
+      _saveDocumentAgain = true;
+      _showQueuedSaveError = _showQueuedSaveError || showError;
+      return;
+    }
+
+    var showCurrentError = showError;
+    while (mounted && _hasUnsavedRowEdits) {
+      setState(() {
+        _isDocumentSaving = true;
+        _documentSaveFailed = false;
+      });
+      final saved = await _saveDocumentRowInternal(
+        mode: PersistMode.safPreferred,
+        showSuccessMessage: false,
+        showErrorMessage: showCurrentError,
+      );
+      if (!mounted) return;
+      setState(() {
+        _isDocumentSaving = false;
+        _documentSaveFailed = !saved;
+      });
+
+      final saveAgain = _saveDocumentAgain;
+      showCurrentError = _showQueuedSaveError;
+      _saveDocumentAgain = false;
+      _showQueuedSaveError = false;
+      if (!saved || !saveAgain) break;
+    }
+  }
+
+  void _handleDocumentFieldChanged() {
+    if (!mounted) return;
+    setState(() {
+      _documentSaveFailed = false;
+    });
+  }
+
+  void _handleDocumentFieldFocusChanged(bool hasFocus) {
+    if (!hasFocus) {
+      unawaited(_requestDocumentSave());
+    }
+  }
+
+  void _handleSaveStatusPressed() {
+    if (_isDocumentSaving || (!_hasUnsavedRowEdits && !_documentSaveFailed)) {
+      return;
+    }
+    unawaited(_requestDocumentSave(showError: true));
+  }
 
   Future<bool> _saveDocumentRowAsIs() =>
       _saveDocumentRowInternal(mode: PersistMode.asIs);
@@ -867,7 +929,11 @@ class _EditingPageBaseState extends State<EditingPageBase>
     return null;
   }
 
-  Future<bool> _saveDocumentRowInternal({required PersistMode mode}) async {
+  Future<bool> _saveDocumentRowInternal({
+    required PersistMode mode,
+    bool showSuccessMessage = true,
+    bool showErrorMessage = true,
+  }) async {
     if (!_hasDocumentSchema ||
         _documentControllers.length != _documentHeaders.length) {
       return false;
@@ -878,9 +944,11 @@ class _EditingPageBaseState extends State<EditingPageBase>
         .toList();
     final validationError = _documentRowValidationError(updatedRow);
     if (validationError != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(validationError)));
+      if (showErrorMessage) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(validationError)));
+      }
       return false;
     }
     final nextRows = List<List<String>>.from(_documentRows);
@@ -925,12 +993,19 @@ class _EditingPageBaseState extends State<EditingPageBase>
     });
     _publishRowsToPreview();
     final messenger = ScaffoldMessenger.of(context);
+    void showSaveError(String message) {
+      if (!showErrorMessage) return;
+      messenger.showSnackBar(SnackBar(content: Text(message)));
+    }
+
     try {
       final saveResult = await _persistSheet(mode: mode);
       if (!mounted) return false;
-      messenger.showSnackBar(
-        SnackBar(content: Text(_saveMessage(context.l10n, saveResult))),
-      );
+      if (showSuccessMessage) {
+        messenger.showSnackBar(
+          SnackBar(content: Text(_saveMessage(context.l10n, saveResult))),
+        );
+      }
       setState(() {
         _documentEditingBaseline = normalizedUpdated;
       });
@@ -938,87 +1013,55 @@ class _EditingPageBaseState extends State<EditingPageBase>
     } catch (error) {
       if (!mounted) return false;
       if (error is StateError && error.message == 'Save canceled.') {
-        messenger.showSnackBar(
-          SnackBar(content: Text(context.l10n.rowUpdatedFileSaveCanceled)),
-        );
+        showSaveError(context.l10n.rowUpdatedFileSaveCanceled);
         return false;
       }
       if (error is StateError && error.message == 'SAF save canceled.') {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.safSaveCanceledUseSaveAsIsInPreview),
-          ),
-        );
+        showSaveError(context.l10n.safSaveCanceledUseSaveAsIsInPreview);
         return false;
       }
       if (error is StateError &&
           error.message == 'SAF save is not supported on this platform.') {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              context.l10n.safSaveIsNotAvailableHereUseSaveAsIsInPreview,
-            ),
-          ),
+        showSaveError(
+          context.l10n.safSaveIsNotAvailableHereUseSaveAsIsInPreview,
         );
         return false;
       }
       if (error is StateError &&
           error.message ==
               'No SAF target selected. Open a SAF-backed file first or configure SAF folder in Settings.') {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              context
-                  .l10n
-                  .noSAFTargetSelectedOpenASAFBackedFileOrConfigureSAFFolderInSettingsOrUseSaveAsIsInPreview,
-            ),
-          ),
+        showSaveError(
+          context
+              .l10n
+              .noSAFTargetSelectedOpenASAFBackedFileOrConfigureSAFFolderInSettingsOrUseSaveAsIsInPreview,
         );
         return false;
       }
       if (error is StateError &&
           error.message ==
               'Current file is not SAF-backed. Use "Save as is" or reopen with SAF.') {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              context
-                  .l10n
-                  .currentFileIsNotSAFBackedUseSaveAsIsInPreviewOrReopenViaSAF,
-            ),
-          ),
+        showSaveError(
+          context
+              .l10n
+              .currentFileIsNotSAFBackedUseSaveAsIsInPreviewOrReopenViaSAF,
         );
         return false;
       }
       if (error is StateError && error.message == 'SAF stream write failed.') {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              context.l10n.safStreamWriteFailedUseSaveAsIsInPreview,
-            ),
-          ),
-        );
+        showSaveError(context.l10n.safStreamWriteFailedUseSaveAsIsInPreview);
         return false;
       }
       if (error is StateError &&
           error.message ==
               'SAF target is incompatible for direct overwrite. Reopen from a writable folder via SAF.') {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              context
-                  .l10n
-                  .thisSAFSourceCannotBeOverwrittenDirectlyReopenFromAWritableFolderViaSAFOrUseSaveAsIs,
-            ),
-          ),
+        showSaveError(
+          context
+              .l10n
+              .thisSAFSourceCannotBeOverwrittenDirectlyReopenFromAWritableFolderViaSAFOrUseSaveAsIs,
         );
         return false;
       }
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.rowSavedButFileWriteFailed('$error')),
-        ),
-      );
+      showSaveError(context.l10n.rowSavedButFileWriteFailed('$error'));
       return false;
     }
   }
@@ -2529,6 +2572,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
                         onSelected: _handleEditorMenuAction,
                         itemBuilder: _editorMenuItems,
                       ),
+                      if (!_showsInlineSaveStatus)
+                        _buildDocumentSaveStatusButton(theme),
                     ]
                   : const <Widget>[],
               onBack: _handleBack,
@@ -2727,6 +2772,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
                   final isReadOnly = _isFixedDateField(index);
                   final isDurationField =
                       _isDurationType(type) || _isTimespanField(header);
+                  final normalizedType = type.trim().toLowerCase();
                   final helperType = _localizedEditorTypeLabelFor(
                     context.l10n,
                     type,
@@ -2738,20 +2784,28 @@ class _EditingPageBaseState extends State<EditingPageBase>
                             ? context.l10n.typeLabelHoursAndMinutes(helperType)
                             : context.l10n.typeLabel(helperType)
                       : null;
-                  final inputField = TypeBasedInputField(
-                    controller: _documentControllers[index],
-                    labelText: header,
-                    rawType: type,
-                    readOnly: isReadOnly,
-                    forceDuration: isDurationField,
-                    helperText: helperText,
-                    minLines: header.toLowerCase().contains('note') ? 2 : 1,
-                    maxLines: header.toLowerCase().contains('note') ? 4 : 1,
-                    parseDate: _parseDateFromCellValue,
-                    formatDate: _formatDate,
-                    onChanged: type.trim().toLowerCase() == 'date'
-                        ? () => setState(() {})
-                        : null,
+                  final inputField = Focus(
+                    onFocusChange: _handleDocumentFieldFocusChanged,
+                    child: TypeBasedInputField(
+                      controller: _documentControllers[index],
+                      labelText: header,
+                      rawType: type,
+                      readOnly: isReadOnly,
+                      forceDuration: isDurationField,
+                      helperText: helperText,
+                      minLines: header.toLowerCase().contains('note') ? 2 : 1,
+                      maxLines: header.toLowerCase().contains('note') ? 4 : 1,
+                      parseDate: _parseDateFromCellValue,
+                      formatDate: _formatDate,
+                      onChanged: () {
+                        _handleDocumentFieldChanged();
+                        if (normalizedType == 'date' ||
+                            normalizedType == 'time' ||
+                            _isBooleanType(normalizedType)) {
+                          unawaited(_requestDocumentSave());
+                        }
+                      },
+                    ),
                   );
                   return Padding(
                     key: ValueKey<String>(
@@ -2781,6 +2835,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
                                   size: 20,
                                 ),
                               ),
+                              const SizedBox(width: 4),
+                              _buildDocumentSaveStatusButton(theme),
                             ],
                           )
                         : inputField,
@@ -2795,13 +2851,6 @@ class _EditingPageBaseState extends State<EditingPageBase>
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _saveDocumentRow,
-                      child: Text(context.l10n.save),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton(
                       onPressed: _pickFromCurrentSheetForMode,
@@ -2838,6 +2887,22 @@ class _EditingPageBaseState extends State<EditingPageBase>
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildDocumentSaveStatusButton(ThemeData theme) {
+    final allChangesSaved =
+        !_isDocumentSaving && !_hasUnsavedRowEdits && !_documentSaveFailed;
+    return IconButton(
+      key: const ValueKey('document-save-status'),
+      tooltip: context.l10n.save,
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints.tightFor(width: 42, height: 42),
+      onPressed: _handleSaveStatusPressed,
+      icon: Icon(
+        _isDocumentSaving ? Icons.sync_rounded : Icons.save_rounded,
+        color: allChangesSaved ? Colors.green : theme.colorScheme.error,
+      ),
     );
   }
 
@@ -3133,6 +3198,9 @@ class _EditingPageBaseState extends State<EditingPageBase>
       _documentTextSelectionColumnIndex = null;
       _documentTextSelectionValue = null;
       _isOpeningDocument = false;
+      _documentSaveFailed = false;
+      _saveDocumentAgain = false;
+      _showQueuedSaveError = false;
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {

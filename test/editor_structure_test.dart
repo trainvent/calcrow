@@ -41,7 +41,8 @@ void main() {
 
     expect(find.text('worklog.csv'), findsWidgets);
     expect(find.text('Current File'), findsNothing);
-    expect(find.text('Save'), findsWidgets);
+    expect(find.text('Save'), findsNothing);
+    expect(find.byKey(const ValueKey('document-save-status')), findsOneWidget);
     expect(find.byIcon(Icons.person_outline_rounded), findsNothing);
     expect(find.byIcon(Icons.accessibility_new_rounded), findsNothing);
     expect(find.byKey(const ValueKey('editor-overflow-menu')), findsOneWidget);
@@ -117,14 +118,54 @@ void main() {
     await tester.pump();
 
     await tester.enterText(find.widgetWithText(TextField, 'Notes'), 'steady');
-    await tester.ensureVisible(find.text('Save'));
-    await tester.tap(find.text('Save'));
+    tester.binding.focusManager.primaryFocus?.unfocus();
     await tester.pumpAndSettle();
 
     await _openEditorDetails(tester);
     expect(find.textContaining('row 1'), findsOneWidget);
     expect(find.text('steady'), findsOneWidget);
     expect(find.textContaining('new row'), findsNothing);
+  });
+
+  testWidgets('autosave failure stays red and retry reports the error', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final persistence = _FailingSheetPersistenceService();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: EditingPage(
+            initialSheetData: _worklogSheetData(),
+            initialDocumentTarget: const LocalEditorDocumentTarget(
+              existingPath: '/tmp/worklog.csv',
+            ),
+            initialOpenMode: EditorOpenMode.dateBasedOpenEnd,
+            sheetPersistenceService: persistence,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(_saveStatusIcon(tester).color, Colors.green);
+    await tester.enterText(find.widgetWithText(TextField, 'Notes'), 'draft');
+    await tester.pump();
+    expect(_saveStatusIcon(tester).color, isNot(Colors.green));
+
+    tester.binding.focusManager.primaryFocus?.unfocus();
+    await tester.pumpAndSettle();
+    expect(persistence.attempts, 1);
+    expect(_saveStatusIcon(tester).color, isNot(Colors.green));
+    expect(find.byType(SnackBar), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('document-save-status')));
+    await tester.pumpAndSettle();
+    expect(persistence.attempts, 2);
+    expect(_saveStatusIcon(tester).color, isNot(Colors.green));
+    expect(find.byType(SnackBar), findsOneWidget);
   });
 
   testWidgets('new open-ended row warns before replacing edits', (
@@ -372,6 +413,15 @@ Future<void> _openEditorDetails(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+Icon _saveStatusIcon(WidgetTester tester) {
+  return tester.widget<Icon>(
+    find.descendant(
+      of: find.byKey(const ValueKey('document-save-status')),
+      matching: find.byType(Icon),
+    ),
+  );
+}
+
 class _EmbeddedEditorHarness extends StatefulWidget {
   const _EmbeddedEditorHarness();
 
@@ -525,5 +575,15 @@ class _FakeSheetPersistenceService extends SheetPersistenceService {
       savedPath: request.existingPath ?? '/tmp/worklog.csv',
       resolvedFileName: request.fileName,
     );
+  }
+}
+
+class _FailingSheetPersistenceService extends SheetPersistenceService {
+  int attempts = 0;
+
+  @override
+  Future<PersistResult> persistBytes(PersistRequest request) async {
+    attempts += 1;
+    throw StateError('Test write failed.');
   }
 }

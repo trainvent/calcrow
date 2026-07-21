@@ -136,8 +136,16 @@ void main() {
     final clearButton = tester.widget<IconButton>(
       find.byKey(const ValueKey('clear-document-input-fields')),
     );
+    final clearCenter = tester.getCenter(
+      find.byKey(const ValueKey('clear-document-input-fields')),
+    );
+    final saveCenter = tester.getCenter(
+      find.byKey(const ValueKey('document-save-status')),
+    );
     expect(prefillButton.style?.backgroundColor, isNull);
     expect(clearButton.style?.backgroundColor, isNull);
+    expect((clearCenter.dy - saveCenter.dy).abs(), lessThan(1));
+    expect(saveCenter.dx, greaterThan(clearCenter.dx));
     expect(find.byIcon(Icons.backspace_outlined), findsOneWidget);
     expect(find.byIcon(Icons.brush_outlined), findsNothing);
     await tester.tap(find.byKey(const ValueKey('document-prefill-Daily jog')));
