@@ -742,12 +742,11 @@ abstract class AppLocalizations {
   /// **'Entitlement'**
   String get entitlement;
 
-  /// No description provided for @everyTemplateStartsWithDateAsTheFirstColumnPickAStartingPointThenRenameAddRemoveAndReorderTheRemainingFieldsBeforeCreatingTheDocument.
+  /// No description provided for @everyTemplateStartsWithDateAsTheFirstColumn.
   ///
   /// In en, this message translates to:
-  /// **'Every template starts with Date as the first column. Pick a starting point, then rename, add, remove, and reorder the remaining fields before creating the document.'**
-  String
-  get everyTemplateStartsWithDateAsTheFirstColumnPickAStartingPointThenRenameAddRemoveAndReorderTheRemainingFieldsBeforeCreatingTheDocument;
+  /// **'Every template starts with Date as the first column.'**
+  String get everyTemplateStartsWithDateAsTheFirstColumn;
 
   /// No description provided for @explainOpeningModes.
   ///
@@ -1997,11 +1996,35 @@ abstract class AppLocalizations {
   /// **'Customer Service'**
   String get customerService;
 
+  /// No description provided for @distanceOrRepetitions.
+  ///
+  /// In en, this message translates to:
+  /// **'Distance / Repetitions'**
+  String get distanceOrRepetitions;
+
+  /// No description provided for @durationField.
+  ///
+  /// In en, this message translates to:
+  /// **'Duration'**
+  String get durationField;
+
+  /// No description provided for @dynamicWorkoutTracker.
+  ///
+  /// In en, this message translates to:
+  /// **'Dynamic Workout Tracker'**
+  String get dynamicWorkoutTracker;
+
   /// No description provided for @energy.
   ///
   /// In en, this message translates to:
   /// **'Energy'**
   String get energy;
+
+  /// No description provided for @exercize.
+  ///
+  /// In en, this message translates to:
+  /// **'Exercize'**
+  String get exercize;
 
   /// No description provided for @expenses.
   ///
@@ -2232,6 +2255,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Track training sessions without turning the sheet into a fitness app.'**
   String get trackTrainingSessionsWithoutTurningTheSheetIntoAFitnessApp;
+
+  /// No description provided for @trackFlexibleWorkoutsDistanceRepetitionsAndTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Track flexible workouts by distance, repetitions, or time.'**
+  String get trackFlexibleWorkoutsDistanceRepetitionsAndTime;
+
+  /// No description provided for @templateCategoryOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get templateCategoryOther;
+
+  /// No description provided for @templateCategorySports.
+  ///
+  /// In en, this message translates to:
+  /// **'Sports'**
+  String get templateCategorySports;
+
+  /// No description provided for @templateCategoryWork.
+  ///
+  /// In en, this message translates to:
+  /// **'Work'**
+  String get templateCategoryWork;
+
+  /// No description provided for @useTemplate.
+  ///
+  /// In en, this message translates to:
+  /// **'Use template'**
+  String get useTemplate;
 
   /// No description provided for @trackSwimBikeRunAndStrengthWorkInOneRow.
   ///

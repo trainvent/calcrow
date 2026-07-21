@@ -129,6 +129,7 @@ void main() {
 
     expect(find.text('Workout like Bruce Lee'), findsOneWidget);
     expect(find.text('Triathlon Training Tracker Plus'), findsOneWidget);
+    expect(find.text('Sports'), findsOneWidget);
     expect(
       find.text('Track swim, bike, run, and strength work in one row.'),
       findsOneWidget,
@@ -139,8 +140,7 @@ void main() {
     );
     expect(find.textContaining('more'), findsNothing);
 
-    await tester.tap(find.text('Triathlon Training Tracker Plus'));
-    await tester.pumpAndSettle();
+    await _chooseTemplate(tester, 'triathlon_training_tracker_plus');
 
     expect(find.text('Date'), findsOneWidget);
     expect(find.text('Run km'), findsOneWidget);
@@ -151,6 +151,44 @@ void main() {
     expect(find.text('Squats'), findsOneWidget);
   });
 
+  testWidgets('template picker groups templates into categories', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: CreateDocPage()));
+
+    await tester.tap(find.text('Templates'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sports'), findsOneWidget);
+    await _scrollTemplateIntoView(tester, 'Work');
+    expect(find.text('Work'), findsOneWidget);
+    await _scrollTemplateIntoView(tester, 'Other');
+    expect(find.text('Other'), findsOneWidget);
+  });
+
+  testWidgets('template tile expands on tap and only its arrow selects it', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: CreateDocPage()));
+
+    await tester.tap(find.text('Templates'));
+    await tester.pumpAndSettle();
+
+    final description = find.text(
+      'Track training sessions without turning the sheet into a fitness app.',
+    );
+    expect(tester.widget<Text>(description).maxLines, 1);
+
+    await tester.tap(find.text('Workout like Bruce Lee'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Dialog), findsOneWidget);
+    expect(tester.widget<Text>(description).maxLines, isNull);
+
+    await _chooseTemplate(tester, 'bruce_lee_workout');
+    expect(find.byType(Dialog), findsNothing);
+  });
+
   testWidgets('Bruce Lee template uses exercise-specific weight fields', (
     tester,
   ) async {
@@ -158,8 +196,7 @@ void main() {
 
     await tester.tap(find.text('Templates'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Workout like Bruce Lee'));
-    await tester.pumpAndSettle();
+    await _chooseTemplate(tester, 'bruce_lee_workout');
 
     expect(find.text('Run km'), findsOneWidget);
     expect(find.text('Clean and Press weight'), findsOneWidget);
@@ -177,6 +214,25 @@ void main() {
     expect(find.text('Added weight'), findsNothing);
   });
 
+  testWidgets('Dynamic Workout Tracker uses flexible workout fields', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: CreateDocPage()));
+
+    await tester.tap(find.text('Templates'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Dynamic Workout Tracker'));
+    await tester.pumpAndSettle();
+    await _chooseTemplate(tester, 'dynamic_workout_tracker');
+
+    expect(find.text('Date'), findsOneWidget);
+    expect(find.text('Exercize'), findsOneWidget);
+    expect(find.text('Distance / Repetitions'), findsOneWidget);
+    expect(find.text('Duration'), findsOneWidget);
+    expect(find.text('Notes'), findsOneWidget);
+    expect(find.text('duration'), findsOneWidget);
+  });
+
   testWidgets('Triathlon template tracks endurance and strength fields', (
     tester,
   ) async {
@@ -184,8 +240,7 @@ void main() {
 
     await tester.tap(find.text('Templates'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Triathlon Training Tracker Plus'));
-    await tester.pumpAndSettle();
+    await _chooseTemplate(tester, 'triathlon_training_tracker_plus');
 
     expect(find.text('Date'), findsOneWidget);
     expect(find.text('Run km'), findsOneWidget);
@@ -205,8 +260,8 @@ void main() {
 
     await tester.tap(find.text('Templates'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Customer Service'));
-    await tester.pumpAndSettle();
+    await _scrollTemplateIntoView(tester, 'Customer Service');
+    await _chooseTemplate(tester, 'customer_service');
 
     expect(find.text('Date'), findsOneWidget);
     expect(find.text('Customer'), findsOneWidget);
@@ -217,6 +272,22 @@ void main() {
     expect(find.text('Work done'), findsOneWidget);
     expect(find.text('Notes'), findsOneWidget);
   });
+}
+
+Future<void> _scrollTemplateIntoView(WidgetTester tester, String label) async {
+  await tester.scrollUntilVisible(
+    find.text(label),
+    300,
+    scrollable: find
+        .descendant(of: find.byType(Dialog), matching: find.byType(Scrollable))
+        .first,
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> _chooseTemplate(WidgetTester tester, String fileName) async {
+  await tester.tap(find.byKey(ValueKey('select-template-$fileName')));
+  await tester.pumpAndSettle();
 }
 
 String? _fileNameSuffix(WidgetTester tester) {

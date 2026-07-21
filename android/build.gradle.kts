@@ -21,12 +21,14 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
-// Some Flutter plugins still publish JVM 8 metadata. The app itself targets
-// JVM 17; silence only javac's obsolete source/target notice for dependencies.
+// Some Flutter plugins still publish JVM 8 metadata or compile Java sources
+// that use unchecked/deprecated Android APIs. Keep app warnings visible while
+// silencing these upstream-only javac notes for dependency modules.
 subprojects {
     if (name != "app") {
         tasks.withType<JavaCompile>().configureEach {
-            options.compilerArgs.add("-Xlint:-options")
+            options.isWarnings = false
+            options.compilerArgs.add("-XDsuppressNotes")
         }
     }
 }

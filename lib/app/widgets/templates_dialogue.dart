@@ -9,6 +9,7 @@ final documentTemplates = <DocumentTemplate>[
   DocumentTemplate(
     name: (l10n) => l10n.workoutLikeBruceLee,
     fileName: 'bruce_lee_workout',
+    category: TemplateCategory.sports,
     description: (l10n) =>
         l10n.trackTrainingSessionsWithoutTurningTheSheetIntoAFitnessApp,
     columns: <TemplateColumn>[
@@ -30,6 +31,7 @@ final documentTemplates = <DocumentTemplate>[
   DocumentTemplate(
     name: (l10n) => l10n.triathlonTrainingTrackerPlus,
     fileName: 'triathlon_training_tracker_plus',
+    category: TemplateCategory.sports,
     description: (l10n) => l10n.trackSwimBikeRunAndStrengthWorkInOneRow,
     columns: <TemplateColumn>[
       TemplateColumn(header: _date, type: FieldType.date),
@@ -44,6 +46,7 @@ final documentTemplates = <DocumentTemplate>[
   DocumentTemplate(
     name: (l10n) => l10n.customerService,
     fileName: 'customer_service',
+    category: TemplateCategory.work,
     description: (l10n) =>
         l10n.logCustomerVisitsBillableTimeExpensesAndOutcomes,
     columns: <TemplateColumn>[
@@ -58,6 +61,7 @@ final documentTemplates = <DocumentTemplate>[
   DocumentTemplate(
     name: (l10n) => l10n.guestlist,
     fileName: 'guestlist',
+    category: TemplateCategory.other,
     description: (l10n) => l10n.namesContactsAndRSVPStatusForAnEvent,
     columns: <TemplateColumn>[
       TemplateColumn(header: _date, type: FieldType.date),
@@ -71,6 +75,7 @@ final documentTemplates = <DocumentTemplate>[
   DocumentTemplate(
     name: (l10n) => l10n.workhours,
     fileName: 'workhours',
+    category: TemplateCategory.work,
     description: (l10n) => l10n.aCleanDayByDayTimesheetWithBreaksAndNotes,
     columns: <TemplateColumn>[
       TemplateColumn(header: _date, type: FieldType.date),
@@ -83,6 +88,7 @@ final documentTemplates = <DocumentTemplate>[
   DocumentTemplate(
     name: (l10n) => l10n.invoices,
     fileName: 'invoices',
+    category: TemplateCategory.work,
     description: (l10n) => l10n.basicInvoiceTrackingWithDatesClientsAndTotals,
     columns: <TemplateColumn>[
       TemplateColumn(header: _date, type: FieldType.date),
@@ -92,18 +98,35 @@ final documentTemplates = <DocumentTemplate>[
       TemplateColumn(header: _status, type: FieldType.text),
     ],
   ),
+  DocumentTemplate(
+    name: (l10n) => l10n.dynamicWorkoutTracker,
+    fileName: 'dynamic_workout_tracker',
+    category: TemplateCategory.sports,
+    description: (l10n) => l10n.trackFlexibleWorkoutsDistanceRepetitionsAndTime,
+    columns: <TemplateColumn>[
+      TemplateColumn(header: _date, type: FieldType.date),
+      TemplateColumn(header: _exercize, type: FieldType.text),
+      TemplateColumn(header: _distanceOrRepetitions, type: FieldType.text),
+      TemplateColumn(header: _durationField, type: FieldType.duration),
+      TemplateColumn(header: _notes, type: FieldType.text),
+    ],
+  ),
 ];
+
+enum TemplateCategory { sports, work, other }
 
 class DocumentTemplate {
   const DocumentTemplate({
     required this.name,
     required this.fileName,
+    required this.category,
     required this.description,
     required this.columns,
   });
 
   final LocalizedTemplateText name;
   final String fileName;
+  final TemplateCategory category;
   final LocalizedTemplateText description;
   final List<TemplateColumn> columns;
 }
@@ -121,6 +144,10 @@ class TemplateColumn {
 }
 
 String _date(AppLocalizations l10n) => l10n.date;
+String _exercize(AppLocalizations l10n) => l10n.exercize;
+String _distanceOrRepetitions(AppLocalizations l10n) =>
+    l10n.distanceOrRepetitions;
+String _durationField(AppLocalizations l10n) => l10n.durationField;
 String _runKm(AppLocalizations l10n) => l10n.runKm;
 String _cleanAndPressWeight(AppLocalizations l10n) => l10n.cleanAndPressWeight;
 String _barbellCurlWeight(AppLocalizations l10n) => l10n.barbellCurlWeight;
@@ -165,6 +192,12 @@ class TemplatesDialogue extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final categorizedTemplates = <TemplateCategory, List<DocumentTemplate>>{
+      for (final category in TemplateCategory.values)
+        category: templates
+            .where((template) => template.category == category)
+            .toList(growable: false),
+    };
     return Dialog(
       insetPadding: const EdgeInsets.all(20),
       child: ConstrainedBox(
@@ -193,20 +226,35 @@ class TemplatesDialogue extends StatelessWidget {
               Text(
                 context
                     .l10n
-                    .everyTemplateStartsWithDateAsTheFirstColumnPickAStartingPointThenRenameAddRemoveAndReorderTheRemainingFieldsBeforeCreatingTheDocument,
+                    .everyTemplateStartsWithDateAsTheFirstColumn,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 16),
               Expanded(
-                child: ListView.separated(
-                  itemCount: templates.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    return _TemplateOptionTile(template: templates[index]);
-                  },
+                child: ListView(
+                  children: [
+                    for (final category in TemplateCategory.values)
+                      if (categorizedTemplates[category]!.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(4, 8, 4, 10),
+                          child: Text(
+                            _categoryLabel(context.l10n, category),
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        for (final template in categorizedTemplates[category]!)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _TemplateOptionTile(template: template),
+                          ),
+                        const SizedBox(height: 8),
+                      ],
+                  ],
                 ),
               ),
             ],
@@ -217,19 +265,38 @@ class TemplatesDialogue extends StatelessWidget {
   }
 }
 
-class _TemplateOptionTile extends StatelessWidget {
+String _categoryLabel(
+  AppLocalizations localizations,
+  TemplateCategory category,
+) {
+  return switch (category) {
+    TemplateCategory.sports => localizations.templateCategorySports,
+    TemplateCategory.work => localizations.templateCategoryWork,
+    TemplateCategory.other => localizations.templateCategoryOther,
+  };
+}
+
+class _TemplateOptionTile extends StatefulWidget {
   const _TemplateOptionTile({required this.template});
 
   final DocumentTemplate template;
 
   @override
+  State<_TemplateOptionTile> createState() => _TemplateOptionTileState();
+}
+
+class _TemplateOptionTileState extends State<_TemplateOptionTile> {
+  bool _isExpanded = false;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final template = widget.template;
     return Card(
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => Navigator.of(context).pop(template),
+        onTap: () => setState(() => _isExpanded = !_isExpanded),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -244,14 +311,27 @@ class _TemplateOptionTile extends StatelessWidget {
                       style: theme.textTheme.titleMedium,
                     ),
                   ),
-                  const Icon(Icons.chevron_right_rounded),
+                  IconButton(
+                    key: ValueKey('select-template-${template.fileName}'),
+                    tooltip: context.l10n.useTemplate,
+                    onPressed: () => Navigator.of(context).pop(template),
+                    icon: const Icon(Icons.chevron_right_rounded),
+                  ),
                 ],
               ),
               const SizedBox(height: 4),
-              Text(
-                template.description(context.l10n),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+              AnimatedSize(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                child: Text(
+                  template.description(context.l10n),
+                  maxLines: _isExpanded ? null : 1,
+                  overflow: _isExpanded
+                      ? TextOverflow.visible
+                      : TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
               const SizedBox(height: 12),

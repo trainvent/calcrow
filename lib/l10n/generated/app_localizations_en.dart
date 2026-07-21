@@ -352,9 +352,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get entitlement => 'Entitlement';
 
   @override
-  String
-  get everyTemplateStartsWithDateAsTheFirstColumnPickAStartingPointThenRenameAddRemoveAndReorderTheRemainingFieldsBeforeCreatingTheDocument =>
-      'Every template starts with Date as the first column. Pick a starting point, then rename, add, remove, and reorder the remaining fields before creating the document.';
+  String get everyTemplateStartsWithDateAsTheFirstColumn =>
+      'Every template starts with Date as the first column.';
 
   @override
   String get explainOpeningModes => 'Explain opening modes';
@@ -1023,7 +1022,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get customerService => 'Customer Service';
 
   @override
+  String get distanceOrRepetitions => 'Distance / Repetitions';
+
+  @override
+  String get durationField => 'Duration';
+
+  @override
+  String get dynamicWorkoutTracker => 'Dynamic Workout Tracker';
+
+  @override
   String get energy => 'Energy';
+
+  @override
+  String get exercize => 'Exercize';
 
   @override
   String get expenses => 'Expenses';
@@ -1150,6 +1161,22 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get trackTrainingSessionsWithoutTurningTheSheetIntoAFitnessApp =>
       'Track training sessions without turning the sheet into a fitness app.';
+
+  @override
+  String get trackFlexibleWorkoutsDistanceRepetitionsAndTime =>
+      'Track flexible workouts by distance, repetitions, or time.';
+
+  @override
+  String get templateCategoryOther => 'Other';
+
+  @override
+  String get templateCategorySports => 'Sports';
+
+  @override
+  String get templateCategoryWork => 'Work';
+
+  @override
+  String get useTemplate => 'Use template';
 
   @override
   String get trackSwimBikeRunAndStrengthWorkInOneRow =>
