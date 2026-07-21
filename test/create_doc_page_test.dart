@@ -14,6 +14,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Create Document'));
+    await tester.pumpAndSettle();
 
     expect(result?.fileName, 'calcrow_sheet.csv');
     expect(result?.format, SheetFileFormat.csv);
@@ -42,6 +44,8 @@ void main() {
 
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Create Document'));
+    await tester.pumpAndSettle();
 
     expect(result?.fileName, 'calcrow_sheet_2026.xlsx');
     expect(result?.format, SheetFileFormat.xlsx);
@@ -63,6 +67,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(_fileNameSuffix(tester), '_2026.csv');
     await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Create Document'));
     await tester.pumpAndSettle();
 
     expect(result?.fileName, 'calcrow_sheet_2026.csv');
@@ -86,6 +92,8 @@ void main() {
     await tester.tap(find.text('XLSX'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Create Document'));
     await tester.pumpAndSettle();
 
     expect(result?.fileName, 'calcrow_sheet.xlsx');
@@ -112,6 +120,8 @@ void main() {
     expect(_fileNameSuffix(tester), '_2026.ods');
 
     await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Create Document'));
     await tester.pumpAndSettle();
 
     expect(result?.fileName, 'calcrow_sheet_2026.ods');
@@ -238,6 +248,69 @@ void main() {
     expect(find.text('duration'), findsOneWidget);
   });
 
+  testWidgets('dynamic workout can define a weekday multi-field prefill', (
+    tester,
+  ) async {
+    DocumentDraft? result;
+    await _pumpDraftHost(tester, onDraft: (draft) => result = draft);
+
+    await tester.tap(find.text('Open creator'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Templates'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Dynamic Workout Tracker'));
+    await tester.pumpAndSettle();
+    await _chooseTemplate(tester, 'dynamic_workout_tracker');
+
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(find.text('Define prefills'), findsOneWidget);
+    await tester.tap(find.text('Add prefill'));
+    await tester.pumpAndSettle();
+
+    final sheetRect = tester.getRect(
+      find.byKey(const ValueKey('prefill-editor-sheet')),
+    );
+    expect(sheetRect.left, 0);
+    expect(sheetRect.right, 800);
+    expect(sheetRect.top, 56);
+
+    expect(_textFieldWithLabel('Date'), findsNothing);
+    await tester.enterText(_textFieldWithLabel('Prefill name'), 'Daily jog');
+    await tester.enterText(_textFieldWithLabel('Exercize'), 'Jog');
+    await tester.enterText(
+      _textFieldWithLabel('Distance / Repetitions'),
+      '12km',
+    );
+    expect(find.widgetWithText(TextField, 'Hours'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Minutes'), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextField, 'Hours'), '1');
+    await tester.enterText(find.widgetWithText(TextField, 'Minutes'), '30');
+    final toggleAllDays = find.byKey(
+      const ValueKey('weekday-picker-toggle-all'),
+    );
+    await tester.ensureVisible(toggleAllDays);
+    await tester.pumpAndSettle();
+    await tester.tap(toggleAllDays);
+    await tester.ensureVisible(find.text('Wed'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Wed'));
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Daily jog'), findsOneWidget);
+    expect(find.textContaining('Distance / Repetitions: 12km'), findsOneWidget);
+    await tester.tap(find.text('Create Document'));
+    await tester.pumpAndSettle();
+
+    expect(result?.prefills, hasLength(1));
+    expect(result?.prefills.single.name, 'Daily jog');
+    expect(result?.prefills.single.values['Exercize'], 'Jog');
+    expect(result?.prefills.single.values['Distance / Repetitions'], '12km');
+    expect(result?.prefills.single.values['Duration'], '01:30:00');
+    expect(result?.prefills.single.weekdays, <int>{DateTime.wednesday});
+  });
+
   testWidgets('Triathlon template tracks endurance and strength fields', (
     tester,
   ) async {
@@ -293,6 +366,12 @@ Future<void> _scrollTemplateIntoView(WidgetTester tester, String label) async {
 Future<void> _chooseTemplate(WidgetTester tester, String fileName) async {
   await tester.tap(find.byKey(ValueKey('select-template-$fileName')));
   await tester.pumpAndSettle();
+}
+
+Finder _textFieldWithLabel(String label) {
+  return find.byWidgetPredicate(
+    (widget) => widget is TextField && widget.decoration?.labelText == label,
+  );
 }
 
 String? _fileNameSuffix(WidgetTester tester) {

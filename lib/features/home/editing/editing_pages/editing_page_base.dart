@@ -20,10 +20,11 @@ import 'package:calcrow/core/data/services/user_repository.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_service.dart';
 import 'package:calcrow/core/sheet_type_logic/type_hint_cache.dart';
+import 'package:calcrow/core/prefills/document_prefill.dart';
+import 'package:calcrow/core/prefills/document_prefill_cache.dart';
 import 'package:calcrow/features/home/sheet/sheet_preview_store.dart';
-import 'package:calcrow/features/home/editing/widgets/select_time_widget.dart';
-import 'package:calcrow/features/home/editing/widgets/timespan_widget.dart';
 import 'package:calcrow/app/widgets/type_dropdown_list.dart';
+import 'package:calcrow/app/widgets/type_based_input_fields/type_based_input_field.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:trainvent_general/trainvent_general.dart';
 
@@ -203,6 +204,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
   List<TextEditingController> _documentControllers =
       const <TextEditingController>[];
   List<String> _documentEditingBaseline = const <String>[];
+  List<DocumentPrefill> _documentPrefills = const <DocumentPrefill>[];
+  String? _documentPrefillKey;
   excel_pkg.Excel? _documentImportedWorkbook;
   Uint8List? _documentImportedSourceBytes;
   int _documentEditingRowIndex = 0;
@@ -384,10 +387,75 @@ class _EditingPageBaseState extends State<EditingPageBase>
       preferredRowIndex: selection.targetRowIndex,
       preserveSelectedTextTarget: true,
     );
+    unawaited(_loadDocumentPrefills(sheetData, target: target));
     _publishRowsToPreview();
     _modeBehavior.afterLoaded(this);
     unawaited(_rememberOpenConfiguration(sheetData, target: target));
     return true;
+  }
+
+  Future<void> _loadDocumentPrefills(
+    SheetData sheetData, {
+    EditorDocumentTarget? target,
+  }) async {
+    final documentKey = _prefillKeyForDocument(sheetData, target: target);
+    if (documentKey == null) return;
+    _documentPrefillKey = documentKey;
+
+    try {
+      final cached = await DocumentPrefillCache.read(documentKey);
+      if (mounted && _documentPrefillKey == documentKey) {
+        setState(() => _documentPrefills = cached);
+      }
+    } catch (_) {
+      // Remote storage may still provide the prefills.
+    }
+
+    if (!ServiceLocator.isSetup) return;
+    final session = ServiceLocator.authService.currentSession;
+    if (session == null) return;
+    try {
+      final remote = await ServiceLocator.userRepository.readDocumentPrefills(
+        uid: session.uid,
+        documentKey: documentKey,
+      );
+      if (remote == null) return;
+      await DocumentPrefillCache.write(documentKey, remote);
+      if (mounted && _documentPrefillKey == documentKey) {
+        setState(() => _documentPrefills = remote);
+      }
+    } catch (_) {
+      // Cached prefills remain usable while offline.
+    }
+  }
+
+  String? _prefillKeyForDocument(
+    SheetData sheetData, {
+    EditorDocumentTarget? target,
+  }) {
+    if (target is CloudEditorDocumentTarget) {
+      return cloudPrefillDocumentKey(target.provider.name, target.fileId);
+    }
+    final path = target is LocalEditorDocumentTarget
+        ? target.existingPath
+        : sheetData.path;
+    final normalizedPath = path?.trim();
+    if (normalizedPath == null || normalizedPath.isEmpty) return null;
+    return localPrefillDocumentKey(normalizedPath);
+  }
+
+  void _applyDocumentPrefill(DocumentPrefill prefill) {
+    for (final entry in prefill.values.entries) {
+      final index = _documentHeaders.indexOf(entry.key);
+      if (index < 0 || index >= _documentControllers.length) continue;
+      if (index < _documentReadOnlyColumns.length &&
+          _documentReadOnlyColumns[index]) {
+        continue;
+      }
+      if (_isFixedDateField(index)) continue;
+      _documentControllers[index].text = entry.value;
+    }
+    setState(() {});
   }
 
   Future<void> _rememberOpenConfiguration(
@@ -2426,6 +2494,12 @@ class _EditingPageBaseState extends State<EditingPageBase>
         (_supportsLocalFileEditing &&
             _documentDocumentTarget is LocalEditorDocumentTarget);
     final canCreateOpenEndDateRow = _modeBehavior.showsDateOpenEndActions;
+    final prefillDate = dateColumn == null
+        ? DateTime.now()
+        : _documentCurrentEditorDate(dateColumn);
+    final availablePrefills = _documentPrefills
+        .where((prefill) => prefill.isAvailableOn(prefillDate))
+        .toList(growable: false);
 
     return Column(
       children: [
@@ -2521,6 +2595,39 @@ class _EditingPageBaseState extends State<EditingPageBase>
           const SizedBox(height: 10),
         ],
         if (!hasPendingTypeSelection) ...[
+          if (availablePrefills.isNotEmpty) ...[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      context.l10n.prefill,
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(context.l10n.choosePrefillDescription),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final prefill in availablePrefills)
+                          ActionChip(
+                            key: ValueKey('document-prefill-${prefill.name}'),
+                            avatar: const Icon(Icons.auto_awesome_rounded),
+                            label: Text(prefill.name),
+                            onPressed: () => _applyDocumentPrefill(prefill),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -2535,7 +2642,6 @@ class _EditingPageBaseState extends State<EditingPageBase>
                   if (index >= _documentControllers.length) {
                     return const SizedBox.shrink();
                   }
-                  final isDateField = index == dateColumn;
                   final isFormulaField =
                       index < _documentReadOnlyColumns.length &&
                       _documentReadOnlyColumns[index];
@@ -2545,7 +2651,6 @@ class _EditingPageBaseState extends State<EditingPageBase>
                   final isReadOnly = _isFixedDateField(index);
                   final isDurationField =
                       _isDurationType(type) || _isTimespanField(header);
-                  final keyboardType = _keyboardForType(type);
                   final helperType = _localizedEditorTypeLabelFor(
                     context.l10n,
                     type,
@@ -2553,6 +2658,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
                   final helperText = _showFieldTypes
                       ? isReadOnly
                             ? context.l10n.typeLabelFixed(helperType)
+                            : isDurationField
+                            ? context.l10n.typeLabelHoursAndMinutes(helperType)
                             : context.l10n.typeLabel(helperType)
                       : null;
                   return Padding(
@@ -2562,73 +2669,21 @@ class _EditingPageBaseState extends State<EditingPageBase>
                     padding: EdgeInsets.only(
                       bottom: index == _documentHeaders.length - 1 ? 0 : 10,
                     ),
-                    child: !isReadOnly && isDurationField
-                        ? TimespanWidget(
-                            controller: _documentControllers[index],
-                            labelText: header,
-                            helperText: _showFieldTypes
-                                ? context.l10n.typeLabelHoursAndMinutes(
-                                    helperType,
-                                  )
-                                : null,
-                          )
-                        : !isReadOnly && _isTimeType(type)
-                        ? SelectTimeWidget(
-                            controller: _documentControllers[index],
-                            labelText: header,
-                            hintText: _hintForType(
-                              context.l10n,
-                              type,
-                              isDateField: isDateField,
-                            ),
-                            helperText: helperText,
-                          )
-                        : !isReadOnly && type.trim().toLowerCase() == 'date'
-                        ? TextField(
-                            controller: _documentControllers[index],
-                            readOnly: true,
-                            onTap: () => _pickDateValue(index),
-                            decoration: InputDecoration(
-                              labelText: header,
-                              hintText: _hintForType(
-                                context.l10n,
-                                type,
-                                isDateField: isDateField,
-                              ),
-                              helperText: helperText,
-                              suffixIcon: IconButton(
-                                tooltip: context.l10n.selectDate,
-                                onPressed: () => _pickDateValue(index),
-                                icon: const Icon(Icons.calendar_today_rounded),
-                              ),
-                            ),
-                          )
-                        : !isReadOnly && _isBooleanType(type)
-                        ? _buildBooleanField(
-                            columnIndex: index,
-                            labelText: header,
-                            helperText: helperText,
-                          )
-                        : TextField(
-                            controller: _documentControllers[index],
-                            readOnly: isReadOnly,
-                            keyboardType: keyboardType,
-                            decoration: InputDecoration(
-                              labelText: header,
-                              hintText: _hintForType(
-                                context.l10n,
-                                type,
-                                isDateField: isDateField,
-                              ),
-                              helperText: helperText,
-                            ),
-                            minLines: header.toLowerCase().contains('note')
-                                ? 2
-                                : 1,
-                            maxLines: header.toLowerCase().contains('note')
-                                ? 4
-                                : 1,
-                          ),
+                    child: TypeBasedInputField(
+                      controller: _documentControllers[index],
+                      labelText: header,
+                      rawType: type,
+                      readOnly: isReadOnly,
+                      forceDuration: isDurationField,
+                      helperText: helperText,
+                      minLines: header.toLowerCase().contains('note') ? 2 : 1,
+                      maxLines: header.toLowerCase().contains('note') ? 4 : 1,
+                      parseDate: _parseDateFromCellValue,
+                      formatDate: _formatDate,
+                      onChanged: type.trim().toLowerCase() == 'date'
+                          ? () => setState(() {})
+                          : null,
+                    ),
                   );
                 }).where((widget) => widget is! SizedBox).toList(),
               ),
@@ -2732,30 +2787,6 @@ class _EditingPageBaseState extends State<EditingPageBase>
     return type;
   }
 
-  TextInputType _keyboardForType(String rawType) {
-    final type = rawType.trim().toLowerCase();
-    final normalizedType = FieldTypeGuesser.normalizeTypeLabel(rawType);
-    if (normalizedType == 'int') {
-      return const TextInputType.numberWithOptions(signed: true);
-    }
-    if (normalizedType == 'float' || normalizedType == 'money') {
-      return const TextInputType.numberWithOptions(decimal: true);
-    }
-    if (type.contains('mail')) {
-      return TextInputType.emailAddress;
-    }
-    if (type.contains('phone')) {
-      return TextInputType.phone;
-    }
-    if (normalizedType == 'duration') {
-      return const TextInputType.numberWithOptions(decimal: true);
-    }
-    if (normalizedType == 'date' || normalizedType == 'time') {
-      return TextInputType.datetime;
-    }
-    return TextInputType.text;
-  }
-
   bool _isTimeType(String rawType) {
     return rawType.trim().toLowerCase().contains('time');
   }
@@ -2784,58 +2815,6 @@ class _EditingPageBaseState extends State<EditingPageBase>
     return value;
   }
 
-  void _setBooleanValue(int columnIndex, bool? value) {
-    if (columnIndex < 0 || columnIndex >= _documentControllers.length) return;
-    _documentControllers[columnIndex].text = switch (value) {
-      true => 'TRUE',
-      false => 'FALSE',
-      null => '',
-    };
-    setState(() {});
-  }
-
-  Widget _buildBooleanField({
-    required int columnIndex,
-    required String labelText,
-    String? helperText,
-  }) {
-    final rawValue = columnIndex < _documentControllers.length
-        ? _documentControllers[columnIndex].text.trim().toUpperCase()
-        : '';
-    final selected = rawValue == 'TRUE'
-        ? const <bool>{true}
-        : rawValue == 'FALSE'
-        ? const <bool>{false}
-        : const <bool>{};
-    return InputDecorator(
-      decoration: InputDecoration(labelText: labelText, helperText: helperText),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: SegmentedButton<bool>(
-          segments: <ButtonSegment<bool>>[
-            ButtonSegment<bool>(
-              value: true,
-              icon: Icon(Icons.check_rounded),
-              label: Text(context.l10n.trueLabel),
-            ),
-            ButtonSegment<bool>(
-              value: false,
-              icon: Icon(Icons.close_rounded),
-              label: Text(context.l10n.falseLabel),
-            ),
-          ],
-          selected: selected,
-          emptySelectionAllowed: true,
-          showSelectedIcon: false,
-          onSelectionChanged: (selection) {
-            final nextValue = selection.isEmpty ? null : selection.first;
-            _setBooleanValue(columnIndex, nextValue);
-          },
-        ),
-      ),
-    );
-  }
-
   bool _looksLikeDurationValue(String rawValue) {
     final value = rawValue.trim();
     if (value.isEmpty) return true;
@@ -2852,72 +2831,6 @@ class _EditingPageBaseState extends State<EditingPageBase>
     return (_documentOpenMode == EditorOpenMode.dateBased ||
             _documentOpenMode == EditorOpenMode.dateBasedOpenEnd) &&
         columnIndex == _documentDateColumnIndex();
-  }
-
-  Future<void> _pickDateValue(int columnIndex) async {
-    if (columnIndex < 0 || columnIndex >= _documentControllers.length) return;
-
-    final currentValue = _documentControllers[columnIndex].text.trim();
-    final initialDate = _parseDateFromCellValue(currentValue) ?? DateTime.now();
-    final firstDate = DateTime(1900);
-    final lastDate = DateTime(2100);
-    final safeInitialDate = initialDate.isBefore(firstDate)
-        ? firstDate
-        : initialDate.isAfter(lastDate)
-        ? lastDate
-        : initialDate;
-
-    final selectedDate = await showDatePicker(
-      context: context,
-      initialDate: safeInitialDate,
-      firstDate: firstDate,
-      lastDate: lastDate,
-    );
-    if (!mounted || selectedDate == null) return;
-
-    _documentControllers[columnIndex].text = _formatDate(selectedDate);
-    setState(() {});
-  }
-
-  String? _hintForType(
-    AppLocalizations localizations,
-    String rawType, {
-    required bool isDateField,
-  }) {
-    if (isDateField) {
-      return localizations.yyyyMmDd;
-    }
-
-    final type = rawType.trim().toLowerCase();
-    final normalizedType = FieldTypeGuesser.normalizeTypeLabel(rawType);
-    if (normalizedType == 'duration') {
-      return localizations.minutesOrHHMMSS;
-    }
-    if (normalizedType == 'time') {
-      return localizations.hhMmSs;
-    }
-    if (normalizedType == 'date') {
-      return localizations.yyyyMmDd;
-    }
-    if (normalizedType == 'boolean') {
-      return localizations.trueOrFALSE;
-    }
-    if (normalizedType == 'int') {
-      return localizations.exampleInteger;
-    }
-    if (normalizedType == 'float') {
-      return localizations.exampleDecimal;
-    }
-    if (normalizedType == 'money') {
-      return localizations.exampleDecimal;
-    }
-    if (type.contains('email')) {
-      return localizations.exampleEmail;
-    }
-    if (type.contains('phone')) {
-      return localizations.examplePhone;
-    }
-    return null;
   }
 
   Widget _buildSetupView(ThemeData theme) {
@@ -3106,6 +3019,8 @@ class _EditingPageBaseState extends State<EditingPageBase>
       _documentValueTypes = const <String>[];
       _documentReadOnlyColumns = const <bool>[];
       _documentRows = const <List<String>>[];
+      _documentPrefills = const <DocumentPrefill>[];
+      _documentPrefillKey = null;
       _documentControllers = const <TextEditingController>[];
       _documentEditingRowIndex = 0;
       _documentImportedWorkbook = null;

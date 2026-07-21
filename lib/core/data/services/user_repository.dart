@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'package:calcrow/core/prefills/document_prefill.dart';
+
 import 'auth_service.dart';
 import 'db_service.dart';
 
@@ -429,6 +431,49 @@ class UserRepository {
     }, SetOptions(merge: true));
   }
 
+  Future<List<DocumentPrefill>?> readDocumentPrefills({
+    required String uid,
+    required String documentKey,
+  }) async {
+    final settings = await _dbService.getUserSettings(uid);
+    final entries = _parseDocumentPrefillEntries(settings?['documentPrefills']);
+    final normalizedKey = documentKey.trim();
+    final entry = _firstWhereOrNull(
+      entries,
+      (candidate) => candidate.documentKey == normalizedKey,
+    );
+    return entry?.prefills;
+  }
+
+  Future<void> rememberDocumentPrefills({
+    required String uid,
+    required String documentKey,
+    required String fileName,
+    required List<DocumentPrefill> prefills,
+  }) async {
+    final normalizedKey = documentKey.trim();
+    if (normalizedKey.isEmpty) return;
+    final settings = await _dbService.getUserSettings(uid);
+    final entries = _parseDocumentPrefillEntries(settings?['documentPrefills']);
+    final nextEntry = _DocumentPrefillEntry(
+      documentKey: normalizedKey,
+      fileName: fileName.trim(),
+      prefills: prefills,
+      updatedAt: DateTime.now(),
+    );
+    final next = <_DocumentPrefillEntry>[
+      nextEntry,
+      ...entries.where((entry) => entry.documentKey != normalizedKey),
+    ].take(50).toList();
+
+    await _firestore.collection(_usersCollection).doc(uid).set({
+      'settings': {
+        'documentPrefills': next.map((entry) => entry.toMap()).toList(),
+      },
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   Future<List<String>?> readTypeHints({
     required String uid,
     required CloudSyncProvider provider,
@@ -442,6 +487,14 @@ class UserRepository {
       (candidate) => candidate.key == key,
     );
     return entry?.valueTypes;
+  }
+
+  static List<_DocumentPrefillEntry> _parseDocumentPrefillEntries(Object? raw) {
+    if (raw is! List) return const <_DocumentPrefillEntry>[];
+    return raw
+        .map(_DocumentPrefillEntry.fromMap)
+        .whereType<_DocumentPrefillEntry>()
+        .toList(growable: false);
   }
 
   Future<void> rememberTypeHints({
@@ -682,6 +735,51 @@ class UserRepository {
 
   Future<void> clearWebDavSyncFile({required String uid}) {
     return _dbService.clearWebDavSyncFile(uid: uid);
+  }
+}
+
+class _DocumentPrefillEntry {
+  const _DocumentPrefillEntry({
+    required this.documentKey,
+    required this.fileName,
+    required this.prefills,
+    required this.updatedAt,
+  });
+
+  final String documentKey;
+  final String fileName;
+  final List<DocumentPrefill> prefills;
+  final DateTime updatedAt;
+
+  static _DocumentPrefillEntry? fromMap(Object? raw) {
+    if (raw is! Map) return null;
+    final documentKey = UserSettingsData._readTrimmed(raw['documentKey']);
+    if (documentKey == null) return null;
+    final rawPrefills = raw['prefills'];
+    if (rawPrefills is! List) return null;
+    final prefills = rawPrefills
+        .map(DocumentPrefill.fromMap)
+        .whereType<DocumentPrefill>()
+        .toList(growable: false);
+    final updatedAtRaw = UserSettingsData._readTrimmed(raw['updatedAt']);
+    return _DocumentPrefillEntry(
+      documentKey: documentKey,
+      fileName: UserSettingsData._readTrimmed(raw['fileName']) ?? 'document',
+      prefills: prefills,
+      updatedAt: updatedAtRaw == null
+          ? DateTime.fromMillisecondsSinceEpoch(0)
+          : DateTime.tryParse(updatedAtRaw) ??
+                DateTime.fromMillisecondsSinceEpoch(0),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'documentKey': documentKey,
+      'fileName': fileName,
+      'prefills': prefills.map((prefill) => prefill.toMap()).toList(),
+      'updatedAt': updatedAt.toIso8601String(),
+    };
   }
 }
 

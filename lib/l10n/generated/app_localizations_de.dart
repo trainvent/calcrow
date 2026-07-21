@@ -1048,6 +1048,76 @@ class AppLocalizationsDe extends AppLocalizations {
   String get dynamicWorkoutTracker => 'Dynamischer Trainingsplaner';
 
   @override
+  String get definePrefills => 'Vorbelegungen definieren';
+
+  @override
+  String get definePrefillsDescription =>
+      'Erstelle wiederverwendbare Wertesätze für diese Felder. Jede Option kann täglich oder nur an ausgewählten Wochentagen verfügbar sein.';
+
+  @override
+  String get addPrefill => 'Vorbelegung hinzufügen';
+
+  @override
+  String get editPrefill => 'Vorbelegung bearbeiten';
+
+  @override
+  String get prefillName => 'Name der Vorbelegung';
+
+  @override
+  String get prefill => 'Vorbelegung';
+
+  @override
+  String get choosePrefillDescription =>
+      'Wähle eine Option, um ihre gespeicherten Werte in diese Zeile einzutragen.';
+
+  @override
+  String get valuesToPrefill => 'Vorzubelegende Werte';
+
+  @override
+  String get showPrefillOn => 'Vorbelegung anzeigen am';
+
+  @override
+  String get selectAllDays => 'Alle Tage auswählen';
+
+  @override
+  String get clearAllDays => 'Alle Tage abwählen';
+
+  @override
+  String get prefillNeedsNameAndValue =>
+      'Gib einen Namen und mindestens einen Wert ein.';
+
+  @override
+  String get noPrefillsYet =>
+      'Noch keine Vorbelegungen. Du kannst ohne Vorbelegung fortfahren.';
+
+  @override
+  String get deletePrefill => 'Vorbelegung löschen';
+
+  @override
+  String get everyDay => 'Jeden Tag';
+
+  @override
+  String get mondayShort => 'Mo';
+
+  @override
+  String get tuesdayShort => 'Di';
+
+  @override
+  String get wednesdayShort => 'Mi';
+
+  @override
+  String get thursdayShort => 'Do';
+
+  @override
+  String get fridayShort => 'Fr';
+
+  @override
+  String get saturdayShort => 'Sa';
+
+  @override
+  String get sundayShort => 'So';
+
+  @override
   String get energy => 'Energie';
 
   @override

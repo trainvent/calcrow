@@ -1031,6 +1031,74 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dynamicWorkoutTracker => 'Dynamic Workout Tracker';
 
   @override
+  String get definePrefills => 'Define prefills';
+
+  @override
+  String get definePrefillsDescription =>
+      'Create reusable sets of values for these fields. You can make each option available every day or only on selected weekdays.';
+
+  @override
+  String get addPrefill => 'Add prefill';
+
+  @override
+  String get editPrefill => 'Edit prefill';
+
+  @override
+  String get prefillName => 'Prefill name';
+
+  @override
+  String get prefill => 'Prefill';
+
+  @override
+  String get choosePrefillDescription =>
+      'Choose an option to fill its saved values into this row.';
+
+  @override
+  String get valuesToPrefill => 'Values to prefill';
+
+  @override
+  String get showPrefillOn => 'Show this prefill on';
+
+  @override
+  String get selectAllDays => 'Select all days';
+
+  @override
+  String get clearAllDays => 'Clear all days';
+
+  @override
+  String get prefillNeedsNameAndValue => 'Enter a name and at least one value.';
+
+  @override
+  String get noPrefillsYet => 'No prefills yet. You can continue without one.';
+
+  @override
+  String get deletePrefill => 'Delete prefill';
+
+  @override
+  String get everyDay => 'Every day';
+
+  @override
+  String get mondayShort => 'Mon';
+
+  @override
+  String get tuesdayShort => 'Tue';
+
+  @override
+  String get wednesdayShort => 'Wed';
+
+  @override
+  String get thursdayShort => 'Thu';
+
+  @override
+  String get fridayShort => 'Fri';
+
+  @override
+  String get saturdayShort => 'Sat';
+
+  @override
+  String get sundayShort => 'Sun';
+
+  @override
   String get energy => 'Energy';
 
   @override

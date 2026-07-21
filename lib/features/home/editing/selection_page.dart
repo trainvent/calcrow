@@ -16,6 +16,8 @@ import 'package:calcrow/core/data/services/user_repository.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_service.dart';
 import 'package:calcrow/core/sheet_type_logic/type_hint_cache.dart';
+import 'package:calcrow/core/prefills/document_prefill.dart';
+import 'package:calcrow/core/prefills/document_prefill_cache.dart';
 
 import 'create_doc_page.dart';
 import 'editing_pages/editing_page_base.dart';
@@ -305,9 +307,7 @@ class _SelectionPageState extends State<SelectionPage> {
       );
     } on UnsupportedError catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             context.l10n.couldNotSelectDocument(error.message ?? '$error'),
@@ -445,9 +445,7 @@ class _SelectionPageState extends State<SelectionPage> {
         );
       } on UnsupportedError catch (error) {
         if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(context.l10n.importFailed(error.message ?? '$error')),
           ),
@@ -493,14 +491,10 @@ class _SelectionPageState extends State<SelectionPage> {
         );
       } on UnsupportedError catch (error) {
         if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              context.l10n.couldNotOpenCloudDocument(
-                error.message ?? '$error',
-              ),
+              context.l10n.couldNotOpenCloudDocument(error.message ?? '$error'),
             ),
           ),
         );
@@ -822,13 +816,16 @@ class _SelectionPageState extends State<SelectionPage> {
     }
     switch (destination) {
       case _CreateDestination.local:
-        await _createLocalDocument(sheetData);
+        await _createLocalDocument(sheetData, draft.prefills);
       case _CreateDestination.cloud:
-        await _createCloudDocument(sheetData);
+        await _createCloudDocument(sheetData, draft.prefills);
     }
   }
 
-  Future<void> _createLocalDocument(SheetData sheetData) async {
+  Future<void> _createLocalDocument(
+    SheetData sheetData,
+    List<DocumentPrefill> prefills,
+  ) async {
     final localizations = context.l10n;
     try {
       final bytes = SheetFileService.buildBytes(sheetData);
@@ -856,6 +853,11 @@ class _SelectionPageState extends State<SelectionPage> {
         fileName: result.resolvedFileName,
         path: result.savedPath,
         valueTypes: sheetData.valueTypes,
+      );
+      await _rememberDocumentPrefills(
+        documentKey: localPrefillDocumentKey(result.savedPath),
+        fileName: result.resolvedFileName,
+        prefills: prefills,
       );
 
       await _pushEditor(
@@ -894,7 +896,10 @@ class _SelectionPageState extends State<SelectionPage> {
     }
   }
 
-  Future<void> _createCloudDocument(SheetData sheetData) async {
+  Future<void> _createCloudDocument(
+    SheetData sheetData,
+    List<DocumentPrefill> prefills,
+  ) async {
     final localizations = context.l10n;
     final folder = await _pickCloudCreateFolder();
     if (!mounted || folder == null) return;
@@ -922,6 +927,14 @@ class _SelectionPageState extends State<SelectionPage> {
         await ServiceLocator.cloudDocumentService.rememberTypeHints(
           file: metadata,
           valueTypes: sheetData.valueTypes,
+        );
+        await _rememberDocumentPrefills(
+          documentKey: cloudPrefillDocumentKey(
+            metadata.provider.name,
+            metadata.id,
+          ),
+          fileName: metadata.name,
+          prefills: prefills,
         );
 
         await _pushEditor(
@@ -956,6 +969,32 @@ class _SelectionPageState extends State<SelectionPage> {
         );
       }
     });
+  }
+
+  Future<void> _rememberDocumentPrefills({
+    required String documentKey,
+    required String fileName,
+    required List<DocumentPrefill> prefills,
+  }) async {
+    if (prefills.isEmpty) return;
+    try {
+      await DocumentPrefillCache.write(documentKey, prefills);
+    } catch (_) {
+      // A cache failure should not prevent document creation.
+    }
+    if (!ServiceLocator.isSetup) return;
+    final session = ServiceLocator.authService.currentSession;
+    if (session == null) return;
+    try {
+      await ServiceLocator.userRepository.rememberDocumentPrefills(
+        uid: session.uid,
+        documentKey: documentKey,
+        fileName: fileName,
+        prefills: prefills,
+      );
+    } catch (_) {
+      // The local cache remains available when remote persistence fails.
+    }
   }
 
   Future<_CloudFolderPickResult?> _pickCloudCreateFolder() async {

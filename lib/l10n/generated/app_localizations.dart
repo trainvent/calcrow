@@ -2014,6 +2014,138 @@ abstract class AppLocalizations {
   /// **'Dynamic Workout Tracker'**
   String get dynamicWorkoutTracker;
 
+  /// No description provided for @definePrefills.
+  ///
+  /// In en, this message translates to:
+  /// **'Define prefills'**
+  String get definePrefills;
+
+  /// No description provided for @definePrefillsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Create reusable sets of values for these fields. You can make each option available every day or only on selected weekdays.'**
+  String get definePrefillsDescription;
+
+  /// No description provided for @addPrefill.
+  ///
+  /// In en, this message translates to:
+  /// **'Add prefill'**
+  String get addPrefill;
+
+  /// No description provided for @editPrefill.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit prefill'**
+  String get editPrefill;
+
+  /// No description provided for @prefillName.
+  ///
+  /// In en, this message translates to:
+  /// **'Prefill name'**
+  String get prefillName;
+
+  /// No description provided for @prefill.
+  ///
+  /// In en, this message translates to:
+  /// **'Prefill'**
+  String get prefill;
+
+  /// No description provided for @choosePrefillDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an option to fill its saved values into this row.'**
+  String get choosePrefillDescription;
+
+  /// No description provided for @valuesToPrefill.
+  ///
+  /// In en, this message translates to:
+  /// **'Values to prefill'**
+  String get valuesToPrefill;
+
+  /// No description provided for @showPrefillOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Show this prefill on'**
+  String get showPrefillOn;
+
+  /// No description provided for @selectAllDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Select all days'**
+  String get selectAllDays;
+
+  /// No description provided for @clearAllDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all days'**
+  String get clearAllDays;
+
+  /// No description provided for @prefillNeedsNameAndValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a name and at least one value.'**
+  String get prefillNeedsNameAndValue;
+
+  /// No description provided for @noPrefillsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No prefills yet. You can continue without one.'**
+  String get noPrefillsYet;
+
+  /// No description provided for @deletePrefill.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete prefill'**
+  String get deletePrefill;
+
+  /// No description provided for @everyDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Every day'**
+  String get everyDay;
+
+  /// No description provided for @mondayShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Mon'**
+  String get mondayShort;
+
+  /// No description provided for @tuesdayShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Tue'**
+  String get tuesdayShort;
+
+  /// No description provided for @wednesdayShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Wed'**
+  String get wednesdayShort;
+
+  /// No description provided for @thursdayShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Thu'**
+  String get thursdayShort;
+
+  /// No description provided for @fridayShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Fri'**
+  String get fridayShort;
+
+  /// No description provided for @saturdayShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Sat'**
+  String get saturdayShort;
+
+  /// No description provided for @sundayShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Sun'**
+  String get sundayShort;
+
   /// No description provided for @energy.
   ///
   /// In en, this message translates to:

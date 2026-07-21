@@ -5,6 +5,8 @@ import 'package:calcrow/core/guessers/field_type_guesser.dart';
 import 'package:calcrow/core/sheet_type_logic/field_type.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_service.dart';
+import 'package:calcrow/core/prefills/document_prefill.dart';
+import 'package:calcrow/features/home/editing/define_prefills_page.dart';
 import 'package:calcrow/features/home/editing/widgets/moving_tile_widget.dart';
 import 'package:calcrow/app/widgets/type_dropdown_list.dart';
 
@@ -14,6 +16,7 @@ class DocumentDraft {
     required this.format,
     required this.headers,
     required this.valueTypes,
+    this.prefills = const <DocumentPrefill>[],
     this.xlsxSheetName,
   });
 
@@ -21,6 +24,7 @@ class DocumentDraft {
   final SheetFileFormat format;
   final List<String> headers;
   final List<String> valueTypes;
+  final List<DocumentPrefill> prefills;
   final String? xlsxSheetName;
 }
 
@@ -224,6 +228,14 @@ class _CreateDocPageState extends State<CreateDocPage> {
       return;
     }
 
+    final prefills = await Navigator.of(context).push<List<DocumentPrefill>>(
+      MaterialPageRoute(
+        builder: (context) =>
+            DefinePrefillsPage(headers: headers, valueTypes: valueTypes),
+      ),
+    );
+    if (!mounted || prefills == null) return;
+
     Navigator.of(context).pop(
       DocumentDraft(
         fileName: _fileNameWithFormat(
@@ -234,6 +246,7 @@ class _CreateDocPageState extends State<CreateDocPage> {
         format: _format,
         headers: headers,
         valueTypes: valueTypes,
+        prefills: prefills,
         xlsxSheetName:
             _format == SheetFileFormat.xlsx || _format == SheetFileFormat.ods
             ? widget.initialSetup?.xlsxSheetName
