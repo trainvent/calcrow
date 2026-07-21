@@ -224,9 +224,7 @@ class TemplatesDialogue extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                context
-                    .l10n
-                    .everyTemplateStartsWithDateAsTheFirstColumn,
+                context.l10n.everyTemplateStartsWithDateAsTheFirstColumn,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -335,7 +333,15 @@ class _TemplateOptionTileState extends State<_TemplateOptionTile> {
                 ),
               ),
               const SizedBox(height: 12),
-              _TemplateFieldPreview(columns: template.columns),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                child: _TemplateFieldPreview(
+                  columns: template.columns,
+                  expanded: _isExpanded,
+                  templateId: template.fileName,
+                ),
+              ),
             ],
           ),
         ),
@@ -345,26 +351,46 @@ class _TemplateOptionTileState extends State<_TemplateOptionTile> {
 }
 
 class _TemplateFieldPreview extends StatelessWidget {
-  const _TemplateFieldPreview({required this.columns});
+  const _TemplateFieldPreview({
+    required this.columns,
+    required this.expanded,
+    required this.templateId,
+  });
 
   final List<TemplateColumn> columns;
+  final bool expanded;
+  final String templateId;
 
   @override
   Widget build(BuildContext context) {
     final previewColumns = columns
         .where((column) => column.type != FieldType.date)
         .toList(growable: false);
+    final chips = [
+      for (final column in previewColumns)
+        Chip(
+          label: Text(column.header(context.l10n)),
+          avatar: Icon(_iconForType(column.type), size: 18),
+          visualDensity: VisualDensity.compact,
+        ),
+    ];
+
+    if (expanded) {
+      return Wrap(
+        key: ValueKey('expanded-template-fields-$templateId'),
+        spacing: 8,
+        runSpacing: 8,
+        children: chips,
+      );
+    }
+
     final chipStrip = SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          for (var index = 0; index < previewColumns.length; index++) ...[
-            Chip(
-              label: Text(previewColumns[index].header(context.l10n)),
-              avatar: Icon(_iconForType(previewColumns[index].type), size: 18),
-              visualDensity: VisualDensity.compact,
-            ),
-            if (index < previewColumns.length - 1) const SizedBox(width: 8),
+          for (var index = 0; index < chips.length; index++) ...[
+            chips[index],
+            if (index < chips.length - 1) const SizedBox(width: 8),
           ],
         ],
       ),

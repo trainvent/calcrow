@@ -184,6 +184,11 @@ void main() {
 
     expect(find.byType(Dialog), findsOneWidget);
     expect(tester.widget<Text>(description).maxLines, isNull);
+    expect(
+      find.byKey(const ValueKey('expanded-template-fields-bruce_lee_workout')),
+      findsOneWidget,
+    );
+    expect(find.text('Barbell Pullover weight'), findsOneWidget);
 
     await _chooseTemplate(tester, 'bruce_lee_workout');
     expect(find.byType(Dialog), findsNothing);
