@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:calcrow/l10n/app_localizations.dart';
+import 'package:calcrow/app/widgets/dual_text_button.dart';
 import 'package:calcrow/app/widgets/templates_dialogue.dart';
 import 'package:calcrow/core/guessers/field_type_guesser.dart';
 import 'package:calcrow/core/sheet_type_logic/field_type.dart';
@@ -238,10 +239,19 @@ class _CreateDocPageState extends State<CreateDocPage> {
       return;
     }
 
-    final prefills = await Navigator.of(context).push<List<DocumentPrefill>>(
+    final navigator = Navigator.of(context);
+    final creationRoute = ModalRoute.of(context);
+    final prefills = await navigator.push<List<DocumentPrefill>>(
       MaterialPageRoute(
-        builder: (context) =>
-            DefinePrefillsPage(headers: headers, valueTypes: valueTypes),
+        builder: (context) => DefinePrefillsPage(
+          headers: headers,
+          valueTypes: valueTypes,
+          onConfirmedCancel: () {
+            if (creationRoute == null) return;
+            navigator.popUntil((route) => route == creationRoute);
+            navigator.pop();
+          },
+        ),
       ),
     );
     if (!mounted || prefills == null) return;
@@ -263,8 +273,6 @@ class _CreateDocPageState extends State<CreateDocPage> {
           : null,
     );
 
-    final navigator = Navigator.of(context);
-    final creationRoute = ModalRoute.of(context);
     var creationHandledOnLocationPage = false;
     final destination = await navigator.push<CreateDestination>(
       MaterialPageRoute(
@@ -582,22 +590,11 @@ class _CreateDocPageState extends State<CreateDocPage> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(context.l10n.cancel),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton(
-                  onPressed: _submit,
-                  child: Text(context.l10n.continueLabel),
-                ),
-              ),
-            ],
+          child: DualTextButton(
+            secondaryLabel: context.l10n.cancel,
+            onSecondaryPressed: () => Navigator.of(context).pop(),
+            primaryLabel: context.l10n.continueLabel,
+            onPrimaryPressed: _submit,
           ),
         ),
       ),

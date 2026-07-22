@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:calcrow/app/widgets/app_header_bottom_sheet.dart';
+import 'package:calcrow/app/widgets/dual_text_button.dart';
 import 'package:calcrow/app/widgets/type_based_input_fields/type_based_input_field.dart';
 import 'package:calcrow/app/widgets/weekday_picker_widget.dart';
 import 'package:calcrow/core/prefills/document_prefill.dart';
@@ -13,12 +14,14 @@ class DefinePrefillsPage extends StatefulWidget {
     required this.valueTypes,
     this.initialPrefills = const <DocumentPrefill>[],
     this.submitLabel,
+    this.onConfirmedCancel,
   });
 
   final List<String> headers;
   final List<String> valueTypes;
   final List<DocumentPrefill> initialPrefills;
   final String? submitLabel;
+  final VoidCallback? onConfirmedCancel;
 
   @override
   State<DefinePrefillsPage> createState() => _DefinePrefillsPageState();
@@ -61,6 +64,34 @@ class _DefinePrefillsPageState extends State<DefinePrefillsPage> {
         initial: initial,
       ),
     );
+  }
+
+  Future<void> _cancel() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(context.l10n.cancelDocumentConfiguration),
+        content: Text(context.l10n.allDocumentConfigurationWillBeLost),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(context.l10n.keepEditing),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(context.l10n.discard),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+
+    final onConfirmedCancel = widget.onConfirmedCancel;
+    if (onConfirmedCancel != null) {
+      onConfirmedCancel();
+      return;
+    }
+    Navigator.of(context).pop();
   }
 
   @override
@@ -106,12 +137,13 @@ class _DefinePrefillsPageState extends State<DefinePrefillsPage> {
       ),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.all(16),
-        child: FilledButton.icon(
-          onPressed: () => Navigator.of(
+        child: DualTextButton(
+          secondaryLabel: context.l10n.cancel,
+          onSecondaryPressed: _cancel,
+          primaryLabel: widget.submitLabel ?? context.l10n.createDocument,
+          onPrimaryPressed: () => Navigator.of(
             context,
           ).pop(List<DocumentPrefill>.unmodifiable(_prefills)),
-          icon: const Icon(Icons.check_rounded),
-          label: Text(widget.submitLabel ?? context.l10n.createDocument),
         ),
       ),
     );

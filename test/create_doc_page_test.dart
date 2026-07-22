@@ -61,6 +61,49 @@ void main() {
     expect(find.text('Selection backdrop'), findsOneWidget);
   });
 
+  testWidgets('discarding prefills quits creation and returns to selection', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Column(
+              children: [
+                const Text('Selection backdrop'),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).push<void>(
+                    MaterialPageRoute(
+                      builder: (context) => const CreateDocPage(),
+                    ),
+                  ),
+                  child: const Text('Open creator'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open creator'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Define prefills'), findsOneWidget);
+    expect(find.text('Selection backdrop'), findsNothing);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Discard'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Define prefills'), findsNothing);
+    expect(find.text('Create Document'), findsNothing);
+    expect(find.text('Selection backdrop'), findsOneWidget);
+  });
+
   testWidgets('plain create setup defaults to CSV without sheet separation', (
     tester,
   ) async {

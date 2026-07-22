@@ -66,6 +66,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cancel => 'Cancel';
 
   @override
+  String get cancelDocumentConfiguration => 'Cancel document configuration?';
+
+  @override
+  String get allDocumentConfigurationWillBeLost =>
+      'All configuration will be lost. Are you sure you want to return to Selection?';
+
+  @override
+  String get keepEditing => 'Keep editing';
+
+  @override
   String get changePassword => 'Change password';
 
   @override

@@ -18,6 +18,7 @@ import 'package:calcrow/core/sheet_type_logic/sheet_file_service.dart';
 import 'package:calcrow/core/sheet_type_logic/type_hint_cache.dart';
 import 'package:calcrow/core/prefills/document_prefill.dart';
 import 'package:calcrow/core/prefills/document_prefill_cache.dart';
+import 'package:calcrow/app/widgets/dual_text_button.dart';
 
 import 'create_doc_page.dart';
 import 'choose_file_location_page.dart';
@@ -1566,48 +1567,23 @@ class _SelectionPageState extends State<SelectionPage> {
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: SizedBox(
-                        height: 56,
-                        child: OutlinedButton(
-                          onPressed: _setRecentOpeningConfiguration,
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(context.l10n.setRecent),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: SizedBox(
-                        height: 56,
-                        child: FilledButton(
-                          onPressed:
-                              _isOpeningDocument ||
-                                  _isChoosingCloudFile ||
-                                  (_documentSetupAction == _SetupAction.open &&
-                                      _effectiveDocumentSource ==
-                                          _DocumentSource.local &&
-                                      !_hasRememberedLocalDocument)
-                              ? null
-                              : _documentSetupAction == _SetupAction.open
-                              ? _openSelectedDocument
-                              : _createDocument,
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              _documentSetupAction == _SetupAction.open
-                                  ? context.l10n.openAction
-                                  : context.l10n.createAction,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                child: DualTextButton(
+                  secondaryLabel: context.l10n.setRecent,
+                  onSecondaryPressed: _setRecentOpeningConfiguration,
+                  primaryLabel: _documentSetupAction == _SetupAction.open
+                      ? context.l10n.openAction
+                      : context.l10n.createAction,
+                  onPrimaryPressed:
+                      _isOpeningDocument ||
+                          _isChoosingCloudFile ||
+                          (_documentSetupAction == _SetupAction.open &&
+                              _effectiveDocumentSource ==
+                                  _DocumentSource.local &&
+                              !_hasRememberedLocalDocument)
+                      ? null
+                      : _documentSetupAction == _SetupAction.open
+                      ? _openSelectedDocument
+                      : _createDocument,
                 ),
               ),
             ),

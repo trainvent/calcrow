@@ -207,6 +207,24 @@ abstract class AppLocalizations {
   /// **'Cancel'**
   String get cancel;
 
+  /// No description provided for @cancelDocumentConfiguration.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel document configuration?'**
+  String get cancelDocumentConfiguration;
+
+  /// No description provided for @allDocumentConfigurationWillBeLost.
+  ///
+  /// In en, this message translates to:
+  /// **'All configuration will be lost. Are you sure you want to return to Selection?'**
+  String get allDocumentConfigurationWillBeLost;
+
+  /// No description provided for @keepEditing.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep editing'**
+  String get keepEditing;
+
   /// No description provided for @changePassword.
   ///
   /// In en, this message translates to:
