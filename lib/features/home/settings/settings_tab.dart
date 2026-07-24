@@ -21,6 +21,7 @@ import 'package:calcrow/core/data/services/user_repository.dart';
 import 'package:calcrow/core/data/services/webdav_service.dart';
 import 'package:calcrow/core/providers/app_providers.dart';
 import 'package:calcrow/core/theme/app_text_styles.dart';
+import 'package:calcrow/core/theme/app_layout_constants.dart';
 import 'package:calcrow/features/auth/sign_in_sheet.dart';
 
 import 'data_collection_page.dart';
@@ -183,14 +184,14 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
         : ref.watch(userSettingsProvider(session.uid)).asData?.value;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      padding: AppLayoutConstants.pageContentPadding,
       children: [
         Text(
           context.l10n.settings,
           key: const ValueKey('settings-page-title'),
           style: AppTextStyles.pageTitle,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppLayoutConstants.pageHeaderBottomSpacing),
         if (session == null)
           Card(
             child: ListTile(

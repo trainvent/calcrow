@@ -23,6 +23,7 @@ import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_service.dart';
 import 'package:calcrow/core/sheet_type_logic/type_hint_cache.dart';
 import 'package:calcrow/core/theme/app_text_styles.dart';
+import 'package:calcrow/core/theme/app_layout_constants.dart';
 import 'package:calcrow/core/prefills/document_prefill.dart';
 import 'package:calcrow/core/prefills/document_prefill_cache.dart';
 import 'package:calcrow/features/home/sheet/sheet_preview_store.dart';
@@ -2567,7 +2568,7 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
     return Stack(
       children: [
         ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
+          padding: AppLayoutConstants.pageContentPadding,
           children: [
             _TopHeader(
               isAdvancedMode: _isAdvancedMode,
@@ -2616,7 +2617,7 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
               onToggleMode: _toggleMode,
               onToggleWidget: _setupDone ? _toggleWidget : null,
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppLayoutConstants.pageHeaderBottomSpacing),
             if (!_isAdvancedMode) ...[
               _buildView(theme),
             ] else if (!_setupDone) ...[
@@ -3339,60 +3340,92 @@ class _TopHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
-          children: [
-            if (showBackButton) ...[
-              IconButton(
-                tooltip: context.l10n.back,
-                onPressed: onBack,
-                icon: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.asset(
-                    'assets/images/AppIcon_1024_square.png',
-                    key: const ValueKey('editor-app-icon'),
-                    width: 32,
-                    height: 32,
-                    fit: BoxFit.cover,
-                  ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (showBackButton) ...[
+          Transform.translate(
+            offset: const Offset(
+              0,
+              AppLayoutConstants.pageHeaderControlVerticalOffset,
+            ),
+            child: IconButton(
+              tooltip: context.l10n.back,
+              onPressed: onBack,
+              alignment: Alignment.topLeft,
+              style: IconButton.styleFrom(
+                minimumSize: const Size.square(
+                  AppLayoutConstants.pageHeaderIconSize,
+                ),
+                maximumSize: const Size.square(
+                  AppLayoutConstants.pageHeaderIconSize,
+                ),
+                padding: EdgeInsets.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              icon: ClipRRect(
+                borderRadius: BorderRadius.circular(
+                  AppLayoutConstants.pageHeaderIconRadius,
+                ),
+                child: Image.asset(
+                  'assets/images/AppIcon_1024_square.png',
+                  key: const ValueKey('editor-app-icon'),
+                  width: AppLayoutConstants.pageHeaderIconSize,
+                  height: AppLayoutConstants.pageHeaderIconSize,
+                  fit: BoxFit.cover,
                 ),
               ),
-              const SizedBox(width: 10),
-            ],
-            Expanded(
-              child: Text(
-                headerTitle,
-                key: const ValueKey('editor-page-title'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.pageTitle,
-              ),
             ),
-            if (isAdvancedMode && setupDone)
-              PopupMenuButton<_WidgetBlock>(
-                tooltip: context.l10n.manageWidgets,
-                icon: const Icon(Icons.more_horiz_rounded),
-                onSelected: onToggleWidget,
-                itemBuilder: (context) => widgetOptions.map((block) {
-                  return CheckedPopupMenuItem<_WidgetBlock>(
-                    value: block,
-                    checked: visibleWidgets.contains(block),
-                    child: Text(_labelForWidget(block)),
-                  );
-                }).toList(),
-              ),
-            if (isAdvancedMode && setupDone) const SizedBox(width: 6),
-            if (showModeSwitch)
-              TextButton(
-                onPressed: onToggleMode,
-                child: Text(isAdvancedMode ? 'Advanced' : 'Core'),
-              ),
-            if (showModeSwitch) const SizedBox(width: 6),
-            ...trailingActions,
-          ],
+          ),
+          const SizedBox(width: AppLayoutConstants.pageHeaderIconGap),
+        ],
+        Expanded(
+          child: Text(
+            headerTitle,
+            key: const ValueKey('editor-page-title'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.pageTitle,
+          ),
         ),
+        if (isAdvancedMode && setupDone)
+          _alignedHeaderControl(
+            PopupMenuButton<_WidgetBlock>(
+              tooltip: context.l10n.manageWidgets,
+              icon: const Icon(Icons.more_horiz_rounded),
+              onSelected: onToggleWidget,
+              itemBuilder: (context) => widgetOptions.map((block) {
+                return CheckedPopupMenuItem<_WidgetBlock>(
+                  value: block,
+                  checked: visibleWidgets.contains(block),
+                  child: Text(_labelForWidget(block)),
+                );
+              }).toList(),
+            ),
+          ),
+        if (isAdvancedMode && setupDone) const SizedBox(width: 6),
+        if (showModeSwitch)
+          _alignedHeaderControl(
+            TextButton(
+              onPressed: onToggleMode,
+              child: Text(isAdvancedMode ? 'Advanced' : 'Core'),
+            ),
+          ),
+        if (showModeSwitch) const SizedBox(width: 6),
+        ...trailingActions.map(_alignedHeaderControl),
+      ],
+    );
+  }
+
+  static Widget _alignedHeaderControl(Widget child) {
+    return Transform.translate(
+      offset: const Offset(
+        0,
+        AppLayoutConstants.pageHeaderControlVerticalOffset,
+      ),
+      child: SizedBox(
+        height: AppLayoutConstants.pageHeaderIconSize,
+        child: child,
       ),
     );
   }

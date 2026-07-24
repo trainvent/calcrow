@@ -35,6 +35,13 @@ void main() {
           .style,
       AppTextStyles.pageTitle,
     );
+    expect(
+      find.ancestor(
+        of: find.byKey(const ValueKey('selector-page-title')),
+        matching: find.byType(Card),
+      ),
+      findsNothing,
+    );
     expect(find.byKey(const ValueKey('selector-app-icon')), findsOneWidget);
     expect(find.text('Opening Mode'), findsOneWidget);
     expect(find.text('Choose Document'), findsOneWidget);
@@ -105,10 +112,31 @@ void main() {
           .style,
       AppTextStyles.pageTitle,
     );
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('editor-page-title')))
+          .style
+          ?.fontSize,
+      AppTextStyles.pageTitleFontSize,
+    );
+    expect(
+      find.ancestor(
+        of: find.byKey(const ValueKey('editor-page-title')),
+        matching: find.byType(Card),
+      ),
+      findsNothing,
+    );
+    final editorTitlePosition = tester.getTopLeft(
+      find.byKey(const ValueKey('editor-page-title')),
+    );
     await tester.tap(find.byTooltip('Back'));
     await tester.pump();
 
     expect(find.text('Selector'), findsOneWidget);
+    final selectorTitlePosition = tester.getTopLeft(
+      find.byKey(const ValueKey('selector-page-title')),
+    );
+    expect((editorTitlePosition - selectorTitlePosition).distance, lessThan(1));
     expect(find.text('Opening Mode'), findsOneWidget);
     expect(find.text('worklog.csv'), findsNothing);
     expect(find.byKey(_EmbeddedEditorHarness.bottomNavKey), findsOneWidget);

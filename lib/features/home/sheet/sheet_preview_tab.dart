@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:calcrow/l10n/app_localizations.dart';
 import 'package:calcrow/core/theme/app_text_styles.dart';
+import 'package:calcrow/core/theme/app_layout_constants.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -107,11 +108,12 @@ class _SheetPreviewTabState extends ConsumerState<SheetPreviewTab> {
       560.0,
     );
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
+      padding: AppLayoutConstants.pageContentPadding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Text(
@@ -130,7 +132,7 @@ class _SheetPreviewTabState extends ConsumerState<SheetPreviewTab> {
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppLayoutConstants.pageHeaderBottomSpacing),
           if (rowPickRequest != null) ...[
             Text(rowPickRequest.subtitle, style: theme.textTheme.bodyLarge),
           ] else if (preview.fileName != null) ...[

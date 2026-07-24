@@ -21,6 +21,7 @@ import 'package:calcrow/core/sheet_type_logic/sheet_file_service.dart';
 import 'package:calcrow/core/sheet_type_logic/type_hint_cache.dart';
 import 'package:calcrow/core/sheet_type_logic/xlsx_codec.dart';
 import 'package:calcrow/core/theme/app_text_styles.dart';
+import 'package:calcrow/core/theme/app_layout_constants.dart';
 import 'package:calcrow/core/prefills/document_prefill.dart';
 import 'package:calcrow/core/prefills/document_prefill_cache.dart';
 import 'package:calcrow/app/widgets/dual_text_button.dart';
@@ -1558,39 +1559,40 @@ class _SelectionPageState extends ConsumerState<SelectionPage> {
     return Stack(
       children: [
         ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
+          padding: AppLayoutConstants.pageContentPadding,
           children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-                child: Row(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.asset(
-                        'assets/images/AppIcon_1024_square.png',
-                        key: const ValueKey('selector-app-icon'),
-                        width: 32,
-                        height: 32,
-                        fit: BoxFit.cover,
-                      ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Transform.translate(
+                  offset: const Offset(
+                    0,
+                    AppLayoutConstants.pageHeaderControlVerticalOffset,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(
+                      AppLayoutConstants.pageHeaderIconRadius,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        context.l10n.selector,
-                        key: const ValueKey('selector-page-title'),
-                        style: AppTextStyles.pageTitle,
-                      ),
+                    child: Image.asset(
+                      'assets/images/AppIcon_1024_square.png',
+                      key: const ValueKey('selector-app-icon'),
+                      width: AppLayoutConstants.pageHeaderIconSize,
+                      height: AppLayoutConstants.pageHeaderIconSize,
+                      fit: BoxFit.cover,
                     ),
-                  ],
+                  ),
                 ),
-              ),
+                const SizedBox(width: AppLayoutConstants.pageHeaderIconGap),
+                Expanded(
+                  child: Text(
+                    context.l10n.selector,
+                    key: const ValueKey('selector-page-title'),
+                    style: AppTextStyles.pageTitle,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppLayoutConstants.pageHeaderBottomSpacing),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
