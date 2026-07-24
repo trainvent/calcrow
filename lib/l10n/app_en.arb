@@ -282,7 +282,7 @@
   "wellbeing": "Wellbeing",
   "widgetLayoutIsLockedBecauseThisCSVAlreadyHasEntries": "Widget layout is locked because this CSV already has entries.",
   "workhours": "Workhours",
-  "worklogEditor": "worklog editor",
+  "worklogEditor": "sheet editor",
   "yearly": "Yearly",
   "accountSettings": "Account Settings",
   "advanced": "Advanced",

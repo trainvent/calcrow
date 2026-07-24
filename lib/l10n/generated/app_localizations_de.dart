@@ -941,7 +941,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get workhours => 'Arbeitszeiten';
 
   @override
-  String get worklogEditor => 'Arbeitszeit-Editor';
+  String get worklogEditor => 'Tabellen-Editor';
 
   @override
   String get yearly => 'Jährlich';

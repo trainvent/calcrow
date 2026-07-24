@@ -1801,7 +1801,7 @@ abstract class AppLocalizations {
   /// No description provided for @worklogEditor.
   ///
   /// In en, this message translates to:
-  /// **'worklog editor'**
+  /// **'sheet editor'**
   String get worklogEditor;
 
   /// No description provided for @yearly.
