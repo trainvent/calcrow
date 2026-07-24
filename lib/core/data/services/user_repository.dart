@@ -156,6 +156,7 @@ class UserSettingsData {
   const UserSettingsData({
     this.defaultDateFormat = 'YYYY-MM-DD',
     this.languageCode,
+    this.themeMode,
     this.diagnosticsConsentCompleted = false,
     this.usageAnalyticsEnabled = false,
     this.crashReportsEnabled = false,
@@ -181,6 +182,7 @@ class UserSettingsData {
 
   final String defaultDateFormat;
   final String? languageCode;
+  final String? themeMode;
   final bool diagnosticsConsentCompleted;
   final bool usageAnalyticsEnabled;
   final bool crashReportsEnabled;
@@ -232,6 +234,7 @@ class UserSettingsData {
           ? (settings['defaultDateFormat'] as String).trim()
           : 'YYYY-MM-DD',
       languageCode: _supportedLanguageCode(settings['languageCode']),
+      themeMode: _supportedThemeMode(settings['themeMode']),
       diagnosticsConsentCompleted:
           settings['diagnosticsConsentCompleted'] == true,
       usageAnalyticsEnabled: settings['usageAnalyticsEnabled'] == true,
@@ -276,6 +279,11 @@ class UserSettingsData {
   static String? _supportedLanguageCode(Object? value) {
     final code = _readTrimmed(value)?.toLowerCase();
     return code == 'en' || code == 'de' ? code : null;
+  }
+
+  static String? _supportedThemeMode(Object? value) {
+    final mode = _readTrimmed(value)?.toLowerCase();
+    return mode == 'system' || mode == 'light' || mode == 'dark' ? mode : null;
   }
 
   static List<WebDavSavedEntry> _parseWebDavEntries(
@@ -390,6 +398,19 @@ class UserRepository {
     }
     return _firestore.collection(_usersCollection).doc(uid).set({
       'settings': {'languageCode': normalized},
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> setThemeMode({required String uid, required String themeMode}) {
+    final normalized = themeMode.trim().toLowerCase();
+    if (normalized != 'system' &&
+        normalized != 'light' &&
+        normalized != 'dark') {
+      throw ArgumentError.value(themeMode, 'themeMode');
+    }
+    return _firestore.collection(_usersCollection).doc(uid).set({
+      'settings': {'themeMode': normalized},
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }

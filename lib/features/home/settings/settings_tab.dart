@@ -20,6 +20,7 @@ import 'package:calcrow/core/data/services/sheet_persistence_service.dart';
 import 'package:calcrow/core/data/services/user_repository.dart';
 import 'package:calcrow/core/data/services/webdav_service.dart';
 import 'package:calcrow/core/providers/app_providers.dart';
+import 'package:calcrow/core/theme/app_text_styles.dart';
 import 'package:calcrow/features/auth/sign_in_sheet.dart';
 
 import 'data_collection_page.dart';
@@ -56,10 +57,51 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
         settings?.languageCode ??
         Localizations.localeOf(context).languageCode;
     final effectiveLanguage = selectedLanguage == 'de' ? 'de' : 'en';
+    final themeMode = ref.watch(effectiveThemeModeProvider);
     return Card(
       child: Column(
         children: [
           _buildSectionHeader(context, title: context.l10n.lookAndFeel),
+          const Divider(height: 1),
+          ListTile(
+            leading: Icon(switch (themeMode) {
+              ThemeMode.system => Icons.brightness_auto_rounded,
+              ThemeMode.light => Icons.light_mode_rounded,
+              ThemeMode.dark => Icons.dark_mode_rounded,
+            }),
+            title: Text(context.l10n.appearance),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<ThemeMode>(
+                segments: <ButtonSegment<ThemeMode>>[
+                  ButtonSegment(
+                    value: ThemeMode.system,
+                    icon: const Icon(Icons.brightness_auto_rounded),
+                    label: Text(context.l10n.themeSystem),
+                  ),
+                  ButtonSegment(
+                    value: ThemeMode.light,
+                    icon: const Icon(Icons.light_mode_rounded),
+                    label: Text(context.l10n.themeLight),
+                  ),
+                  ButtonSegment(
+                    value: ThemeMode.dark,
+                    icon: const Icon(Icons.dark_mode_rounded),
+                    label: Text(context.l10n.themeDark),
+                  ),
+                ],
+                selected: <ThemeMode>{themeMode},
+                onSelectionChanged: (selection) {
+                  ref
+                      .read(themeModeProvider.notifier)
+                      .setThemeMode(selection.first, uid: session?.uid);
+                },
+              ),
+            ),
+          ),
           const Divider(height: 1),
           ListTile(
             leading: const Icon(Icons.translate_rounded),
@@ -135,10 +177,7 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final session =
-        ref.watch(authSessionProvider).asData?.value ??
-        ref.read(authServiceProvider).currentSession;
+    final session = ref.watch(authSessionProvider).asData?.value;
     final settings = session == null
         ? null
         : ref.watch(userSettingsProvider(session.uid)).asData?.value;
@@ -146,7 +185,11 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
-        Text(context.l10n.settings, style: theme.textTheme.headlineLarge),
+        Text(
+          context.l10n.settings,
+          key: const ValueKey('settings-page-title'),
+          style: AppTextStyles.pageTitle,
+        ),
         const SizedBox(height: 12),
         if (session == null)
           Card(

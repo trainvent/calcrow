@@ -1,5 +1,6 @@
 import 'package:calcrow/core/data/services/sheet_persistence_service.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
+import 'package:calcrow/core/theme/app_text_styles.dart';
 import 'package:calcrow/features/home/editing/selection_page.dart';
 import 'package:calcrow/features/home/editing/editing_pages/editing_page_base.dart';
 import 'package:calcrow/features/home/sheet/sheet_preview_store.dart';
@@ -28,6 +29,12 @@ void main() {
     await tester.pump();
 
     expect(find.text('Selector'), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('selector-page-title')))
+          .style,
+      AppTextStyles.pageTitle,
+    );
     expect(find.byKey(const ValueKey('selector-app-icon')), findsOneWidget);
     expect(find.text('Opening Mode'), findsOneWidget);
     expect(find.text('Choose Document'), findsOneWidget);
@@ -92,6 +99,12 @@ void main() {
 
     expect(find.byKey(const ValueKey('editor-app-icon')), findsOneWidget);
     expect(find.byIcon(Icons.arrow_back_rounded), findsNothing);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('editor-page-title')))
+          .style,
+      AppTextStyles.pageTitle,
+    );
     await tester.tap(find.byTooltip('Back'));
     await tester.pump();
 

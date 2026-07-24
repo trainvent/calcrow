@@ -1,5 +1,6 @@
 import 'package:calcrow/features/home/sheet/sheet_preview_store.dart';
 import 'package:calcrow/features/home/sheet/sheet_preview_tab.dart';
+import 'package:calcrow/core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -42,6 +43,12 @@ void main() {
     expect(find.text('entry-105'), findsOneWidget);
     expect(find.text('entry-204'), findsOneWidget);
     expect(find.text('205 rows'), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('sheet-preview-page-title')))
+          .style,
+      AppTextStyles.pageTitle,
+    );
     expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
     expect(find.text(' > 106)'), findsOneWidget);
     expect(find.text(' • 1 column'), findsOneWidget);

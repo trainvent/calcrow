@@ -1,5 +1,6 @@
 class IConst {
   static const String appName = 'Calcrow';
+  static const String themeModeKey = 'calcrow.theme_mode';
   static const String privacyPolicyUrl = String.fromEnvironment(
     'PRIVACY_POLICY_URL',
     defaultValue: 'https://calcrow.com/privacy-policy/',

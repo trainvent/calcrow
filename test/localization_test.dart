@@ -103,6 +103,17 @@ void main() {
     );
   });
 
+  test('reads only supported theme modes from the user profile', () {
+    expect(
+      UserSettingsData.fromMap(const {'themeMode': 'DARK'}).themeMode,
+      'dark',
+    );
+    expect(
+      UserSettingsData.fromMap(const {'themeMode': 'sepia'}).themeMode,
+      isNull,
+    );
+  });
+
   test('reads diagnostics consent choices from the user profile', () {
     final settings = UserSettingsData.fromMap(const {
       'diagnosticsConsentCompleted': true,

@@ -20,10 +20,13 @@ class CalcrowApp extends ConsumerWidget {
     if (ServiceLocator.isSetup) {
       ref.watch(appServiceCoordinatorProvider);
     }
-    return _buildForLocale(ref.watch(effectiveLocaleProvider));
+    return _buildForLocale(
+      ref.watch(effectiveLocaleProvider),
+      ref.watch(effectiveThemeModeProvider),
+    );
   }
 
-  Widget _buildForLocale(Locale? locale) {
+  Widget _buildForLocale(Locale? locale, ThemeMode themeMode) {
     if (_showMarketingLanding()) {
       return MaterialApp(
         locale: locale,
@@ -32,6 +35,8 @@ class CalcrowApp extends ConsumerWidget {
         supportedLocales: AppLocalizations.supportedLocales,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
+        darkTheme: AppTheme.dark(),
+        themeMode: themeMode,
         home: _WebSelectionHost(child: const MarketingLandingPage()),
       );
     }
@@ -44,6 +49,8 @@ class CalcrowApp extends ConsumerWidget {
         supportedLocales: AppLocalizations.supportedLocales,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
+        darkTheme: AppTheme.dark(),
+        themeMode: themeMode,
         home: _AdsConsentHost(
           enabled: !_showMarketingLanding(),
           child: _WebSelectionHost(
@@ -56,10 +63,18 @@ class CalcrowApp extends ConsumerWidget {
       );
     }
 
-    return _buildMaterialApp(locale: locale, child: const _AuthGate());
+    return _buildMaterialApp(
+      locale: locale,
+      themeMode: themeMode,
+      child: const _AuthGate(),
+    );
   }
 
-  Widget _buildMaterialApp({required Locale? locale, required Widget child}) {
+  Widget _buildMaterialApp({
+    required Locale? locale,
+    required ThemeMode themeMode,
+    required Widget child,
+  }) {
     return MaterialApp(
       locale: locale,
       onGenerateTitle: (context) => context.l10n.calcrow,
@@ -67,6 +82,8 @@ class CalcrowApp extends ConsumerWidget {
       supportedLocales: AppLocalizations.supportedLocales,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: themeMode,
       home: _AdsConsentHost(
         enabled: !_showMarketingLanding(),
         child: _WebSelectionHost(

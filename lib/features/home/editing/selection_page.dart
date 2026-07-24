@@ -20,6 +20,7 @@ import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_service.dart';
 import 'package:calcrow/core/sheet_type_logic/type_hint_cache.dart';
 import 'package:calcrow/core/sheet_type_logic/xlsx_codec.dart';
+import 'package:calcrow/core/theme/app_text_styles.dart';
 import 'package:calcrow/core/prefills/document_prefill.dart';
 import 'package:calcrow/core/prefills/document_prefill_cache.dart';
 import 'package:calcrow/app/widgets/dual_text_button.dart';
@@ -1581,7 +1582,8 @@ class _SelectionPageState extends ConsumerState<SelectionPage> {
                     Expanded(
                       child: Text(
                         context.l10n.selector,
-                        style: theme.textTheme.titleMedium,
+                        key: const ValueKey('selector-page-title'),
+                        style: AppTextStyles.pageTitle,
                       ),
                     ),
                   ],

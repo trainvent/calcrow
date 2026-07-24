@@ -12,6 +12,7 @@ import 'core/data/di/service_locator.dart';
 import 'core/data/services/diagnostics_service.dart';
 import 'core/data/services/ads_consent_service.dart';
 import 'core/data/services/purchases_service.dart';
+import 'core/providers/app_providers.dart';
 
 // ...
 
@@ -19,10 +20,16 @@ import 'app/app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final initialThemeMode = await loadStoredThemeMode();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   ServiceLocator.setup();
   await installDiagnosticsErrorHandlers();
-  runApp(const ProviderScope(child: CalcrowApp()));
+  runApp(
+    ProviderScope(
+      overrides: [initialThemeModeProvider.overrideWithValue(initialThemeMode)],
+      child: const CalcrowApp(),
+    ),
+  );
   unawaited(_initializeOptionalServices());
 }
 

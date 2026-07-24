@@ -42,4 +42,22 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('uses the selected light, dark, or system theme mode', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          effectiveThemeModeProvider.overrideWithValue(ThemeMode.dark),
+        ],
+        child: const CalcrowApp(),
+      ),
+    );
+
+    final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(app.themeMode, ThemeMode.dark);
+    expect(app.darkTheme?.brightness, Brightness.dark);
+    expect(app.theme?.brightness, Brightness.light);
+  });
 }
