@@ -2,187 +2,247 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:calcrow/l10n/app_localizations.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'sheet_preview_store.dart';
 
-class SheetPreviewTab extends StatefulWidget {
+class SheetPreviewTab extends ConsumerStatefulWidget {
   const SheetPreviewTab({super.key});
 
   @override
-  State<SheetPreviewTab> createState() => _SheetPreviewTabState();
+  ConsumerState<SheetPreviewTab> createState() => _SheetPreviewTabState();
 }
 
-class _SheetPreviewTabState extends State<SheetPreviewTab> {
+class _SheetPreviewTabState extends ConsumerState<SheetPreviewTab> {
   static const int _maxPreviewRows = 100;
   static const int _maxPreviewColumns = 15;
   static const Duration _rowPickConfirmDelay = Duration(milliseconds: 260);
 
+  final ScrollController _verticalScrollController = ScrollController();
+  final ScrollController _horizontalScrollController = ScrollController();
+  Object? _lastAutoScrollSignature;
   int? _confirmingRowIndex;
+
+  @override
+  void dispose() {
+    _verticalScrollController.dispose();
+    _horizontalScrollController.dispose();
+    super.dispose();
+  }
+
+  void _scheduleInitialScrollToBottom(SheetPreviewData preview) {
+    if (preview.rows.isEmpty) return;
+    final signature = (
+      preview.fileName,
+      preview.rowCount,
+      identityHashCode(preview.rows),
+    );
+    if (_lastAutoScrollSignature == signature) return;
+    _lastAutoScrollSignature = signature;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_verticalScrollController.hasClients) return;
+      _verticalScrollController.jumpTo(
+        _verticalScrollController.position.maxScrollExtent,
+      );
+    });
+  }
 
   Future<void> _confirmRowPick(int rowIndex) async {
     if (_confirmingRowIndex != null) return;
     setState(() => _confirmingRowIndex = rowIndex);
     await Future<void>.delayed(_rowPickConfirmDelay);
     if (!mounted) return;
-    if (SheetPreviewStore.rowPickRequest.value?.canPick(rowIndex) != true) {
+    if (ref.read(sheetPreviewRowPickProvider)?.canPick(rowIndex) != true) {
       setState(() => _confirmingRowIndex = null);
       return;
     }
-    SheetPreviewStore.pickRow(rowIndex);
+    ref.read(sheetPreviewActionsProvider.notifier).pickRow(rowIndex);
     setState(() => _confirmingRowIndex = null);
   }
 
   Future<void> _confirmNewEntryPick() async {
     if (_confirmingRowIndex != null) return;
-    setState(
-      () => _confirmingRowIndex = SheetPreviewStore.createNewEntryPickIndex,
-    );
+    setState(() => _confirmingRowIndex = createNewEntryPickIndex);
     await Future<void>.delayed(_rowPickConfirmDelay);
     if (!mounted) return;
-    if (SheetPreviewStore.rowPickRequest.value?.allowCreateNewEntry != true) {
+    if (ref.read(sheetPreviewRowPickProvider)?.allowCreateNewEntry != true) {
       setState(() => _confirmingRowIndex = null);
       return;
     }
-    SheetPreviewStore.pickNewEntry();
+    ref.read(sheetPreviewActionsProvider.notifier).pickNewEntry();
     setState(() => _confirmingRowIndex = null);
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return ValueListenableBuilder<SheetPreviewData>(
-      valueListenable: SheetPreviewStore.notifier,
-      builder: (context, preview, _) {
-        return ValueListenableBuilder<SheetPreviewRowPickRequest?>(
-          valueListenable: SheetPreviewStore.rowPickRequest,
-          builder: (context, rowPickRequest, _) {
-            final previewHeaders = preview.headers
-                .take(_maxPreviewColumns)
-                .toList();
-            final previewRows = preview.rows
-                .take(_maxPreviewRows)
-                .map(
-                  (row) => List<String>.generate(
-                    previewHeaders.length,
-                    (index) => index < row.length ? row[index] : '-',
+    final preview = ref.watch(sheetPreviewProvider);
+    final rowPickRequest = ref.watch(sheetPreviewRowPickProvider);
+    _scheduleInitialScrollToBottom(preview);
+    final previewHeaders = preview.headers.take(_maxPreviewColumns).toList();
+    final previewStartRowIndex = math.max(
+      0,
+      preview.rows.length - _maxPreviewRows,
+    );
+    final previewRows = preview.rows.indexed
+        .skip(previewStartRowIndex)
+        .map(
+          (entry) => (
+            entry.$1,
+            List<String>.generate(
+              previewHeaders.length,
+              (index) => index < entry.$2.length ? entry.$2[index] : '-',
+            ),
+          ),
+        )
+        .toList();
+    final hasRows = previewRows.isNotEmpty;
+    final tableHeight = (MediaQuery.sizeOf(context).height * 0.48).clamp(
+      220.0,
+      420.0,
+    );
+    final minTableWidth = math.max(
+      (previewHeaders.length * 140).toDouble(),
+      560.0,
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  rowPickRequest?.title ?? context.l10n.sheetPreview,
+                  style: theme.textTheme.headlineLarge,
+                ),
+              ),
+              if (rowPickRequest != null)
+                TextButton.icon(
+                  onPressed: ref
+                      .read(sheetPreviewActionsProvider.notifier)
+                      .cancelRowPick,
+                  icon: const Icon(Icons.close_rounded),
+                  label: Text(context.l10n.cancel),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (rowPickRequest != null) ...[
+            Text(rowPickRequest.subtitle, style: theme.textTheme.bodyLarge),
+          ] else if (preview.fileName != null) ...[
+            Text(
+              preview.fileName!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleMedium,
+            ),
+            const SizedBox(height: 2),
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  context.l10n.previewRowCount(preview.rowCount),
+                  style: theme.textTheme.bodyMedium,
+                ),
+                if (hasRows) ...[
+                  Text(' (', style: theme.textTheme.bodyMedium),
+                  Icon(
+                    Icons.visibility_outlined,
+                    size: 16,
+                    color: theme.textTheme.bodyMedium?.color,
                   ),
-                )
-                .toList();
-            final hasRows = previewRows.isNotEmpty;
-            final tableHeight = (MediaQuery.sizeOf(context).height * 0.48)
-                .clamp(220.0, 420.0);
-            final minTableWidth = math.max(
-              (previewHeaders.length * 140).toDouble(),
-              560.0,
-            );
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          rowPickRequest?.title ?? context.l10n.sheetPreview,
-                          style: theme.textTheme.headlineLarge,
-                        ),
-                      ),
-                      if (rowPickRequest != null)
-                        TextButton.icon(
-                          onPressed: SheetPreviewStore.cancelRowPick,
-                          icon: const Icon(Icons.close_rounded),
-                          label: Text(context.l10n.cancel),
-                        ),
-                    ],
+                  Text(
+                    ' > ${previewStartRowIndex + 1})',
+                    style: theme.textTheme.bodyMedium,
                   ),
-                  const SizedBox(height: 8),
-                  if (rowPickRequest != null) ...[
-                    Text(
-                      rowPickRequest.subtitle,
-                      style: theme.textTheme.bodyLarge,
-                    ),
-                  ] else if (preview.fileName != null) ...[
-                    Text(
-                      preview.fileName!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      context.l10n.rowsAndColumns(
-                        preview.rowCount,
-                        previewHeaders.length,
-                      ),
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                  ] else
-                    Text(
-                      context.l10n.noFileLoadedYet,
-                      style: theme.textTheme.bodyLarge,
-                    ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            return ClipRect(
-                              child: InteractiveViewer(
-                                constrained: false,
-                                panEnabled: true,
-                                scaleEnabled: false,
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    minWidth: math.max(
-                                      constraints.maxWidth,
-                                      minTableWidth,
-                                    ),
-                                    minHeight: math.max(
-                                      constraints.maxHeight,
-                                      tableHeight,
-                                    ),
+                ],
+                Text(
+                  ' • ${context.l10n.previewColumnCount(previewHeaders.length)}',
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ] else
+            Text(
+              context.l10n.noFileLoadedYet,
+              style: theme.textTheme.bodyLarge,
+            ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return ClipRect(
+                      child: Scrollbar(
+                        controller: _verticalScrollController,
+                        thumbVisibility: true,
+                        thickness: 2,
+                        radius: const Radius.circular(1),
+                        interactive: false,
+                        scrollbarOrientation: ScrollbarOrientation.right,
+                        child: SingleChildScrollView(
+                          controller: _verticalScrollController,
+                          child: Scrollbar(
+                            controller: _horizontalScrollController,
+                            thumbVisibility: true,
+                            thickness: 2,
+                            radius: const Radius.circular(1),
+                            interactive: false,
+                            scrollbarOrientation: ScrollbarOrientation.bottom,
+                            child: SingleChildScrollView(
+                              controller: _horizontalScrollController,
+                              scrollDirection: Axis.horizontal,
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minWidth: math.max(
+                                    constraints.maxWidth,
+                                    minTableWidth,
                                   ),
-                                  child: DataTable(
-                                    showCheckboxColumn: false,
-                                    columns: <DataColumn>[
-                                      if (rowPickRequest != null)
-                                        const DataColumn(
-                                          label: SizedBox(width: 28),
-                                        ),
-                                      ...previewHeaders.map(
-                                        (label) =>
-                                            DataColumn(label: Text(label)),
+                                  minHeight: math.max(
+                                    constraints.maxHeight,
+                                    tableHeight,
+                                  ),
+                                ),
+                                child: DataTable(
+                                  showCheckboxColumn: false,
+                                  columns: <DataColumn>[
+                                    if (rowPickRequest != null)
+                                      const DataColumn(
+                                        label: SizedBox(width: 28),
                                       ),
-                                    ],
-                                    rows: _buildPreviewRows(
-                                      previewRows: previewRows,
-                                      previewHeaders: previewHeaders,
-                                      hasRows: hasRows,
-                                      rowPickRequest: rowPickRequest,
+                                    ...previewHeaders.map(
+                                      (label) => DataColumn(label: Text(label)),
                                     ),
+                                  ],
+                                  rows: _buildPreviewRows(
+                                    previewRows: previewRows,
+                                    previewHeaders: previewHeaders,
+                                    hasRows: hasRows,
+                                    rowPickRequest: rowPickRequest,
                                   ),
                                 ),
                               ),
-                            );
-                          },
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                ],
+                    );
+                  },
+                ),
               ),
-            );
-          },
-        );
-      },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   List<DataRow> _buildPreviewRows({
-    required List<List<String>> previewRows,
+    required List<(int, List<String>)> previewRows,
     required List<String> previewHeaders,
     required bool hasRows,
     required SheetPreviewRowPickRequest? rowPickRequest,
@@ -190,13 +250,12 @@ class _SheetPreviewTabState extends State<SheetPreviewTab> {
     final rows = <DataRow>[
       for (final entry
           in (hasRows
-                  ? previewRows
-                  : rowPickRequest == null
-                  ? <List<String>>[
-                      List<String>.filled(previewHeaders.length, '-'),
-                    ]
-                  : const <List<String>>[])
-              .indexed)
+              ? previewRows
+              : rowPickRequest == null
+              ? <(int, List<String>)>[
+                  (0, List<String>.filled(previewHeaders.length, '-')),
+                ]
+              : const <(int, List<String>)>[]))
         _buildPreviewDataRow(
           rowIndex: entry.$1,
           row: entry.$2,
@@ -212,9 +271,7 @@ class _SheetPreviewTabState extends State<SheetPreviewTab> {
           cells: <DataCell>[
             DataCell(
               _NewEntryIndicator(
-                confirming:
-                    _confirmingRowIndex ==
-                    SheetPreviewStore.createNewEntryPickIndex,
+                confirming: _confirmingRowIndex == createNewEntryPickIndex,
               ),
             ),
             ...List<DataCell>.generate(

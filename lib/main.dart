@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'firebase_options.dart';
 import 'core/constants/internal_constants.dart';
 import 'core/data/di/service_locator.dart';
@@ -21,7 +22,7 @@ Future<void> main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   ServiceLocator.setup();
   await installDiagnosticsErrorHandlers();
-  runApp(const CalcrowApp());
+  runApp(const ProviderScope(child: CalcrowApp()));
   unawaited(_initializeOptionalServices());
 }
 

@@ -1,77 +1,26 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:calcrow/l10n/app_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/data/di/service_locator.dart';
-import '../core/data/services/auth_service.dart';
-import '../core/data/services/purchases_service.dart';
 import '../core/data/services/user_repository.dart';
+import '../core/providers/app_providers.dart';
 import '../features/home/home_shell.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import 'presentation/marketing_landing_page.dart';
-import 'theme/app_theme.dart';
+import '../core/theme/app_theme.dart';
 
-class CalcrowApp extends StatefulWidget {
+class CalcrowApp extends ConsumerWidget {
   const CalcrowApp({super.key});
 
   @override
-  State<CalcrowApp> createState() => _CalcrowAppState();
-}
-
-class _CalcrowAppState extends State<CalcrowApp> {
-  StreamSubscription<AuthSession?>? _authSubscription;
-  StreamSubscription<EntitlementTier>? _entitlementSubscription;
-  StreamSubscription<UserSettingsData>? _settingsSubscription;
-  String? _currentRevenueCatUid;
-
-  @override
-  void initState() {
-    super.initState();
-    if (!ServiceLocator.isSetup) {
-      return;
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (ServiceLocator.isSetup) {
+      ref.watch(appServiceCoordinatorProvider);
     }
-    _currentRevenueCatUid = ServiceLocator.authService.currentSession?.uid;
-    _watchLanguageSettings(ServiceLocator.authService.currentSession);
-    _authSubscription = ServiceLocator.authService.authStateChanges().listen((
-      session,
-    ) async {
-      _currentRevenueCatUid = session?.uid;
-      _watchLanguageSettings(session);
-      await PurchasesService.instance.syncAppUser(
-        session?.uid,
-        email: session?.email,
-      );
-      await PurchasesService.instance.refreshCustomerInfo();
-    });
-    _entitlementSubscription = PurchasesService.instance.entitlementStream
-        .listen((tier) async {
-          final uid = _currentRevenueCatUid;
-          if (uid == null) return;
-          await ServiceLocator.userRepository.setIsPro(
-            uid: uid,
-            isPro: tier == EntitlementTier.pro,
-          );
-        });
-  }
-
-  @override
-  void dispose() {
-    _authSubscription?.cancel();
-    _entitlementSubscription?.cancel();
-    _settingsSubscription?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<String?>(
-      valueListenable: AppLanguageController.languageCode,
-      builder: (context, languageCode, child) =>
-          _buildForLocale(AppLanguageController.locale),
-    );
+    return _buildForLocale(ref.watch(effectiveLocaleProvider));
   }
 
   Widget _buildForLocale(Locale? locale) {
@@ -137,21 +86,6 @@ class _CalcrowAppState extends State<CalcrowApp> {
     GlobalCupertinoLocalizations.delegate,
   ];
 
-  void _watchLanguageSettings(AuthSession? session) {
-    _settingsSubscription?.cancel();
-    _settingsSubscription = null;
-    if (session == null) {
-      AppLanguageController.setLanguageCode(null);
-      return;
-    }
-    _settingsSubscription = ServiceLocator.userRepository
-        .watchUserSettings(session.uid)
-        .listen(
-          (settings) =>
-              AppLanguageController.setLanguageCode(settings.languageCode),
-        );
-  }
-
   bool _showMarketingLanding() {
     if (!kIsWeb) return false;
     final uri = Uri.base;
@@ -163,43 +97,28 @@ class _CalcrowAppState extends State<CalcrowApp> {
   }
 }
 
-class _AuthGate extends StatelessWidget {
+class _AuthGate extends ConsumerWidget {
   const _AuthGate();
 
   @override
-  Widget build(BuildContext context) {
-    final initialSession = ServiceLocator.authService.currentSession;
-    return StreamBuilder<AuthSession?>(
-      stream: ServiceLocator.authService.authStateChanges(),
-      initialData: initialSession,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting &&
-            initialSession == null) {
-          return const Scaffold();
-        }
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sessionState = ref.watch(authSessionProvider);
+    final session = sessionState.asData?.value;
+    if (sessionState.isLoading && session == null) {
+      return const Scaffold();
+    }
+    if (session == null) {
+      return const _AppEntry(isSignedIn: false);
+    }
+    if (session.emailVerified) {
+      return const _AppEntry(isSignedIn: true);
+    }
 
-        final session = snapshot.data;
-        if (session == null) {
-          return const _AppEntry(isSignedIn: false);
-        }
-        if (session.emailVerified) {
-          return const _AppEntry(isSignedIn: true);
-        }
-
-        return StreamBuilder<bool>(
-          stream: ServiceLocator.dbService.watchUserEmailVerified(session.uid),
-          builder: (context, verificationSnapshot) {
-            if (verificationSnapshot.connectionState ==
-                ConnectionState.waiting) {
-              return const Scaffold();
-            }
-
-            final isSignedIn = verificationSnapshot.data ?? false;
-            return _AppEntry(isSignedIn: isSignedIn);
-          },
-        );
-      },
-    );
+    final verificationState = ref.watch(emailVerifiedProvider(session.uid));
+    if (verificationState.isLoading) {
+      return const Scaffold();
+    }
+    return _AppEntry(isSignedIn: verificationState.asData?.value ?? false);
   }
 }
 
@@ -215,17 +134,17 @@ class _WebSelectionHost extends StatelessWidget {
   }
 }
 
-class _AdsConsentHost extends StatefulWidget {
+class _AdsConsentHost extends ConsumerStatefulWidget {
   const _AdsConsentHost({required this.child, required this.enabled});
 
   final Widget child;
   final bool enabled;
 
   @override
-  State<_AdsConsentHost> createState() => _AdsConsentHostState();
+  ConsumerState<_AdsConsentHost> createState() => _AdsConsentHostState();
 }
 
-class _AdsConsentHostState extends State<_AdsConsentHost> {
+class _AdsConsentHostState extends ConsumerState<_AdsConsentHost> {
   bool _hasChecked = false;
   bool _isRefreshing = false;
 
@@ -246,7 +165,7 @@ class _AdsConsentHostState extends State<_AdsConsentHost> {
     if (!mounted || !widget.enabled || !ServiceLocator.isSetup) return;
     if (_hasChecked || _isRefreshing) return;
 
-    final adsConsent = ServiceLocator.adsConsentService;
+    final adsConsent = ref.read(adsConsentServiceProvider);
     if (!adsConsent.isSupported) {
       _hasChecked = true;
       return;
@@ -278,43 +197,22 @@ class _AppEntry extends StatelessWidget {
   }
 }
 
-class _DiagnosticsConsentHost extends StatefulWidget {
+class _DiagnosticsConsentHost extends ConsumerStatefulWidget {
   const _DiagnosticsConsentHost({required this.child, required this.enabled});
 
   final Widget child;
   final bool enabled;
 
   @override
-  State<_DiagnosticsConsentHost> createState() =>
+  ConsumerState<_DiagnosticsConsentHost> createState() =>
       _DiagnosticsConsentHostState();
 }
 
-class _DiagnosticsConsentHostState extends State<_DiagnosticsConsentHost> {
-  StreamSubscription<AuthSession?>? _authSubscription;
+class _DiagnosticsConsentHostState
+    extends ConsumerState<_DiagnosticsConsentHost> {
   bool _hasChecked = false;
   bool _isChecking = false;
   bool _isShowing = false;
-
-  @override
-  void initState() {
-    super.initState();
-    if (!ServiceLocator.isSetup) return;
-    _authSubscription = ServiceLocator.authService.authStateChanges().listen((
-      session,
-    ) {
-      if (session == null) return;
-      _hasChecked = false;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _maybeShowDiagnosticsConsent();
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _authSubscription?.cancel();
-    super.dispose();
-  }
 
   @override
   void didChangeDependencies() {
@@ -326,6 +224,13 @@ class _DiagnosticsConsentHostState extends State<_DiagnosticsConsentHost> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(authSessionProvider, (previous, next) {
+      if (next.asData?.value == null) return;
+      _hasChecked = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _maybeShowDiagnosticsConsent();
+      });
+    });
     return widget.child;
   }
 
@@ -333,20 +238,20 @@ class _DiagnosticsConsentHostState extends State<_DiagnosticsConsentHost> {
     if (!mounted || !widget.enabled || !ServiceLocator.isSetup) return;
     if (_hasChecked || _isChecking || _isShowing) return;
 
-    final session = ServiceLocator.authService.currentSession;
+    final session = ref.read(authServiceProvider).currentSession;
     if (session == null) return;
 
     _isChecking = true;
-    final diagnostics = ServiceLocator.diagnosticsService;
+    final diagnostics = ref.read(diagnosticsServiceProvider);
     try {
       await diagnostics.init();
       if (!mounted) return;
 
       UserSettingsData settings;
       try {
-        settings = await ServiceLocator.userRepository.getUserSettings(
-          session.uid,
-        );
+        settings = await ref
+            .read(userRepositoryProvider)
+            .getUserSettings(session.uid);
       } catch (_) {
         // Never ask again merely because the profile could not be reached.
         _hasChecked = true;
@@ -368,11 +273,13 @@ class _DiagnosticsConsentHostState extends State<_DiagnosticsConsentHost> {
         _hasChecked = true;
         await diagnostics.associateConsentWithUser(session.uid);
         try {
-          await ServiceLocator.userRepository.saveDiagnosticsConsent(
-            uid: session.uid,
-            usageAnalyticsEnabled: diagnostics.usageAnalyticsEnabled,
-            crashReportsEnabled: diagnostics.crashReportsEnabled,
-          );
+          await ref
+              .read(userRepositoryProvider)
+              .saveDiagnosticsConsent(
+                uid: session.uid,
+                usageAnalyticsEnabled: diagnostics.usageAnalyticsEnabled,
+                crashReportsEnabled: diagnostics.crashReportsEnabled,
+              );
         } catch (_) {
           // Keep the local choice and retry profile migration next launch.
         }
@@ -400,11 +307,13 @@ class _DiagnosticsConsentHostState extends State<_DiagnosticsConsentHost> {
       );
       await diagnostics.associateConsentWithUser(session.uid);
       try {
-        await ServiceLocator.userRepository.saveDiagnosticsConsent(
-          uid: session.uid,
-          usageAnalyticsEnabled: result.usageAnalyticsEnabled,
-          crashReportsEnabled: result.crashReportsEnabled,
-        );
+        await ref
+            .read(userRepositoryProvider)
+            .saveDiagnosticsConsent(
+              uid: session.uid,
+              usageAnalyticsEnabled: result.usageAnalyticsEnabled,
+              crashReportsEnabled: result.crashReportsEnabled,
+            );
       } catch (_) {
         // The local completion flag still prevents a repeated prompt.
       }
@@ -415,21 +324,22 @@ class _DiagnosticsConsentHostState extends State<_DiagnosticsConsentHost> {
   }
 }
 
-class _DiagnosticsConsentSheet extends StatefulWidget {
+class _DiagnosticsConsentSheet extends ConsumerStatefulWidget {
   const _DiagnosticsConsentSheet();
 
   @override
-  State<_DiagnosticsConsentSheet> createState() =>
+  ConsumerState<_DiagnosticsConsentSheet> createState() =>
       _DiagnosticsConsentSheetState();
 }
 
-class _DiagnosticsConsentSheetState extends State<_DiagnosticsConsentSheet> {
+class _DiagnosticsConsentSheetState
+    extends ConsumerState<_DiagnosticsConsentSheet> {
   bool _usageAnalyticsEnabled = false;
   bool _crashReportsEnabled = false;
 
   @override
   Widget build(BuildContext context) {
-    final diagnostics = ServiceLocator.diagnosticsService;
+    final diagnostics = ref.read(diagnosticsServiceProvider);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return SafeArea(

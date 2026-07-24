@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:trainvent_general/trainvent_general.dart';
 
 import 'package:calcrow/l10n/app_localizations.dart';
 
@@ -82,7 +83,7 @@ class _ChooseFileLocationPageState extends State<ChooseFileLocationPage> {
               child: AbsorbPointer(
                 child: ColoredBox(
                   color: theme.colorScheme.surface.withValues(alpha: 0.82),
-                  child: const Center(child: CircularProgressIndicator()),
+                  child: const Center(child: TriangleLoadingIndicator()),
                 ),
               ),
             ),

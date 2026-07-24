@@ -10,12 +10,14 @@ class DualTextButton extends StatelessWidget {
     super.key,
     required this.secondaryLabel,
     required this.onSecondaryPressed,
+    this.secondaryIcon,
     required this.primaryLabel,
     required this.onPrimaryPressed,
   });
 
   final String secondaryLabel;
   final VoidCallback? onSecondaryPressed;
+  final IconData? secondaryIcon;
   final String primaryLabel;
   final VoidCallback? onPrimaryPressed;
 
@@ -31,7 +33,16 @@ class DualTextButton extends StatelessWidget {
               onPressed: onSecondaryPressed,
               child: FittedBox(
                 fit: BoxFit.scaleDown,
-                child: Text(secondaryLabel),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (secondaryIcon != null) ...[
+                      Icon(secondaryIcon, size: 20),
+                      const SizedBox(width: 6),
+                    ],
+                    Text(secondaryLabel),
+                  ],
+                ),
               ),
             ),
           ),

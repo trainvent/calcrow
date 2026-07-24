@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:calcrow/l10n/app_localizations.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:calcrow/core/data/di/service_locator.dart';
 import 'package:calcrow/core/guessers/field_type_guesser.dart';
 import 'package:calcrow/features/home/editing/advanced/widgets/notes_widget.dart';
@@ -17,6 +18,7 @@ import 'package:calcrow/core/data/services/cloud_document_service.dart';
 import 'package:calcrow/core/data/services/google_drive_sync_service.dart';
 import 'package:calcrow/core/data/services/sheet_persistence_service.dart';
 import 'package:calcrow/core/data/services/user_repository.dart';
+import 'package:calcrow/core/providers/app_providers.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_service.dart';
 import 'package:calcrow/core/sheet_type_logic/type_hint_cache.dart';
@@ -42,7 +44,7 @@ enum _UnsavedEditsChoice { save, discard, cancel }
 
 enum _EditorAdjustAction { details, fieldFormats, prefills, verbose, open }
 
-class EditingPageBase extends StatefulWidget {
+class EditingPageBase extends ConsumerStatefulWidget {
   const EditingPageBase({
     super.key,
     required this.initialSheetData,
@@ -63,7 +65,7 @@ class EditingPageBase extends StatefulWidget {
   final SheetPersistenceService? _sheetPersistenceService;
 
   @override
-  State<EditingPageBase> createState() => _EditingPageBaseState();
+  ConsumerState<EditingPageBase> createState() => _EditingPageBaseState();
 }
 
 class EditingPage extends EditingPageBase {
@@ -134,7 +136,7 @@ abstract class _EditingModeBehavior {
   }
 }
 
-class _EditingPageBaseState extends State<EditingPageBase>
+class _EditingPageBaseState extends ConsumerState<EditingPageBase>
     with SingleTickerProviderStateMixin {
   static const MethodChannel _platformChannel = MethodChannel(
     'de.lemarq.calcrow/file_open',
@@ -172,6 +174,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
   static const double _defaultEnergyLevel = 0.62;
   static const int _previewRowLimit = 100;
   late final SheetPersistenceService _sheetPersistenceService;
+  late final ProviderSubscription<int?> _previewRowPickSubscription;
 
   final TextEditingController _dateController = TextEditingController(
     text: _formatDate(DateTime.now()),
@@ -251,7 +254,10 @@ class _EditingPageBaseState extends State<EditingPageBase>
       parent: _typeTogglePulseController,
       curve: Curves.easeInOut,
     );
-    SheetPreviewStore.pickedRowIndex.addListener(_handleSheetPreviewRowPick);
+    _previewRowPickSubscription = ref.listenManual<int?>(
+      sheetPreviewPickedRowProvider,
+      (previous, next) => _handleSheetPreviewRowPick(next),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       unawaited(_loadInitialDocument());
@@ -260,7 +266,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
 
   @override
   void dispose() {
-    SheetPreviewStore.pickedRowIndex.removeListener(_handleSheetPreviewRowPick);
+    _previewRowPickSubscription.close();
     _dateController.dispose();
     _startController.dispose();
     _endController.dispose();
@@ -431,14 +437,16 @@ class _EditingPageBaseState extends State<EditingPageBase>
     }
 
     if (!ServiceLocator.isSetup) return;
-    final session = ServiceLocator.authService.currentSession;
+    final session = ref.read(authServiceProvider).currentSession;
     if (session == null) return;
     try {
-      final remote = await ServiceLocator.userRepository.readDocumentPrefills(
-        uid: session.uid,
-        documentKey: documentKey,
-        fileName: sheetData.fileName,
-      );
+      final remote = await ref
+          .read(userRepositoryProvider)
+          .readDocumentPrefills(
+            uid: session.uid,
+            documentKey: documentKey,
+            fileName: sheetData.fileName,
+          );
       if (remote == null) return;
       await DocumentPrefillCache.write(documentKey, remote);
       if (mounted && _documentPrefillKey == documentKey) {
@@ -495,7 +503,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
     EditorDocumentTarget? target,
   }) async {
     if (!ServiceLocator.isSetup) return;
-    final session = ServiceLocator.authService.currentSession;
+    final session = ref.read(authServiceProvider).currentSession;
     if (session == null) return;
 
     final openMode = _documentOpenMode.name;
@@ -532,10 +540,9 @@ class _EditingPageBaseState extends State<EditingPageBase>
 
     if (config == null) return;
     try {
-      await ServiceLocator.userRepository.rememberOpenConfig(
-        uid: session.uid,
-        config: config,
-      );
+      await ref
+          .read(userRepositoryProvider)
+          .rememberOpenConfig(uid: session.uid, config: config);
     } catch (_) {
       // Recents should never block opening a document.
     }
@@ -1425,15 +1432,17 @@ class _EditingPageBaseState extends State<EditingPageBase>
     }
 
     if (!ServiceLocator.isSetup) return;
-    final session = ServiceLocator.authService.currentSession;
+    final session = ref.read(authServiceProvider).currentSession;
     if (session == null) return;
     try {
-      await ServiceLocator.userRepository.rememberDocumentPrefills(
-        uid: session.uid,
-        documentKey: documentKey,
-        fileName: fileName,
-        prefills: updatedPrefills,
-      );
+      await ref
+          .read(userRepositoryProvider)
+          .rememberDocumentPrefills(
+            uid: session.uid,
+            documentKey: documentKey,
+            fileName: fileName,
+            prefills: updatedPrefills,
+          );
     } catch (_) {
       // The local cache remains authoritative while remote storage is offline.
     }
@@ -1444,15 +1453,17 @@ class _EditingPageBaseState extends State<EditingPageBase>
     final fileName = _documentImportedFileName ?? 'calcrow_sheet';
     try {
       if (target is CloudEditorDocumentTarget) {
-        await ServiceLocator.cloudDocumentService.rememberTypeHints(
-          file: CloudFileMetadata(
-            provider: target.provider,
-            id: target.fileId,
-            name: target.fileName,
-            mimeType: target.mimeType,
-          ),
-          valueTypes: _documentValueTypes,
-        );
+        await ref
+            .read(cloudDocumentServiceProvider)
+            .rememberTypeHints(
+              file: CloudFileMetadata(
+                provider: target.provider,
+                id: target.fileId,
+                name: target.fileName,
+                mimeType: target.mimeType,
+              ),
+              valueTypes: _documentValueTypes,
+            );
         return;
       }
 
@@ -1467,21 +1478,23 @@ class _EditingPageBaseState extends State<EditingPageBase>
   }
 
   void _publishRowsToPreview() {
-    SheetPreviewStore.notifier.value = SheetPreviewStore.notifier.value
-        .copyWith(
-          headers: _documentHeaders,
-          rows: _documentRows,
-          fileName: _documentImportedFileName,
-          rowCount: _documentRows.length,
-          onSaveAsIs: _saveDocumentRowAsIs,
+    ref
+        .read(sheetPreviewProvider.notifier)
+        .update(
+          (preview) => preview.copyWith(
+            headers: _documentHeaders,
+            rows: _documentRows,
+            fileName: _documentImportedFileName,
+            rowCount: _documentRows.length,
+            onSaveAsIs: _saveDocumentRowAsIs,
+          ),
         );
   }
 
-  void _handleSheetPreviewRowPick() {
-    final rowIndex = SheetPreviewStore.pickedRowIndex.value;
+  void _handleSheetPreviewRowPick(int? rowIndex) {
     if (rowIndex == null || !mounted) return;
-    SheetPreviewStore.pickedRowIndex.value = null;
-    if (rowIndex == SheetPreviewStore.createNewEntryPickIndex) {
+    ref.read(sheetPreviewPickedRowProvider.notifier).emit(null);
+    if (rowIndex == createNewEntryPickIndex) {
       unawaited(_modeBehavior.handleSheetPreviewNewEntryPick(this));
       return;
     }
@@ -1531,18 +1544,24 @@ class _EditingPageBaseState extends State<EditingPageBase>
 
   void _beginTextEntryRowPick() {
     _publishRowsToPreview();
-    SheetPreviewStore.beginRowPick(
-      SheetPreviewRowPickRequest(
-        selectableRowIndexes: <int>{
-          for (var rowIndex = 0; rowIndex < _documentRows.length; rowIndex++)
-            rowIndex,
-        },
-        title: context.l10n.pickEntry,
-        subtitle: context.l10n.chooseAnyRowFromTheSheet,
-        allowCreateNewEntry: true,
-        createNewEntryLabel: context.l10n.createNewEntry,
-      ),
-    );
+    ref
+        .read(sheetPreviewActionsProvider.notifier)
+        .beginRowPick(
+          SheetPreviewRowPickRequest(
+            selectableRowIndexes: <int>{
+              for (
+                var rowIndex = 0;
+                rowIndex < _documentRows.length;
+                rowIndex++
+              )
+                rowIndex,
+            },
+            title: context.l10n.pickEntry,
+            subtitle: context.l10n.chooseAnyRowFromTheSheet,
+            allowCreateNewEntry: true,
+            createNewEntryLabel: context.l10n.createNewEntry,
+          ),
+        );
   }
 
   Future<void> _pickFromCurrentSheetForMode() async {
@@ -1584,13 +1603,15 @@ class _EditingPageBaseState extends State<EditingPageBase>
     }
 
     _publishRowsToPreview();
-    SheetPreviewStore.beginRowPick(
-      SheetPreviewRowPickRequest(
-        selectableRowIndexes: matchingRowIndexes,
-        title: context.l10n.pickRow,
-        subtitle: context.l10n.chooseRowFor(_formatDate(targetDate)),
-      ),
-    );
+    ref
+        .read(sheetPreviewActionsProvider.notifier)
+        .beginRowPick(
+          SheetPreviewRowPickRequest(
+            selectableRowIndexes: matchingRowIndexes,
+            title: context.l10n.pickRow,
+            subtitle: context.l10n.chooseRowFor(_formatDate(targetDate)),
+          ),
+        );
   }
 
   bool get _hasUnsavedRowEdits {
@@ -1810,18 +1831,20 @@ class _EditingPageBaseState extends State<EditingPageBase>
       defaultExtension: SheetFileService.defaultExtensionForFormat(format),
     );
 
-    final metadata = await ServiceLocator.cloudDocumentService.persistDocument(
-      existingFile: CloudFileMetadata(
-        provider: target.provider,
-        id: target.fileId,
-        name: target.fileName,
-        mimeType: target.mimeType,
-      ),
-      fileName: fileName,
-      bytes: bytes,
-      outputMimeType: mimeType,
-      sheetData: sheetData,
-    );
+    final metadata = await ref
+        .read(cloudDocumentServiceProvider)
+        .persistDocument(
+          existingFile: CloudFileMetadata(
+            provider: target.provider,
+            id: target.fileId,
+            name: target.fileName,
+            mimeType: target.mimeType,
+          ),
+          fileName: fileName,
+          bytes: bytes,
+          outputMimeType: mimeType,
+          sheetData: sheetData,
+        );
     if (format == SheetFileFormat.csv) {
       await TypeHintCache.rememberCsvTypes(
         fileName: metadata.name,
@@ -1842,7 +1865,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
 
     return PersistResult(
       locationLabel:
-          '${ServiceLocator.cloudDocumentService.providerLabel(metadata.provider)} (${metadata.name})',
+          '${ref.read(cloudDocumentServiceProvider).providerLabel(metadata.provider)} (${metadata.name})',
       overwroteExistingFile: true,
       usedAppDocumentsFallback: false,
       savedPath: metadata.id,
@@ -1914,13 +1937,15 @@ class _EditingPageBaseState extends State<EditingPageBase>
     if (!ServiceLocator.isSetup) {
       return SheetPersistenceService.runtimeSafTreeUri;
     }
-    final session = ServiceLocator.authService.currentSession;
+    final session = ref.read(authServiceProvider).currentSession;
     if (session == null) {
       return SheetPersistenceService.runtimeSafTreeUri;
     }
     final settings = await (() async {
       try {
-        return await ServiceLocator.userRepository.getUserSettings(session.uid);
+        return await ref
+            .read(userRepositoryProvider)
+            .getUserSettings(session.uid);
       } catch (_) {
         return null;
       }
@@ -2007,13 +2032,16 @@ class _EditingPageBaseState extends State<EditingPageBase>
         _showWellbeing = true;
         _showNotes = true;
       });
-      final currentHeaders = SheetPreviewStore.notifier.value.headers;
-      SheetPreviewStore.notifier.value = SheetPreviewStore.notifier.value
-          .copyWith(
-            headers: parsedHeader.isNotEmpty ? parsedHeader : currentHeaders,
-            rows: _allRows.take(_previewRowLimit).toList(),
-            fileName: file.name,
-            rowCount: _allRows.length,
+      final currentHeaders = ref.read(sheetPreviewProvider).headers;
+      ref
+          .read(sheetPreviewProvider.notifier)
+          .update(
+            (preview) => preview.copyWith(
+              headers: parsedHeader.isNotEmpty ? parsedHeader : currentHeaders,
+              rows: _allRows.take(_previewRowLimit).toList(),
+              fileName: file.name,
+              rowCount: _allRows.length,
+            ),
           );
 
       messenger.showSnackBar(
@@ -2043,19 +2071,22 @@ class _EditingPageBaseState extends State<EditingPageBase>
       _showNotes = false;
     });
     final headers = _headersForVisibleWidgets();
-    SheetPreviewStore.notifier.value = SheetPreviewStore.notifier.value
-        .copyWith(
-          headers: headers,
-          rows: const <List<String>>[],
-          fileName: _importedFileName,
-          rowCount: 0,
+    ref
+        .read(sheetPreviewProvider.notifier)
+        .update(
+          (preview) => preview.copyWith(
+            headers: headers,
+            rows: const <List<String>>[],
+            fileName: _importedFileName,
+            rowCount: 0,
+          ),
         );
   }
 
   void _saveRow() {
     final messenger = ScaffoldMessenger.of(context);
     final headers = _allRows.isNotEmpty
-        ? SheetPreviewStore.notifier.value.headers
+        ? ref.read(sheetPreviewProvider).headers
         : _headersForVisibleWidgets();
     final valuesByHeader = <String, String>{
       'Date': _dateController.text.trim(),
@@ -2075,11 +2106,14 @@ class _EditingPageBaseState extends State<EditingPageBase>
       _selectedExistingRowIndex = null;
       _allRows = <List<String>>[row, ..._allRows];
     });
-    SheetPreviewStore.notifier.value = SheetPreviewStore.notifier.value
-        .copyWith(
-          headers: headers,
-          rows: _allRows.take(_previewRowLimit).toList(),
-          rowCount: _allRows.length,
+    ref
+        .read(sheetPreviewProvider.notifier)
+        .update(
+          (preview) => preview.copyWith(
+            headers: headers,
+            rows: _allRows.take(_previewRowLimit).toList(),
+            rowCount: _allRows.length,
+          ),
         );
 
     messenger.showSnackBar(
@@ -2304,8 +2338,9 @@ class _EditingPageBaseState extends State<EditingPageBase>
     });
     if (_setupDone && _allRows.isEmpty) {
       final headers = _headersForVisibleWidgets();
-      SheetPreviewStore.notifier.value = SheetPreviewStore.notifier.value
-          .copyWith(headers: headers);
+      ref
+          .read(sheetPreviewProvider.notifier)
+          .update((preview) => preview.copyWith(headers: headers));
     }
   }
 
@@ -2336,7 +2371,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
   }
 
   List<int> _sameDateRowIndices() {
-    final headers = SheetPreviewStore.notifier.value.headers;
+    final headers = ref.read(sheetPreviewProvider).headers;
     final dateIndex = _headerIndex(headers, 'Date');
     final dateValue = _dateController.text.trim();
     if (dateIndex == null || dateValue.isEmpty) {
@@ -2372,7 +2407,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
 
     final targetRowIndex = matches[nextIndex];
     final targetRow = _allRows[targetRowIndex];
-    final headers = SheetPreviewStore.notifier.value.headers;
+    final headers = ref.read(sheetPreviewProvider).headers;
 
     setState(() {
       _selectedExistingRowIndex = targetRowIndex;
@@ -2444,7 +2479,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
 
     final targetRowIndex = matches[nextIndex];
     final targetRow = _allRows[targetRowIndex];
-    final headers = SheetPreviewStore.notifier.value.headers;
+    final headers = ref.read(sheetPreviewProvider).headers;
 
     setState(() {
       _selectedExistingRowIndex = targetRowIndex;
@@ -2647,7 +2682,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
               const SizedBox(
                 width: 20,
                 height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                child: TriangleLoadingIndicator(size: 20, strokeWidth: 2),
               ),
               const SizedBox(width: 12),
               Text(
@@ -2669,7 +2704,7 @@ class _EditingPageBaseState extends State<EditingPageBase>
               SizedBox(
                 width: 18,
                 height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                child: TriangleLoadingIndicator(size: 18, strokeWidth: 2),
               ),
               SizedBox(width: 10),
               Expanded(child: Text(context.l10n.preparingEditorFields)),
@@ -3208,8 +3243,9 @@ class _EditingPageBaseState extends State<EditingPageBase>
         controller.dispose();
       }
     });
-    SheetPreviewStore.notifier.value = SheetPreviewStore.notifier.value
-        .copyWith(clearOnSaveAsIs: true);
+    ref
+        .read(sheetPreviewProvider.notifier)
+        .update((preview) => preview.copyWith(clearOnSaveAsIs: true));
   }
 }
 
@@ -3312,7 +3348,16 @@ class _TopHeader extends StatelessWidget {
               IconButton(
                 tooltip: context.l10n.back,
                 onPressed: onBack,
-                icon: const Icon(Icons.arrow_back_rounded),
+                icon: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.asset(
+                    'assets/images/AppIcon_1024_square.png',
+                    key: const ValueKey('editor-app-icon'),
+                    width: 32,
+                    height: 32,
+                    fit: BoxFit.cover,
+                  ),
+                ),
               ),
               const SizedBox(width: 10),
             ],

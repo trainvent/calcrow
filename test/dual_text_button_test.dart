@@ -14,6 +14,7 @@ void main() {
         home: Scaffold(
           body: DualTextButton(
             secondaryLabel: 'Recent',
+            secondaryIcon: Icons.history,
             onSecondaryPressed: () => secondaryPressed = true,
             primaryLabel: 'Open',
             onPrimaryPressed: () => primaryPressed = true,
@@ -23,6 +24,7 @@ void main() {
     );
 
     expect(find.widgetWithText(OutlinedButton, 'Recent'), findsOneWidget);
+    expect(find.byIcon(Icons.history), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Open'), findsOneWidget);
 
     await tester.tap(find.text('Recent'));

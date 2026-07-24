@@ -763,10 +763,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get set => 'Festlegen';
 
   @override
-  String get setRecent => 'Zuletzt verwendet festlegen';
-
-  @override
-  String get setRecent2 => 'Zuletzt verwendet festlegen';
+  String get setRecent => 'Verlauf';
 
   @override
   String get settings => 'Einstellungen';
@@ -1791,6 +1788,31 @@ class AppLocalizationsDe extends AppLocalizations {
       'Das ausgewählte XLSX-Tabellenblatt ist leer.';
 
   @override
+  String get chooseWorksheet => 'Tabellenblatt auswählen';
+
+  @override
+  String onlyCompatibleWorksheetsShown(String openingMode) {
+    return 'Es werden nur Tabellenblätter angezeigt, die mit $openingMode kompatibel sind.';
+  }
+
+  @override
+  String noCompatibleWorksheetsForOpeningMode(String openingMode) {
+    return 'Es wurden keine mit $openingMode kompatiblen Tabellenblätter gefunden.';
+  }
+
+  @override
+  String worksheetEntryAndHeaderDetails(int entryCount, int headerRowNumber) {
+    String _temp0 = intl.Intl.pluralLogic(
+      entryCount,
+      locale: localeName,
+      other: '$entryCount Einträge',
+      one: '1 Eintrag',
+      zero: 'Keine Einträge',
+    );
+    return '$_temp0 · Überschriften in Zeile $headerRowNumber';
+  }
+
+  @override
   String get firstRowHasNoHeaderTitles =>
       'Die erste Zeile enthält keine Spaltenüberschriften.';
 
@@ -2173,6 +2195,28 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String rowsAndColumns(int rowCount, int columnCount) {
     return '$rowCount Zeilen • $columnCount Spalten';
+  }
+
+  @override
+  String previewRowCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Zeilen',
+      one: '1 Zeile',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String previewColumnCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Spalten',
+      one: '1 Spalte',
+    );
+    return '$_temp0';
   }
 
   @override

@@ -4,27 +4,31 @@ import 'package:calcrow/features/home/editing/selection_page.dart';
 import 'package:calcrow/features/home/editing/editing_pages/editing_page_base.dart';
 import 'package:calcrow/features/home/sheet/sheet_preview_store.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  late ProviderContainer container;
+
   setUp(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
+    container = ProviderContainer();
   });
 
   tearDown(() {
-    SheetPreviewStore.rowPickRequest.value = null;
-    SheetPreviewStore.requestedTabIndex.value = null;
-    SheetPreviewStore.pickedRowIndex.value = null;
-    SheetPreviewStore.notifier.value = SheetPreviewData.initial();
+    container.dispose();
   });
 
   testWidgets('selection page owns the selector setup surface', (tester) async {
-    await tester.pumpWidget(
+    await _pumpWidget(
+      tester,
+      container,
       const MaterialApp(home: Scaffold(body: SelectionPage())),
     );
     await tester.pump();
 
     expect(find.text('Selector'), findsOneWidget);
+    expect(find.byKey(const ValueKey('selector-app-icon')), findsOneWidget);
     expect(find.text('Opening Mode'), findsOneWidget);
     expect(find.text('Choose Document'), findsOneWidget);
     expect(find.text('Create Document'), findsOneWidget);
@@ -35,7 +39,7 @@ void main() {
   testWidgets('embedded editor keeps surrounding bottom navigation visible', (
     tester,
   ) async {
-    await tester.pumpWidget(const _EmbeddedEditorHarness());
+    await _pumpWidget(tester, container, const _EmbeddedEditorHarness());
     await tester.pump();
     await tester.pump();
 
@@ -82,10 +86,12 @@ void main() {
   testWidgets('editor back action returns to get started in place', (
     tester,
   ) async {
-    await tester.pumpWidget(const _EmbeddedEditorHarness());
+    await _pumpWidget(tester, container, const _EmbeddedEditorHarness());
     await tester.pump();
     await tester.pump();
 
+    expect(find.byKey(const ValueKey('editor-app-icon')), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_back_rounded), findsNothing);
     await tester.tap(find.byTooltip('Back'));
     await tester.pump();
 
@@ -100,7 +106,9 @@ void main() {
   ) async {
     await tester.binding.setSurfaceSize(const Size(800, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
+    await _pumpWidget(
+      tester,
+      container,
       MaterialApp(
         home: Scaffold(
           body: EditingPage(
@@ -133,7 +141,9 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(800, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final persistence = _FailingSheetPersistenceService();
-    await tester.pumpWidget(
+    await _pumpWidget(
+      tester,
+      container,
       MaterialApp(
         home: Scaffold(
           body: EditingPage(
@@ -173,7 +183,9 @@ void main() {
   ) async {
     await tester.binding.setSurfaceSize(const Size(800, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
+    await _pumpWidget(
+      tester,
+      container,
       MaterialApp(
         home: Scaffold(
           body: EditingPage(
@@ -209,7 +221,9 @@ void main() {
   testWidgets('pick row uses sheet rows without editable text columns', (
     tester,
   ) async {
-    await tester.pumpWidget(
+    await _pumpWidget(
+      tester,
+      container,
       MaterialApp(
         home: Scaffold(
           body: EditingPage(
@@ -233,13 +247,13 @@ void main() {
       find.text('Pick Row needs at least one editable text column.'),
       findsNothing,
     );
-    expect(SheetPreviewStore.rowPickRequest.value, isNotNull);
-    expect(SheetPreviewStore.rowPickRequest.value!.selectableRowIndexes, <int>{
-      0,
-      1,
-    });
+    expect(container.read(sheetPreviewRowPickProvider), isNotNull);
+    expect(
+      container.read(sheetPreviewRowPickProvider)!.selectableRowIndexes,
+      <int>{0, 1},
+    );
 
-    SheetPreviewStore.pickRow(1);
+    container.read(sheetPreviewActionsProvider.notifier).pickRow(1);
     await tester.pump();
 
     await _openEditorDetails(tester);
@@ -248,7 +262,9 @@ void main() {
   });
 
   testWidgets('namelist opening picks entries from sheet rows', (tester) async {
-    await tester.pumpWidget(
+    await _pumpWidget(
+      tester,
+      container,
       MaterialApp(
         home: Scaffold(
           body: EditingPage(
@@ -266,14 +282,14 @@ void main() {
     await tester.pump();
 
     expect(find.text('Open column entry'), findsNothing);
-    expect(SheetPreviewStore.rowPickRequest.value, isNotNull);
-    expect(SheetPreviewStore.rowPickRequest.value!.title, 'Pick Entry');
-    expect(SheetPreviewStore.rowPickRequest.value!.selectableRowIndexes, <int>{
-      0,
-      1,
-    });
+    expect(container.read(sheetPreviewRowPickProvider), isNotNull);
+    expect(container.read(sheetPreviewRowPickProvider)!.title, 'Pick Entry');
+    expect(
+      container.read(sheetPreviewRowPickProvider)!.selectableRowIndexes,
+      <int>{0, 1},
+    );
 
-    SheetPreviewStore.pickRow(1);
+    container.read(sheetPreviewActionsProvider.notifier).pickRow(1);
     await tester.pump();
 
     await _openEditorDetails(tester);
@@ -284,7 +300,9 @@ void main() {
   testWidgets('logbook rejects cached schemas without first date field', (
     tester,
   ) async {
-    await tester.pumpWidget(
+    await _pumpWidget(
+      tester,
+      container,
       MaterialApp(
         home: Scaffold(
           body: EditingPage(
@@ -311,7 +329,9 @@ void main() {
   testWidgets('namelist rejects cached schemas without first text field', (
     tester,
   ) async {
-    await tester.pumpWidget(
+    await _pumpWidget(
+      tester,
+      container,
       MaterialApp(
         home: Scaffold(
           body: EditingPage(
@@ -333,13 +353,15 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Save'), findsNothing);
-    expect(SheetPreviewStore.rowPickRequest.value, isNull);
+    expect(container.read(sheetPreviewRowPickProvider), isNull);
   });
 
   testWidgets('logbook adjust keeps first field locked to date', (
     tester,
   ) async {
-    await tester.pumpWidget(
+    await _pumpWidget(
+      tester,
+      container,
       MaterialApp(
         home: Scaffold(
           body: EditingPage(
@@ -371,7 +393,9 @@ void main() {
   testWidgets('namelist adjust keeps first field locked to text', (
     tester,
   ) async {
-    await tester.pumpWidget(
+    await _pumpWidget(
+      tester,
+      container,
       MaterialApp(
         home: Scaffold(
           body: EditingPage(
@@ -387,7 +411,7 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
-    SheetPreviewStore.cancelRowPick();
+    container.read(sheetPreviewActionsProvider.notifier).cancelRowPick();
     await tester.pump();
 
     await tester.tap(find.byKey(const ValueKey('editor-overflow-menu')));
@@ -401,6 +425,16 @@ void main() {
       findsNothing,
     );
   });
+}
+
+Future<void> _pumpWidget(
+  WidgetTester tester,
+  ProviderContainer container,
+  Widget child,
+) {
+  return tester.pumpWidget(
+    UncontrolledProviderScope(container: container, child: child),
+  );
 }
 
 Future<void> _openEditorDetails(WidgetTester tester) async {

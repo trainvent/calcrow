@@ -6,6 +6,32 @@ import 'package:calcrow/core/guessers/field_type_guesser.dart';
 import 'sheet_file_models.dart';
 import 'sheet_logic.dart';
 
+class XlsxWorkbookInspection {
+  const XlsxWorkbookInspection({
+    required this.sheetCount,
+    required this.sheets,
+  });
+
+  final int sheetCount;
+  final List<XlsxSheetInfo> sheets;
+}
+
+class XlsxSheetInfo {
+  const XlsxSheetInfo({
+    required this.name,
+    required this.headerRowIndex,
+    required this.entryCount,
+    required this.hasDateColumn,
+    required this.hasEditableTextColumn,
+  });
+
+  final String name;
+  final int headerRowIndex;
+  final int entryCount;
+  final bool hasDateColumn;
+  final bool hasEditableTextColumn;
+}
+
 class XlsxSheetCodec {
   const XlsxSheetCodec._();
 
@@ -14,14 +40,24 @@ class XlsxSheetCodec {
     required String fileName,
     required String? path,
     DateTime? now,
+    String? sheetName,
   }) {
     final effectiveNow = now ?? DateTime.now();
-    _checkMonthlyLogbookYear(fileName: fileName, now: effectiveNow);
     final excel = excel_pkg.Excel.decodeBytes(bytes);
     if (excel.tables.isEmpty) {
       throw const FormatException('The selected XLSX has no sheets.');
     }
 
+    if (sheetName != null) {
+      return _parseSheet(
+        excel: excel,
+        fileName: fileName,
+        path: path,
+        sheetName: sheetName,
+      );
+    }
+
+    _checkMonthlyLogbookYear(fileName: fileName, now: effectiveNow);
     final currentMonthSheetName = _currentMonthSheetNameForMonthlyLogbook(
       excel,
       fileName: fileName,
@@ -50,12 +86,63 @@ class XlsxSheetCodec {
       );
     }
 
-    final sheetName = _selectBestSheetName(excel, effectiveNow);
+    final selectedSheetName = _selectBestSheetName(excel, effectiveNow);
     return _parseSheet(
       excel: excel,
       fileName: fileName,
       path: path,
-      sheetName: sheetName,
+      sheetName: selectedSheetName,
+    );
+  }
+
+  static XlsxWorkbookInspection inspectSheets({
+    required Uint8List bytes,
+    required String fileName,
+    required String? path,
+  }) {
+    final excel = excel_pkg.Excel.decodeBytes(bytes);
+    final sheets = <XlsxSheetInfo>[];
+    for (final sheetName in excel.tables.keys) {
+      try {
+        final parsed = _parseSheet(
+          excel: excel,
+          fileName: fileName,
+          path: path,
+          sheetName: sheetName,
+        );
+        final hasDateColumn =
+            parsed.valueTypes.any(
+              (type) => type.trim().toLowerCase() == 'date',
+            ) ||
+            FieldTypeGuesser.findDateColumnIndex(
+                  headers: parsed.headers,
+                  rows: parsed.rows,
+                ) !=
+                null;
+        var hasEditableTextColumn = false;
+        for (var index = 0; index < parsed.headers.length; index++) {
+          if (parsed.readOnlyColumns[index]) continue;
+          if (parsed.valueTypes[index].trim().toLowerCase() == 'text') {
+            hasEditableTextColumn = true;
+            break;
+          }
+        }
+        sheets.add(
+          XlsxSheetInfo(
+            name: sheetName,
+            headerRowIndex: parsed.headerRowIndex,
+            entryCount: parsed.rows.length,
+            hasDateColumn: hasDateColumn,
+            hasEditableTextColumn: hasEditableTextColumn,
+          ),
+        );
+      } on FormatException {
+        // Empty and non-tabular worksheets are not selectable editor pages.
+      }
+    }
+    return XlsxWorkbookInspection(
+      sheetCount: excel.tables.length,
+      sheets: sheets,
     );
   }
 
@@ -72,9 +159,8 @@ class XlsxSheetCodec {
 
     final rawRows = sheet.rows
         .map((row) => row.map((cell) => _xlsxCellToString(cell)).toList())
-        .where((row) => row.any((value) => value.trim().isNotEmpty))
         .toList();
-    if (rawRows.isEmpty) {
+    if (rawRows.every((row) => row.every((value) => value.trim().isEmpty))) {
       throw const FormatException('The selected XLSX sheet is empty.');
     }
 

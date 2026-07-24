@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:calcrow/features/home/editing/choose_file_location_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:trainvent_general/trainvent_general.dart';
 
 void main() {
   testWidgets('returns the selected file location', (tester) async {
@@ -77,7 +78,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Choose File Location'), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(TriangleLoadingIndicator), findsOneWidget);
 
     pendingSelection.complete(true);
     await tester.pumpAndSettle();
@@ -113,6 +114,6 @@ void main() {
     expect(find.text('Choose File Location'), findsOneWidget);
     expect(find.text('Local'), findsOneWidget);
     expect(find.text('Cloud'), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.byType(TriangleLoadingIndicator), findsNothing);
   });
 }

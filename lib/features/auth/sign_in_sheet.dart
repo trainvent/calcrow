@@ -5,13 +5,14 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:calcrow/l10n/app_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
 import 'package:calcrow/app/presentation/web_link_opener_stub.dart'
     if (dart.library.html) 'package:calcrow/app/presentation/web_link_opener_web.dart';
 import 'package:calcrow/core/constants/internal_constants.dart';
-import 'package:calcrow/core/data/di/service_locator.dart';
 import 'package:calcrow/core/data/services/auth_service.dart';
+import 'package:calcrow/core/providers/app_providers.dart';
 
 enum _AuthStep {
   signIn,
@@ -53,14 +54,14 @@ Future<T?> showSignInSheet<T>(BuildContext context) {
   );
 }
 
-class SignInSheet extends StatefulWidget {
+class SignInSheet extends ConsumerStatefulWidget {
   const SignInSheet({super.key});
 
   @override
-  State<SignInSheet> createState() => _SignInSheetState();
+  ConsumerState<SignInSheet> createState() => _SignInSheetState();
 }
 
-class _SignInSheetState extends State<SignInSheet> {
+class _SignInSheetState extends ConsumerState<SignInSheet> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
@@ -107,15 +108,15 @@ class _SignInSheetState extends State<SignInSheet> {
     });
 
     try {
-      final session = await ServiceLocator.authService
+      final session = await ref
+          .read(authServiceProvider)
           .signInWithEmailAndPassword(email: email, password: password);
-      await ServiceLocator.dbService.createUserIfMissing(
-        uid: session.uid,
-        email: session.email,
-      );
+      await ref
+          .read(dbServiceProvider)
+          .createUserIfMissing(uid: session.uid, email: session.email);
       // Sign-in should not trigger onboarding verification again.
       // Keep legacy users unblocked by setting our app-level verified flag.
-      await ServiceLocator.dbService.markEmailVerified(uid: session.uid);
+      await ref.read(dbServiceProvider).markEmailVerified(uid: session.uid);
       TextInput.finishAutofillContext(shouldSave: true);
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -173,12 +174,12 @@ class _SignInSheetState extends State<SignInSheet> {
     });
 
     try {
-      final session = await ServiceLocator.authService
+      final session = await ref
+          .read(authServiceProvider)
           .registerWithEmailAndPassword(email: email, password: password);
-      await ServiceLocator.dbService.createUserIfMissing(
-        uid: session.uid,
-        email: session.email,
-      );
+      await ref
+          .read(dbServiceProvider)
+          .createUserIfMissing(uid: session.uid, email: session.email);
       TextInput.finishAutofillContext(shouldSave: true);
 
       await _startVerificationFlow(session: session, issueNewCode: true);
@@ -210,14 +211,14 @@ class _SignInSheetState extends State<SignInSheet> {
     String? code;
     if (issueNewCode) {
       try {
-        await ServiceLocator.authService.sendEmailVerificationCode();
+        await ref.read(authServiceProvider).sendEmailVerificationCode();
         _isUsingLocalDebugVerification = false;
       } catch (error, stackTrace) {
         _reportError('Send verification code failed', error, stackTrace);
         if (!kDebugMode) rethrow;
-        code = await ServiceLocator.dbService.issueEmailVerificationCode(
-          uid: session.uid,
-        );
+        code = await ref
+            .read(dbServiceProvider)
+            .issueEmailVerificationCode(uid: session.uid);
         _isUsingLocalDebugVerification = true;
       }
     }
@@ -255,20 +256,19 @@ class _SignInSheetState extends State<SignInSheet> {
 
     try {
       if (_isUsingLocalDebugVerification) {
-        final isValid = await ServiceLocator.dbService.verifyEmailCode(
-          uid: uid,
-          inputCode: code,
-        );
+        final isValid = await ref
+            .read(dbServiceProvider)
+            .verifyEmailCode(uid: uid, inputCode: code);
 
         if (!isValid) {
           setState(() => _errorText = (l10n) => l10n.codeIsInvalidOrExpired);
           return;
         }
       } else {
-        await ServiceLocator.authService.verifyEmailCode(code: code);
+        await ref.read(authServiceProvider).verifyEmailCode(code: code);
       }
 
-      await ServiceLocator.dbService.markEmailVerified(uid: uid);
+      await ref.read(dbServiceProvider).markEmailVerified(uid: uid);
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } on FirebaseException catch (error, stackTrace) {
@@ -302,7 +302,7 @@ class _SignInSheetState extends State<SignInSheet> {
     });
 
     try {
-      final session = ServiceLocator.authService.currentSession;
+      final session = ref.read(authServiceProvider).currentSession;
       if (session == null) {
         throw const AuthServiceException(code: 'user-not-found');
       }
@@ -339,7 +339,7 @@ class _SignInSheetState extends State<SignInSheet> {
     });
 
     try {
-      await ServiceLocator.authService.sendPasswordResetCode(email: email);
+      await ref.read(authServiceProvider).sendPasswordResetCode(email: email);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.l10n.passwordResetCodeSentTo(email))),
@@ -402,11 +402,13 @@ class _SignInSheetState extends State<SignInSheet> {
     });
 
     try {
-      await ServiceLocator.authService.resetPasswordWithCode(
-        email: email,
-        code: code,
-        newPassword: newPassword,
-      );
+      await ref
+          .read(authServiceProvider)
+          .resetPasswordWithCode(
+            email: email,
+            code: code,
+            newPassword: newPassword,
+          );
       TextInput.finishAutofillContext(shouldSave: true);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

@@ -5,6 +5,7 @@ import 'package:calcrow/features/home/editing/choose_file_location_page.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:trainvent_general/trainvent_general.dart';
 
 void main() {
   testWidgets('location page remains until document creation completes', (
@@ -50,7 +51,7 @@ void main() {
 
     expect(submittedDraft?.destination, CreateDestination.local);
     expect(find.text('Choose File Location'), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(TriangleLoadingIndicator), findsOneWidget);
     expect(find.text('Selection backdrop'), findsNothing);
 
     creation.complete(true);

@@ -1,10 +1,10 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:calcrow/l10n/app_localizations.dart';
 
-import 'package:calcrow/core/data/di/service_locator.dart';
-import 'package:calcrow/core/data/services/purchases_service.dart';
+import 'package:calcrow/core/providers/app_providers.dart';
 
 import '../../app/widgets/free_mode_bottom_tile.dart';
 import 'editing/selection_page.dart';
@@ -12,107 +12,88 @@ import 'settings/settings_tab.dart';
 import 'sheet/sheet_preview_tab.dart';
 import 'sheet/sheet_preview_store.dart';
 
-class HomeShell extends StatefulWidget {
+class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
 
   @override
-  State<HomeShell> createState() => _HomeShellState();
+  ConsumerState<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
+class _HomeShellState extends ConsumerState<HomeShell> {
   int _currentIndex = 0;
 
   final _tabs = const [SelectionPage(), SheetPreviewTab(), SettingsTab()];
 
-  @override
-  void initState() {
-    super.initState();
-    SheetPreviewStore.requestedTabIndex.addListener(_handleRequestedTabIndex);
-  }
-
-  @override
-  void dispose() {
-    SheetPreviewStore.requestedTabIndex.removeListener(
-      _handleRequestedTabIndex,
-    );
-    super.dispose();
-  }
-
-  void _handleRequestedTabIndex() {
-    final requestedIndex = SheetPreviewStore.requestedTabIndex.value;
+  void _handleRequestedTabIndex(int? requestedIndex) {
     if (requestedIndex == null) return;
     if (requestedIndex < 0 || requestedIndex >= _tabs.length) {
-      SheetPreviewStore.requestedTabIndex.value = null;
+      ref.read(sheetPreviewRequestedTabProvider.notifier).emit(null);
       return;
     }
     if (requestedIndex != _currentIndex) {
       setState(() => _currentIndex = requestedIndex);
     }
-    SheetPreviewStore.requestedTabIndex.value = null;
+    ref.read(sheetPreviewRequestedTabProvider.notifier).emit(null);
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<int?>(
+      sheetPreviewRequestedTabProvider,
+      (previous, next) => _handleRequestedTabIndex(next),
+    );
+    final tier =
+        ref.watch(entitlementTierProvider).asData?.value ??
+        ref.read(purchasesServiceProvider).currentTier;
+    final rowPickRequest = ref.watch(sheetPreviewRowPickProvider);
+    final isPickingRow = rowPickRequest != null;
     return Scaffold(
       body: SafeArea(
         child: IndexedStack(index: _currentIndex, children: _tabs),
       ),
-      bottomNavigationBar: StreamBuilder<EntitlementTier>(
-        stream: ServiceLocator.purchasesService.entitlementStream,
-        initialData: ServiceLocator.purchasesService.currentTier,
-        builder: (context, snapshot) {
-          final tier = snapshot.data ?? EntitlementTier.free;
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FreeModeBottomTile(tier: tier),
-              ValueListenableBuilder<SheetPreviewRowPickRequest?>(
-                valueListenable: SheetPreviewStore.rowPickRequest,
-                builder: (context, rowPickRequest, _) {
-                  final isPickingRow = rowPickRequest != null;
-                  return NavigationBar(
-                    selectedIndex: _currentIndex,
-                    onDestinationSelected: (index) {
-                      if (isPickingRow && index != 1) return;
-                      setState(() {
-                        _currentIndex = index;
-                      });
-                    },
-                    destinations: [
-                      NavigationDestination(
-                        icon: _PickLockedNavIcon(
-                          locked: isPickingRow,
-                          child: const _SingleRowNavIcon(selected: false),
-                        ),
-                        selectedIcon: _PickLockedNavIcon(
-                          locked: isPickingRow,
-                          child: const _SingleRowNavIcon(selected: true),
-                        ),
-                        label: context.l10n.row,
-                      ),
-                      NavigationDestination(
-                        icon: const Icon(Icons.grid_on_outlined),
-                        selectedIcon: const Icon(Icons.grid_on),
-                        label: context.l10n.sheet,
-                      ),
-                      NavigationDestination(
-                        icon: _PickLockedNavIcon(
-                          locked: isPickingRow,
-                          child: const Icon(Icons.settings_outlined),
-                        ),
-                        selectedIcon: _PickLockedNavIcon(
-                          locked: isPickingRow,
-                          child: const Icon(Icons.settings),
-                        ),
-                        label: context.l10n.settings,
-                      ),
-                    ],
-                  );
-                },
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FreeModeBottomTile(tier: tier),
+          NavigationBar(
+            selectedIndex: _currentIndex,
+            onDestinationSelected: (index) {
+              if (isPickingRow && index != 1) return;
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            destinations: [
+              NavigationDestination(
+                icon: _PickLockedNavIcon(
+                  locked: isPickingRow,
+                  child: const _SingleRowNavIcon(selected: false),
+                ),
+                selectedIcon: _PickLockedNavIcon(
+                  locked: isPickingRow,
+                  child: const _SingleRowNavIcon(selected: true),
+                ),
+                label: context.l10n.row,
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.grid_on_outlined),
+                selectedIcon: const Icon(Icons.grid_on),
+                label: context.l10n.sheet,
+              ),
+              NavigationDestination(
+                icon: _PickLockedNavIcon(
+                  locked: isPickingRow,
+                  child: const Icon(Icons.settings_outlined),
+                ),
+                selectedIcon: _PickLockedNavIcon(
+                  locked: isPickingRow,
+                  child: const Icon(Icons.settings),
+                ),
+                label: context.l10n.settings,
               ),
             ],
-          );
-        },
+          ),
+        ],
       ),
     );
   }

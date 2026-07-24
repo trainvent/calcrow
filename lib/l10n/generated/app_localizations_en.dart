@@ -749,10 +749,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get set => 'Set';
 
   @override
-  String get setRecent => 'Set Recent';
-
-  @override
-  String get setRecent2 => 'Set recent';
+  String get setRecent => 'History';
 
   @override
   String get settings => 'Settings';
@@ -1756,6 +1753,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get theSelectedXLSXSheetIsEmpty => 'The selected XLSX sheet is empty.';
 
   @override
+  String get chooseWorksheet => 'Choose a worksheet';
+
+  @override
+  String onlyCompatibleWorksheetsShown(String openingMode) {
+    return 'Only worksheets compatible with $openingMode are shown.';
+  }
+
+  @override
+  String noCompatibleWorksheetsForOpeningMode(String openingMode) {
+    return 'No worksheets compatible with $openingMode were found.';
+  }
+
+  @override
+  String worksheetEntryAndHeaderDetails(int entryCount, int headerRowNumber) {
+    String _temp0 = intl.Intl.pluralLogic(
+      entryCount,
+      locale: localeName,
+      other: '$entryCount entries',
+      one: '1 entry',
+      zero: 'No entries',
+    );
+    return '$_temp0 · Headers in row $headerRowNumber';
+  }
+
+  @override
   String get firstRowHasNoHeaderTitles => 'First row has no header titles.';
 
   @override
@@ -2134,6 +2156,28 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String rowsAndColumns(int rowCount, int columnCount) {
     return '$rowCount rows • $columnCount columns';
+  }
+
+  @override
+  String previewRowCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count rows',
+      one: '1 row',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String previewColumnCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count columns',
+      one: '1 column',
+    );
+    return '$_temp0';
   }
 
   @override

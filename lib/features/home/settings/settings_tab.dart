@@ -6,11 +6,12 @@ import 'package:calcrow/l10n/app_localizations.dart';
 import 'package:http/http.dart' as http;
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:saf_util/saf_util.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:trainvent_general/trainvent_general.dart';
 
 import 'package:calcrow/app/presentation/web_link_opener_stub.dart'
     if (dart.library.html) 'package:calcrow/app/presentation/web_link_opener_web.dart';
 import 'package:calcrow/core/constants/internal_constants.dart';
-import 'package:calcrow/core/data/di/service_locator.dart';
 import 'package:calcrow/core/data/services/auth_service.dart';
 import 'package:calcrow/core/data/services/google_drive_auth_service.dart';
 import 'package:calcrow/core/data/services/google_drive_sync_service.dart';
@@ -18,19 +19,20 @@ import 'package:calcrow/core/data/services/purchases_service.dart';
 import 'package:calcrow/core/data/services/sheet_persistence_service.dart';
 import 'package:calcrow/core/data/services/user_repository.dart';
 import 'package:calcrow/core/data/services/webdav_service.dart';
+import 'package:calcrow/core/providers/app_providers.dart';
 import 'package:calcrow/features/auth/sign_in_sheet.dart';
 
 import 'data_collection_page.dart';
 import 'webdav_error_presentation.dart';
 
-class SettingsTab extends StatefulWidget {
+class SettingsTab extends ConsumerStatefulWidget {
   const SettingsTab({super.key});
 
   @override
-  State<SettingsTab> createState() => _SettingsTabState();
+  ConsumerState<SettingsTab> createState() => _SettingsTabState();
 }
 
-class _SettingsTabState extends State<SettingsTab> {
+class _SettingsTabState extends ConsumerState<SettingsTab> {
   static const String _googleDriveLogTag = 'CalcrowGoogleDrive';
   bool _isLinkingGoogle = false;
   bool _isLinkingWebDav = false;
@@ -50,7 +52,7 @@ class _SettingsTabState extends State<SettingsTab> {
     required UserSettingsData? settings,
   }) {
     final selectedLanguage =
-        AppLanguageController.languageCode.value ??
+        ref.watch(effectiveLanguageCodeProvider) ??
         settings?.languageCode ??
         Localizations.localeOf(context).languageCode;
     final effectiveLanguage = selectedLanguage == 'de' ? 'de' : 'en';
@@ -66,7 +68,7 @@ class _SettingsTabState extends State<SettingsTab> {
                 ? const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: TriangleLoadingIndicator(size: 20, strokeWidth: 2),
                   )
                 : null,
           ),
@@ -106,21 +108,22 @@ class _SettingsTabState extends State<SettingsTab> {
     required AuthSession? session,
     required String languageCode,
   }) async {
-    final previousLanguageCode = AppLanguageController.languageCode.value;
-    AppLanguageController.setLanguageCode(languageCode);
+    final previousLanguageCode = ref.read(languagePreferenceProvider);
+    ref.read(languagePreferenceProvider.notifier).setLanguageCode(languageCode);
     if (session == null) return;
     setState(() => _isUpdatingLanguage = true);
     try {
-      await ServiceLocator.userRepository.setLanguageCode(
-        uid: session.uid,
-        languageCode: languageCode,
-      );
+      await ref
+          .read(userRepositoryProvider)
+          .setLanguageCode(uid: session.uid, languageCode: languageCode);
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(context.l10n.languageSaved)));
     } catch (error) {
-      AppLanguageController.setLanguageCode(previousLanguageCode);
+      ref
+          .read(languagePreferenceProvider.notifier)
+          .setLanguageCode(previousLanguageCode);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.l10n.couldNotSaveLanguage('$error'))),
@@ -133,367 +136,337 @@ class _SettingsTabState extends State<SettingsTab> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final session =
+        ref.watch(authSessionProvider).asData?.value ??
+        ref.read(authServiceProvider).currentSession;
+    final settings = session == null
+        ? null
+        : ref.watch(userSettingsProvider(session.uid)).asData?.value;
 
-    return StreamBuilder<AuthSession?>(
-      stream: ServiceLocator.authService.authStateChanges(),
-      initialData: ServiceLocator.authService.currentSession,
-      builder: (context, authSnapshot) {
-        final session = authSnapshot.data;
-
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
-            Text(context.l10n.settings, style: theme.textTheme.headlineLarge),
-            const SizedBox(height: 12),
-            if (session == null)
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.person_outline_rounded),
-                  title: Text(context.l10n.signedOut),
-                  subtitle: Text(context.l10n.signInToUseCalcrow),
-                  trailing: TextButton(
-                    onPressed: () => _openSignInSheet(context),
-                    child: Text(context.l10n.signIn),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        Text(context.l10n.settings, style: theme.textTheme.headlineLarge),
+        const SizedBox(height: 12),
+        if (session == null)
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.person_outline_rounded),
+              title: Text(context.l10n.signedOut),
+              subtitle: Text(context.l10n.signInToUseCalcrow),
+              trailing: TextButton(
+                onPressed: () => _openSignInSheet(context),
+                child: Text(context.l10n.signIn),
+              ),
+            ),
+          ),
+        if (session == null) ...[
+          const SizedBox(height: 12),
+          _buildLookAndFeelCard(session: null, settings: null),
+        ],
+        if (session == null && _showSafFolderSettings) ...[
+          const SizedBox(height: 12),
+          Card(
+            child: Column(
+              children: [
+                _buildSectionHeader(context, title: context.l10n.localAccess),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.folder_special_outlined),
+                  title: Text(context.l10n.manageSAFFolder),
+                  subtitle: Text(_safFolderSubtitle(context.l10n, null)),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: _buildSafActionGrid(
+                    setButton: OutlinedButton(
+                      onPressed: _isUpdatingSafFolder
+                          ? null
+                          : () => _setSafFolder(),
+                      child: Text(context.l10n.set),
+                    ),
+                    clearButton: TextButton(
+                      onPressed: _isUpdatingSafFolder
+                          ? null
+                          : () => _clearSafFolder(),
+                      child: Text(context.l10n.clear),
+                    ),
                   ),
                 ),
-              ),
-            if (session == null) ...[
-              const SizedBox(height: 12),
-              _buildLookAndFeelCard(session: null, settings: null),
-            ],
-            if (session == null && _showSafFolderSettings) ...[
+                if (_isUpdatingSafFolder)
+                  Padding(
+                    padding: EdgeInsets.only(bottom: 12),
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: TriangleLoadingIndicator(size: 18, strokeWidth: 2),
+                    ),
+                  ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: Text(
+                    context
+                        .l10n
+                        .signInToSaveThisAndroidFolderSettingToYourAccount,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (session != null)
+          Column(
+            children: [
+              _buildLookAndFeelCard(session: session, settings: settings),
               const SizedBox(height: 12),
               Card(
                 child: Column(
                   children: [
                     _buildSectionHeader(
                       context,
-                      title: context.l10n.localAccess,
+                      title: context.l10n.cloudSettings,
                     ),
                     const Divider(height: 1),
                     ListTile(
-                      leading: const Icon(Icons.folder_special_outlined),
-                      title: Text(context.l10n.manageSAFFolder),
-                      subtitle: Text(_safFolderSubtitle(context.l10n, null)),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      child: _buildSafActionGrid(
-                        setButton: OutlinedButton(
-                          onPressed: _isUpdatingSafFolder
+                      leading: const Icon(Icons.cloud_sync_outlined),
+                      title: Text(context.l10n.activeCloudProvider),
+                      trailing: DropdownButtonHideUnderline(
+                        child: DropdownButton<CloudSyncProvider>(
+                          value: _selectedCloudProvider(settings),
+                          hint: Text(context.l10n.choose),
+                          onChanged: _availableCloudProviders(settings).isEmpty
                               ? null
-                              : () => _setSafFolder(),
-                          child: Text(context.l10n.set),
-                        ),
-                        clearButton: TextButton(
-                          onPressed: _isUpdatingSafFolder
-                              ? null
-                              : () => _clearSafFolder(),
-                          child: Text(context.l10n.clear),
+                              : (value) {
+                                  if (value == null) return;
+                                  _setCloudSyncProvider(
+                                    session: session,
+                                    provider: value,
+                                  );
+                                },
+                          items: _availableCloudProviders(settings)
+                              .map(
+                                (provider) =>
+                                    DropdownMenuItem<CloudSyncProvider>(
+                                      value: provider,
+                                      child: Text(
+                                        _cloudProviderLabel(provider),
+                                      ),
+                                    ),
+                              )
+                              .toList(),
                         ),
                       ),
                     ),
-                    if (_isUpdatingSafFolder)
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.link_rounded),
+                      title: Text(context.l10n.connectGoogleDrive),
+                      trailing: _isLinkingGoogle
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: TriangleLoadingIndicator(
+                                size: 18,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : TextButton(
+                              onPressed: () => _toggleGoogleLink(
+                                session: session,
+                                currentlyLinked: _isGoogleDriveLinked(settings),
+                              ),
+                              child: Text(
+                                _isGoogleDriveLinked(settings)
+                                    ? context.l10n.unlink
+                                    : context.l10n.link,
+                              ),
+                            ),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.storage_rounded),
+                      title: Text(context.l10n.linkWebDAVNextcloud),
+                      subtitle: Text(_webDavSubtitle(context.l10n, settings)),
+                      trailing: _isLinkingWebDav
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: TriangleLoadingIndicator(
+                                size: 18,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : TextButton(
+                              onPressed: () => _manageWebDavEntries(
+                                session: session,
+                                settings: settings,
+                              ),
+                              child: Text(
+                                _webDavEntries(settings).isEmpty
+                                    ? context.l10n.link
+                                    : context.l10n.manage,
+                              ),
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (_showSafFolderSettings) ...[
+                Card(
+                  child: Column(
+                    children: [
+                      _buildSectionHeader(
+                        context,
+                        title: context.l10n.localAccess,
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.folder_special_outlined),
+                        title: Text(context.l10n.manageSAFFolder),
+                        subtitle: Text(
+                          _safFolderSubtitle(context.l10n, settings),
+                        ),
+                      ),
                       Padding(
-                        padding: EdgeInsets.only(bottom: 12),
-                        child: SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        child: _buildSafActionGrid(
+                          setButton: OutlinedButton(
+                            onPressed: _isUpdatingSafFolder
+                                ? null
+                                : () => _setSafFolder(session: session),
+                            child: Text(context.l10n.set),
+                          ),
+                          clearButton: TextButton(
+                            onPressed: _isUpdatingSafFolder
+                                ? null
+                                : () => _clearSafFolder(session: session),
+                            child: Text(context.l10n.clear),
+                          ),
                         ),
                       ),
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      child: Text(
+                      if (_isUpdatingSafFolder)
+                        Padding(
+                          padding: EdgeInsets.only(bottom: 12),
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: TriangleLoadingIndicator(
+                              size: 18,
+                              strokeWidth: 2,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              Card(
+                child: Column(
+                  children: [
+                    _buildSectionHeader(
+                      context,
+                      title: context.l10n.accountSettings,
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.alternate_email),
+                      title: Text(context.l10n.signedInAs),
+                      subtitle: session.email.trim().isEmpty
+                          ? Text(context.l10n.noEmailAvailable)
+                          : Text(session.email),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.workspace_premium_outlined),
+                      title: Text(context.l10n.entitlement),
+                      subtitle: Text(
+                        settings?.isPro == true
+                            ? context.l10n.proEnabled
+                            : context.l10n.openSubscriptionAndPurchaseOptions,
+                      ),
+                      trailing: _isOpeningRevenueCat
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: TriangleLoadingIndicator(
+                                size: 18,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(Icons.chevron_right_rounded),
+                      onTap: _isOpeningRevenueCat
+                          ? null
+                          : () => _openRevenueCatEntitlementFlow(
+                              session: session,
+                              isPro: settings?.isPro == true,
+                            ),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.privacy_tip_outlined),
+                      title: Text(context.l10n.dataCollection2),
+                      subtitle: Text(
                         context
                             .l10n
-                            .signInToSaveThisAndroidFolderSettingToYourAccount,
+                            .manageSeparateConsentForUsageAnalyticsAndCrashOrPerformanceDiagnostics,
                       ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: _openDataCollectionPage,
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.password_rounded),
+                      title: Text(context.l10n.changePassword),
+                      trailing: _isChangingPassword
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: TriangleLoadingIndicator(
+                                size: 18,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(Icons.chevron_right_rounded),
+                      onTap: _isChangingPassword
+                          ? null
+                          : () => _openChangePasswordFlow(session.email),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.logout_rounded),
+                      title: Text(context.l10n.signOut),
+                      onTap: () => ref.read(authServiceProvider).signOut(),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.delete_outline_rounded),
+                      title: Text(context.l10n.deleteAccount2),
+                      onTap: _openDeleteAccountPage,
                     ),
                   ],
                 ),
               ),
             ],
-            if (session != null)
-              StreamBuilder<UserSettingsData>(
-                stream: ServiceLocator.userRepository.watchUserSettings(
-                  session.uid,
-                ),
-                builder: (context, snapshot) {
-                  final settings = snapshot.data;
-
-                  return Column(
-                    children: [
-                      _buildLookAndFeelCard(
-                        session: session,
-                        settings: settings,
-                      ),
-                      const SizedBox(height: 12),
-                      Card(
-                        child: Column(
-                          children: [
-                            _buildSectionHeader(
-                              context,
-                              title: context.l10n.cloudSettings,
-                            ),
-                            const Divider(height: 1),
-                            ListTile(
-                              leading: const Icon(Icons.cloud_sync_outlined),
-                              title: Text(context.l10n.activeCloudProvider),
-                              trailing: DropdownButtonHideUnderline(
-                                child: DropdownButton<CloudSyncProvider>(
-                                  value: _selectedCloudProvider(settings),
-                                  hint: Text(context.l10n.choose),
-                                  onChanged:
-                                      _availableCloudProviders(settings).isEmpty
-                                      ? null
-                                      : (value) {
-                                          if (value == null) return;
-                                          _setCloudSyncProvider(
-                                            session: session,
-                                            provider: value,
-                                          );
-                                        },
-                                  items: _availableCloudProviders(settings)
-                                      .map(
-                                        (provider) =>
-                                            DropdownMenuItem<CloudSyncProvider>(
-                                              value: provider,
-                                              child: Text(
-                                                _cloudProviderLabel(provider),
-                                              ),
-                                            ),
-                                      )
-                                      .toList(),
-                                ),
-                              ),
-                            ),
-                            const Divider(height: 1),
-                            ListTile(
-                              leading: const Icon(Icons.link_rounded),
-                              title: Text(context.l10n.connectGoogleDrive),
-                              trailing: _isLinkingGoogle
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : TextButton(
-                                      onPressed: () => _toggleGoogleLink(
-                                        session: session,
-                                        currentlyLinked: _isGoogleDriveLinked(
-                                          settings,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        _isGoogleDriveLinked(settings)
-                                            ? context.l10n.unlink
-                                            : context.l10n.link,
-                                      ),
-                                    ),
-                            ),
-                            const Divider(height: 1),
-                            ListTile(
-                              leading: const Icon(Icons.storage_rounded),
-                              title: Text(context.l10n.linkWebDAVNextcloud),
-                              subtitle: Text(
-                                _webDavSubtitle(context.l10n, settings),
-                              ),
-                              trailing: _isLinkingWebDav
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : TextButton(
-                                      onPressed: () => _manageWebDavEntries(
-                                        session: session,
-                                        settings: settings,
-                                      ),
-                                      child: Text(
-                                        _webDavEntries(settings).isEmpty
-                                            ? context.l10n.link
-                                            : context.l10n.manage,
-                                      ),
-                                    ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      if (_showSafFolderSettings) ...[
-                        Card(
-                          child: Column(
-                            children: [
-                              _buildSectionHeader(
-                                context,
-                                title: context.l10n.localAccess,
-                              ),
-                              const Divider(height: 1),
-                              ListTile(
-                                leading: const Icon(
-                                  Icons.folder_special_outlined,
-                                ),
-                                title: Text(context.l10n.manageSAFFolder),
-                                subtitle: Text(
-                                  _safFolderSubtitle(context.l10n, settings),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  0,
-                                  16,
-                                  12,
-                                ),
-                                child: _buildSafActionGrid(
-                                  setButton: OutlinedButton(
-                                    onPressed: _isUpdatingSafFolder
-                                        ? null
-                                        : () => _setSafFolder(session: session),
-                                    child: Text(context.l10n.set),
-                                  ),
-                                  clearButton: TextButton(
-                                    onPressed: _isUpdatingSafFolder
-                                        ? null
-                                        : () =>
-                                              _clearSafFolder(session: session),
-                                    child: Text(context.l10n.clear),
-                                  ),
-                                ),
-                              ),
-                              if (_isUpdatingSafFolder)
-                                Padding(
-                                  padding: EdgeInsets.only(bottom: 12),
-                                  child: SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                      Card(
-                        child: Column(
-                          children: [
-                            _buildSectionHeader(
-                              context,
-                              title: context.l10n.accountSettings,
-                            ),
-                            const Divider(height: 1),
-                            ListTile(
-                              leading: const Icon(Icons.alternate_email),
-                              title: Text(context.l10n.signedInAs),
-                              subtitle: session.email.trim().isEmpty
-                                  ? Text(context.l10n.noEmailAvailable)
-                                  : Text(session.email),
-                            ),
-                            const Divider(height: 1),
-                            ListTile(
-                              leading: const Icon(
-                                Icons.workspace_premium_outlined,
-                              ),
-                              title: Text(context.l10n.entitlement),
-                              subtitle: Text(
-                                settings?.isPro == true
-                                    ? context.l10n.proEnabled
-                                    : context
-                                          .l10n
-                                          .openSubscriptionAndPurchaseOptions,
-                              ),
-                              trailing: _isOpeningRevenueCat
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.chevron_right_rounded),
-                              onTap: _isOpeningRevenueCat
-                                  ? null
-                                  : () => _openRevenueCatEntitlementFlow(
-                                      session: session,
-                                      isPro: settings?.isPro == true,
-                                    ),
-                            ),
-                            const Divider(height: 1),
-                            ListTile(
-                              leading: const Icon(Icons.privacy_tip_outlined),
-                              title: Text(context.l10n.dataCollection2),
-                              subtitle: Text(
-                                context
-                                    .l10n
-                                    .manageSeparateConsentForUsageAnalyticsAndCrashOrPerformanceDiagnostics,
-                              ),
-                              trailing: const Icon(Icons.chevron_right_rounded),
-                              onTap: _openDataCollectionPage,
-                            ),
-                            const Divider(height: 1),
-                            ListTile(
-                              leading: const Icon(Icons.password_rounded),
-                              title: Text(context.l10n.changePassword),
-                              trailing: _isChangingPassword
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.chevron_right_rounded),
-                              onTap: _isChangingPassword
-                                  ? null
-                                  : () =>
-                                        _openChangePasswordFlow(session.email),
-                            ),
-                            const Divider(height: 1),
-                            ListTile(
-                              leading: const Icon(Icons.logout_rounded),
-                              title: Text(context.l10n.signOut),
-                              onTap: () => ServiceLocator.authService.signOut(),
-                            ),
-                            const Divider(height: 1),
-                            ListTile(
-                              leading: const Icon(Icons.delete_outline_rounded),
-                              title: Text(context.l10n.deleteAccount2),
-                              onTap: _openDeleteAccountPage,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  );
-                },
+          ),
+        if (session == null) ...[
+          const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.privacy_tip_outlined),
+              title: Text(context.l10n.dataCollection2),
+              subtitle: Text(
+                context
+                    .l10n
+                    .manageSeparateConsentForUsageAnalyticsAndCrashOrPerformanceDiagnostics,
               ),
-            if (session == null) ...[
-              const SizedBox(height: 12),
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.privacy_tip_outlined),
-                  title: Text(context.l10n.dataCollection2),
-                  subtitle: Text(
-                    context
-                        .l10n
-                        .manageSeparateConsentForUsageAnalyticsAndCrashOrPerformanceDiagnostics,
-                  ),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: _openDataCollectionPage,
-                ),
-              ),
-            ],
-          ],
-        );
-      },
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: _openDataCollectionPage,
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -512,9 +485,9 @@ class _SettingsTabState extends State<SettingsTab> {
 
   CloudSyncProvider? _selectedCloudProvider(UserSettingsData? settings) {
     if (settings == null) return null;
-    return ServiceLocator.cloudDocumentService.activeProviderFromSettings(
-      settings,
-    );
+    return ref
+        .read(cloudDocumentServiceProvider)
+        .activeProviderFromSettings(settings);
   }
 
   List<CloudSyncProvider> _availableCloudProviders(UserSettingsData? settings) {
@@ -561,7 +534,7 @@ class _SettingsTabState extends State<SettingsTab> {
   }
 
   String _cloudProviderLabel(CloudSyncProvider provider) {
-    return ServiceLocator.cloudDocumentService.providerLabel(provider);
+    return ref.read(cloudDocumentServiceProvider).providerLabel(provider);
   }
 
   String _safFolderSubtitle(
@@ -626,9 +599,9 @@ class _SettingsTabState extends State<SettingsTab> {
 
     setState(() => _isChangingPassword = true);
     try {
-      await ServiceLocator.authService.sendPasswordResetCode(
-        email: normalizedEmail,
-      );
+      await ref
+          .read(authServiceProvider)
+          .sendPasswordResetCode(email: normalizedEmail);
     } on AuthServiceException catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(
@@ -723,8 +696,8 @@ class _SettingsTabState extends State<SettingsTab> {
     setState(() => _isLinkingGoogle = true);
     try {
       if (currentlyLinked) {
-        await ServiceLocator.googleDriveAuthService.unlinkAccount();
-        await ServiceLocator.userRepository.clearGoogleDriveLinked(uid: uid);
+        await ref.read(googleDriveAuthServiceProvider).unlinkAccount();
+        await ref.read(userRepositoryProvider).clearGoogleDriveLinked(uid: uid);
         if (!mounted) return;
         messenger.showSnackBar(
           SnackBar(content: Text(context.l10n.googleAccountUnlinked)),
@@ -732,7 +705,8 @@ class _SettingsTabState extends State<SettingsTab> {
       } else {
         late final GoogleDriveLinkResult linkResult;
         try {
-          linkResult = await ServiceLocator.googleDriveAuthService
+          linkResult = await ref
+              .read(googleDriveAuthServiceProvider)
               .linkAccount();
         } on GoogleDriveAuthException catch (error) {
           throw GoogleDriveAuthException(
@@ -742,7 +716,8 @@ class _SettingsTabState extends State<SettingsTab> {
 
         http.Client? client;
         try {
-          client = await ServiceLocator.googleDriveAuthService
+          client = await ref
+              .read(googleDriveAuthServiceProvider)
               .getAuthenticatedClient();
         } on GoogleDriveAuthException catch (error) {
           throw GoogleDriveAuthException(
@@ -751,10 +726,9 @@ class _SettingsTabState extends State<SettingsTab> {
         } finally {
           client?.close();
         }
-        await ServiceLocator.userRepository.setGoogleDriveLinked(
-          uid: uid,
-          email: linkResult.email,
-        );
+        await ref
+            .read(userRepositoryProvider)
+            .setGoogleDriveLinked(uid: uid, email: linkResult.email);
         if (!mounted) return;
         messenger.showSnackBar(
           SnackBar(
@@ -854,27 +828,33 @@ class _SettingsTabState extends State<SettingsTab> {
       return;
     }
 
-    final linkedAccount = await ServiceLocator.webDavService.linkAccount(
-      uid: session.uid,
-      serverUrl: connectionDetails.serverUrl,
-      username: connectionDetails.username,
-      password: connectionDetails.password,
-    );
+    final linkedAccount = await ref
+        .read(webDavServiceProvider)
+        .linkAccount(
+          uid: session.uid,
+          serverUrl: connectionDetails.serverUrl,
+          username: connectionDetails.username,
+          password: connectionDetails.password,
+        );
     final entry = WebDavSavedEntry(
       id: _buildWebDavEntryId(),
       serverUrl: linkedAccount.serverUrl,
       username: linkedAccount.username,
     );
-    await ServiceLocator.webDavService.saveEntryPassword(
-      uid: session.uid,
-      entryId: entry.id,
-      password: connectionDetails.password,
-    );
-    await ServiceLocator.userRepository.upsertWebDavEntry(
-      uid: session.uid,
-      entry: entry,
-      password: connectionDetails.password,
-    );
+    await ref
+        .read(webDavServiceProvider)
+        .saveEntryPassword(
+          uid: session.uid,
+          entryId: entry.id,
+          password: connectionDetails.password,
+        );
+    await ref
+        .read(userRepositoryProvider)
+        .upsertWebDavEntry(
+          uid: session.uid,
+          entry: entry,
+          password: connectionDetails.password,
+        );
     if (!mounted) return;
     messenger.showSnackBar(
       SnackBar(
@@ -911,10 +891,9 @@ class _SettingsTabState extends State<SettingsTab> {
       return;
     }
 
-    var password = await ServiceLocator.webDavService.readEntryPassword(
-      uid: session.uid,
-      entryId: selected.id,
-    );
+    var password = await ref
+        .read(webDavServiceProvider)
+        .readEntryPassword(uid: session.uid, entryId: selected.id);
     if ((password == null || password.isEmpty) &&
         settings?.webDavServerUrl == selected.serverUrl &&
         settings?.webDavUsername == selected.username &&
@@ -930,24 +909,30 @@ class _SettingsTabState extends State<SettingsTab> {
         return;
       }
       password = enteredPassword;
-      await ServiceLocator.webDavService.saveEntryPassword(
-        uid: session.uid,
-        entryId: selected.id,
-        password: password,
-      );
+      await ref
+          .read(webDavServiceProvider)
+          .saveEntryPassword(
+            uid: session.uid,
+            entryId: selected.id,
+            password: password,
+          );
     }
 
-    await ServiceLocator.webDavService.saveCredentialsWithoutValidation(
-      uid: session.uid,
-      serverUrl: selected.serverUrl,
-      username: selected.username,
-      password: password,
-    );
-    await ServiceLocator.userRepository.selectWebDavEntry(
-      uid: session.uid,
-      entryId: selected.id,
-      activePassword: password,
-    );
+    await ref
+        .read(webDavServiceProvider)
+        .saveCredentialsWithoutValidation(
+          uid: session.uid,
+          serverUrl: selected.serverUrl,
+          username: selected.username,
+          password: password,
+        );
+    await ref
+        .read(userRepositoryProvider)
+        .selectWebDavEntry(
+          uid: session.uid,
+          entryId: selected.id,
+          activePassword: password,
+        );
     if (!mounted) return;
     final host = Uri.tryParse(selected.serverUrl)?.host;
     messenger.showSnackBar(
@@ -978,16 +963,14 @@ class _SettingsTabState extends State<SettingsTab> {
     if (selected == null) {
       return;
     }
-    await ServiceLocator.webDavService.clearEntryPassword(
-      uid: session.uid,
-      entryId: selected.id,
-    );
-    await ServiceLocator.userRepository.removeWebDavEntry(
-      uid: session.uid,
-      entryId: selected.id,
-    );
+    await ref
+        .read(webDavServiceProvider)
+        .clearEntryPassword(uid: session.uid, entryId: selected.id);
+    await ref
+        .read(userRepositoryProvider)
+        .removeWebDavEntry(uid: session.uid, entryId: selected.id);
     if (entries.length == 1) {
-      await ServiceLocator.webDavService.clearCredentials(uid: session.uid);
+      await ref.read(webDavServiceProvider).clearCredentials(uid: session.uid);
     }
     if (!mounted) return;
     messenger.showSnackBar(
@@ -998,17 +981,16 @@ class _SettingsTabState extends State<SettingsTab> {
   }
 
   Future<void> _unlinkAllWebDavEntries({required AuthSession session}) async {
-    final settings = await ServiceLocator.userRepository.getUserSettings(
-      session.uid,
-    );
+    final settings = await ref
+        .read(userRepositoryProvider)
+        .getUserSettings(session.uid);
     for (final entry in settings.webDavEntries) {
-      await ServiceLocator.webDavService.clearEntryPassword(
-        uid: session.uid,
-        entryId: entry.id,
-      );
+      await ref
+          .read(webDavServiceProvider)
+          .clearEntryPassword(uid: session.uid, entryId: entry.id);
     }
-    await ServiceLocator.webDavService.clearCredentials(uid: session.uid);
-    await ServiceLocator.userRepository.clearWebDavLinked(uid: session.uid);
+    await ref.read(webDavServiceProvider).clearCredentials(uid: session.uid);
+    await ref.read(userRepositoryProvider).clearWebDavLinked(uid: session.uid);
   }
 
   String _buildWebDavEntryId() {
@@ -1021,10 +1003,9 @@ class _SettingsTabState extends State<SettingsTab> {
   }) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await ServiceLocator.userRepository.setCloudSyncProvider(
-        uid: session.uid,
-        provider: provider,
-      );
+      await ref
+          .read(userRepositoryProvider)
+          .setCloudSyncProvider(uid: session.uid, provider: provider);
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
@@ -1543,10 +1524,9 @@ class _SettingsTabState extends State<SettingsTab> {
       var syncedToSettings = session == null;
       if (session != null) {
         try {
-          await ServiceLocator.dbService.setSafFolderUri(
-            uid: session.uid,
-            treeUri: normalizedTreeUri,
-          );
+          await ref
+              .read(dbServiceProvider)
+              .setSafFolderUri(uid: session.uid, treeUri: normalizedTreeUri);
           syncedToSettings = true;
         } catch (_) {
           syncedToSettings = false;
@@ -1581,7 +1561,7 @@ class _SettingsTabState extends State<SettingsTab> {
     setState(() => _isUpdatingSafFolder = true);
     try {
       if (session != null) {
-        await ServiceLocator.dbService.clearSafFolderUri(uid: session.uid);
+        await ref.read(dbServiceProvider).clearSafFolderUri(uid: session.uid);
       }
       SheetPersistenceService.setRuntimeSafTreeUri(null);
       if (!mounted) return;
@@ -1605,7 +1585,7 @@ class _SettingsTabState extends State<SettingsTab> {
   }
 }
 
-class _ChangePasswordDialog extends StatefulWidget {
+class _ChangePasswordDialog extends ConsumerStatefulWidget {
   const _ChangePasswordDialog({
     required this.email,
     required this.readablePasswordResetError,
@@ -1615,10 +1595,11 @@ class _ChangePasswordDialog extends StatefulWidget {
   final String Function(AuthServiceException error) readablePasswordResetError;
 
   @override
-  State<_ChangePasswordDialog> createState() => _ChangePasswordDialogState();
+  ConsumerState<_ChangePasswordDialog> createState() =>
+      _ChangePasswordDialogState();
 }
 
-class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
+class _ChangePasswordDialogState extends ConsumerState<_ChangePasswordDialog> {
   final TextEditingController _codeController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmController = TextEditingController();
@@ -1657,11 +1638,13 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
     });
 
     try {
-      await ServiceLocator.authService.resetPasswordWithCode(
-        email: widget.email,
-        code: code,
-        newPassword: password,
-      );
+      await ref
+          .read(authServiceProvider)
+          .resetPasswordWithCode(
+            email: widget.email,
+            code: code,
+            newPassword: password,
+          );
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } on AuthServiceException catch (error) {
@@ -1762,7 +1745,7 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
               ? const SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: TriangleLoadingIndicator(size: 16, strokeWidth: 2),
                 )
               : Text(context.l10n.update),
         ),

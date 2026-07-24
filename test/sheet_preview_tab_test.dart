@@ -1,0 +1,94 @@
+import 'package:calcrow/features/home/sheet/sheet_preview_store.dart';
+import 'package:calcrow/features/home/sheet/sheet_preview_tab.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  late ProviderContainer container;
+
+  setUp(() {
+    container = ProviderContainer();
+  });
+
+  tearDown(() {
+    container.dispose();
+  });
+
+  testWidgets('shows the last 100 rows from a large opened sheet', (
+    tester,
+  ) async {
+    container
+        .read(sheetPreviewProvider.notifier)
+        .setData(
+          SheetPreviewData(
+            headers: const ['Entry'],
+            rows: List.generate(205, (index) => ['entry-$index']),
+            fileName: 'archive.xlsx',
+            rowCount: 205,
+          ),
+        );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: SheetPreviewTab())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('entry-0'), findsNothing);
+    expect(find.text('entry-104'), findsNothing);
+    expect(find.text('entry-105'), findsOneWidget);
+    expect(find.text('entry-204'), findsOneWidget);
+    expect(find.text('205 rows'), findsOneWidget);
+    expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
+    expect(find.text(' > 106)'), findsOneWidget);
+    expect(find.text(' • 1 column'), findsOneWidget);
+    final visibleEntryLabels = tester
+        .widgetList<Text>(find.byType(Text))
+        .map((widget) => widget.data)
+        .whereType<String>()
+        .where((text) => text.startsWith('entry-'))
+        .toList();
+    expect(visibleEntryLabels.first, 'entry-105');
+    expect(visibleEntryLabels.last, 'entry-204');
+  });
+
+  testWidgets('maps a picked tail row to its original sheet index', (
+    tester,
+  ) async {
+    container
+        .read(sheetPreviewProvider.notifier)
+        .setData(
+          SheetPreviewData(
+            headers: const ['Entry'],
+            rows: List.generate(205, (index) => ['entry-$index']),
+            fileName: 'archive.xlsx',
+            rowCount: 205,
+          ),
+        );
+    container
+        .read(sheetPreviewActionsProvider.notifier)
+        .beginRowPick(
+          const SheetPreviewRowPickRequest(
+            selectableRowIndexes: {204},
+            title: 'Pick Entry',
+            subtitle: 'Choose a row',
+          ),
+        );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: SheetPreviewTab())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('entry-204'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(container.read(sheetPreviewPickedRowProvider), 204);
+  });
+}

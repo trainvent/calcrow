@@ -20,8 +20,6 @@ class SheetLogic {
           }
           if (dateMatches >= 2) break;
         }
-        if (dateMatches < 2) continue;
-
         var candidateHeaderRowIndex = rowIndex - 1;
         var hasTypeRow = false;
         if (candidateHeaderRowIndex > 0 &&
@@ -30,6 +28,12 @@ class SheetLogic {
           hasTypeRow = true;
         }
         final headerRow = rows[candidateHeaderRowIndex];
+        if (dateMatches < 2 &&
+            (dateMatches == 0 ||
+                FieldTypeGuesser.typeFromHeader(headerRow[columnIndex]) !=
+                    'date')) {
+          continue;
+        }
         if (candidateHeaderRowIndex > 0 &&
             FieldTypeGuesser.looksLikeDataRow(headerRow)) {
           continue;
@@ -61,6 +65,9 @@ class SheetLogic {
       }
     }
 
+    final embeddedHeader = _detectEmbeddedHeader(rows);
+    if (embeddedHeader != null) return embeddedHeader;
+
     final headerRow = rows.first;
     final firstEmptyHeaderIndex = headerRow.indexWhere(
       (value) => value.trim().isEmpty,
@@ -77,6 +84,50 @@ class SheetLogic {
       columnCount: headerCount,
       hasTypeRow: rows.length > 1 && looksLikeTypeRow(rows[1]),
     );
+  }
+
+  static SheetTableBounds? _detectEmbeddedHeader(List<List<String>> rows) {
+    for (var rowIndex = 1; rowIndex < rows.length; rowIndex++) {
+      final row = rows[rowIndex];
+      var columnIndex = 0;
+      while (columnIndex < row.length) {
+        while (columnIndex < row.length && row[columnIndex].trim().isEmpty) {
+          columnIndex++;
+        }
+        if (columnIndex >= row.length) break;
+        final startColumnIndex = columnIndex;
+        while (columnIndex < row.length && row[columnIndex].trim().isNotEmpty) {
+          columnIndex++;
+        }
+        final columnCount = columnIndex - startColumnIndex;
+        if (columnCount < 2) continue;
+
+        final headers = row
+            .skip(startColumnIndex)
+            .take(columnCount)
+            .toList(growable: false);
+        final recognizedHeaderCount = headers
+            .where((header) => FieldTypeGuesser.typeFromHeader(header) != null)
+            .length;
+        final nextRow = rowIndex + 1 < rows.length
+            ? rows[rowIndex + 1]
+                  .skip(startColumnIndex)
+                  .take(columnCount)
+                  .toList(growable: false)
+            : const <String>[];
+        final hasTypeRow =
+            nextRow.length == columnCount && looksLikeTypeRow(nextRow);
+        if (recognizedHeaderCount == 0 && !hasTypeRow) continue;
+
+        return SheetTableBounds(
+          headerRowIndex: rowIndex,
+          startColumnIndex: startColumnIndex,
+          columnCount: columnCount,
+          hasTypeRow: hasTypeRow,
+        );
+      }
+    }
+    return null;
   }
 
   static bool looksLikeTypeRow(List<String> values) {

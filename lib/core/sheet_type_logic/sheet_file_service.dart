@@ -19,6 +19,7 @@ class SheetFileService {
     required String fileName,
     required String? path,
     String? mimeType,
+    String? xlsxSheetName,
   }) async {
     final format = detectFormat(
       fileName: fileName,
@@ -35,7 +36,12 @@ class SheetFileService {
         );
       case SheetFileFormat.xlsx:
         return await _applyCachedTypeHints(
-          XlsxSheetCodec.parse(bytes: bytes, fileName: fileName, path: path),
+          XlsxSheetCodec.parse(
+            bytes: bytes,
+            fileName: fileName,
+            path: path,
+            sheetName: xlsxSheetName,
+          ),
         );
       case SheetFileFormat.ods:
         final transfer = await Isolate.run<Map<String, Object?>>(

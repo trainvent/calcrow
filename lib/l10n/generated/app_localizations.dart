@@ -1475,14 +1475,8 @@ abstract class AppLocalizations {
   /// No description provided for @setRecent.
   ///
   /// In en, this message translates to:
-  /// **'Set Recent'**
+  /// **'History'**
   String get setRecent;
-
-  /// No description provided for @setRecent2.
-  ///
-  /// In en, this message translates to:
-  /// **'Set recent'**
-  String get setRecent2;
 
   /// No description provided for @settings.
   ///
@@ -3245,6 +3239,30 @@ abstract class AppLocalizations {
   /// **'The selected XLSX sheet is empty.'**
   String get theSelectedXLSXSheetIsEmpty;
 
+  /// No description provided for @chooseWorksheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a worksheet'**
+  String get chooseWorksheet;
+
+  /// No description provided for @onlyCompatibleWorksheetsShown.
+  ///
+  /// In en, this message translates to:
+  /// **'Only worksheets compatible with {openingMode} are shown.'**
+  String onlyCompatibleWorksheetsShown(String openingMode);
+
+  /// No description provided for @noCompatibleWorksheetsForOpeningMode.
+  ///
+  /// In en, this message translates to:
+  /// **'No worksheets compatible with {openingMode} were found.'**
+  String noCompatibleWorksheetsForOpeningMode(String openingMode);
+
+  /// No description provided for @worksheetEntryAndHeaderDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'{entryCount, plural, =0{No entries} =1{1 entry} other{{entryCount} entries}} · Headers in row {headerRowNumber}'**
+  String worksheetEntryAndHeaderDetails(int entryCount, int headerRowNumber);
+
   /// No description provided for @firstRowHasNoHeaderTitles.
   ///
   /// In en, this message translates to:
@@ -3772,6 +3790,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{rowCount} rows • {columnCount} columns'**
   String rowsAndColumns(int rowCount, int columnCount);
+
+  /// No description provided for @previewRowCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 row} other{{count} rows}}'**
+  String previewRowCount(int count);
+
+  /// No description provided for @previewColumnCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 column} other{{count} columns}}'**
+  String previewColumnCount(int count);
 
   /// No description provided for @googleDrive.
   ///

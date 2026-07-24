@@ -4,6 +4,7 @@ import 'package:calcrow/core/prefills/document_prefill_cache.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/features/home/editing/editing_pages/editing_page_base.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -89,32 +90,34 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: EditingPage(
-          initialSheetData: const SheetData(
-            fileName: 'dynamic_workout_tracker.csv',
-            path: path,
-            format: SheetFileFormat.csv,
-            headers: <String>[
-              'Date',
-              'Exercize',
-              'Distance / Repetitions',
-              'Duration',
-              'Notes',
-            ],
-            valueTypes: <String>['date', 'text', 'text', 'duration', 'text'],
-            readOnlyColumns: <bool>[false, false, false, false, false],
-            rows: <List<String>>[],
-            csvDelimiter: ',',
-            hasTypeRow: false,
-            headerRowIndex: 0,
-            startColumnIndex: 0,
+      ProviderScope(
+        child: MaterialApp(
+          home: EditingPage(
+            initialSheetData: const SheetData(
+              fileName: 'dynamic_workout_tracker.csv',
+              path: path,
+              format: SheetFileFormat.csv,
+              headers: <String>[
+                'Date',
+                'Exercize',
+                'Distance / Repetitions',
+                'Duration',
+                'Notes',
+              ],
+              valueTypes: <String>['date', 'text', 'text', 'duration', 'text'],
+              readOnlyColumns: <bool>[false, false, false, false, false],
+              rows: <List<String>>[],
+              csvDelimiter: ',',
+              hasTypeRow: false,
+              headerRowIndex: 0,
+              startColumnIndex: 0,
+            ),
+            initialDocumentTarget: const LocalEditorDocumentTarget(
+              existingPath: path,
+            ),
+            initialOpenMode: EditorOpenMode.dateBasedOpenEnd,
+            sheetPersistenceService: _NoopSheetPersistenceService(),
           ),
-          initialDocumentTarget: const LocalEditorDocumentTarget(
-            existingPath: path,
-          ),
-          initialOpenMode: EditorOpenMode.dateBasedOpenEnd,
-          sheetPersistenceService: _NoopSheetPersistenceService(),
         ),
       ),
     );

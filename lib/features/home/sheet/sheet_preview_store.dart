@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 typedef SheetPreviewSaveAction = Future<void> Function();
 
@@ -73,40 +73,77 @@ class SheetPreviewData {
   }
 }
 
-class SheetPreviewStore {
-  static const int createNewEntryPickIndex = -1;
+const int createNewEntryPickIndex = -1;
 
-  static final ValueNotifier<SheetPreviewData> notifier =
-      ValueNotifier<SheetPreviewData>(SheetPreviewData.initial());
+class SheetPreviewNotifier extends Notifier<SheetPreviewData> {
+  @override
+  SheetPreviewData build() => SheetPreviewData.initial();
 
-  static final ValueNotifier<SheetPreviewRowPickRequest?> rowPickRequest =
-      ValueNotifier<SheetPreviewRowPickRequest?>(null);
+  void setData(SheetPreviewData data) => state = data;
 
-  static final ValueNotifier<int?> requestedTabIndex = ValueNotifier<int?>(
-    null,
-  );
-  static final ValueNotifier<int?> pickedRowIndex = ValueNotifier<int?>(null);
-
-  static void beginRowPick(SheetPreviewRowPickRequest request) {
-    rowPickRequest.value = request;
-    pickedRowIndex.value = null;
-    requestedTabIndex.value = 1;
-  }
-
-  static void pickRow(int rowIndex) {
-    pickedRowIndex.value = rowIndex;
-    rowPickRequest.value = null;
-    requestedTabIndex.value = 0;
-  }
-
-  static void pickNewEntry() {
-    pickedRowIndex.value = createNewEntryPickIndex;
-    rowPickRequest.value = null;
-    requestedTabIndex.value = 0;
-  }
-
-  static void cancelRowPick() {
-    rowPickRequest.value = null;
-    requestedTabIndex.value = 0;
+  void update(SheetPreviewData Function(SheetPreviewData current) updateData) {
+    state = updateData(state);
   }
 }
+
+final sheetPreviewProvider =
+    NotifierProvider<SheetPreviewNotifier, SheetPreviewData>(
+      SheetPreviewNotifier.new,
+    );
+
+class SheetPreviewRowPickNotifier
+    extends Notifier<SheetPreviewRowPickRequest?> {
+  @override
+  SheetPreviewRowPickRequest? build() => null;
+
+  void setRequest(SheetPreviewRowPickRequest? request) => state = request;
+}
+
+final sheetPreviewRowPickProvider =
+    NotifierProvider<SheetPreviewRowPickNotifier, SheetPreviewRowPickRequest?>(
+      SheetPreviewRowPickNotifier.new,
+    );
+
+class SheetPreviewIntEventNotifier extends Notifier<int?> {
+  @override
+  int? build() => null;
+
+  void emit(int? value) => state = value;
+}
+
+final sheetPreviewRequestedTabProvider =
+    NotifierProvider<SheetPreviewIntEventNotifier, int?>(
+      SheetPreviewIntEventNotifier.new,
+    );
+final sheetPreviewPickedRowProvider =
+    NotifierProvider<SheetPreviewIntEventNotifier, int?>(
+      SheetPreviewIntEventNotifier.new,
+    );
+
+class SheetPreviewActions extends Notifier<void> {
+  @override
+  void build() {}
+
+  void beginRowPick(SheetPreviewRowPickRequest request) {
+    ref.read(sheetPreviewRowPickProvider.notifier).setRequest(request);
+    ref.read(sheetPreviewPickedRowProvider.notifier).emit(null);
+    ref.read(sheetPreviewRequestedTabProvider.notifier).emit(1);
+  }
+
+  void pickRow(int rowIndex) {
+    ref.read(sheetPreviewPickedRowProvider.notifier).emit(rowIndex);
+    ref.read(sheetPreviewRowPickProvider.notifier).setRequest(null);
+    ref.read(sheetPreviewRequestedTabProvider.notifier).emit(0);
+  }
+
+  void pickNewEntry() => pickRow(createNewEntryPickIndex);
+
+  void cancelRowPick() {
+    ref.read(sheetPreviewRowPickProvider.notifier).setRequest(null);
+    ref.read(sheetPreviewRequestedTabProvider.notifier).emit(0);
+  }
+}
+
+final sheetPreviewActionsProvider = NotifierProvider<SheetPreviewActions, void>(
+  SheetPreviewActions.new,
+);
