@@ -16,4 +16,13 @@ abstract final class AppLayoutConstants {
   static const double pageHeaderIconRadius = 8;
   static const double pageHeaderIconGap = 12;
   static const double pageHeaderControlVerticalOffset = -3;
+
+  static ButtonStyle pageHeaderControlStyle() {
+    return IconButton.styleFrom(
+      minimumSize: const Size.square(pageHeaderIconSize),
+      maximumSize: const Size.square(pageHeaderIconSize),
+      padding: EdgeInsets.zero,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
+  }
 }

@@ -226,6 +226,7 @@ class _SheetPreviewTabState extends ConsumerState<SheetPreviewTab> {
                                     previewRows: previewRows,
                                     previewHeaders: previewHeaders,
                                     hasRows: hasRows,
+                                    selectedRowIndex: preview.selectedRowIndex,
                                     rowPickRequest: rowPickRequest,
                                   ),
                                 ),
@@ -249,6 +250,7 @@ class _SheetPreviewTabState extends ConsumerState<SheetPreviewTab> {
     required List<(int, List<String>)> previewRows,
     required List<String> previewHeaders,
     required bool hasRows,
+    required int? selectedRowIndex,
     required SheetPreviewRowPickRequest? rowPickRequest,
   }) {
     final rows = <DataRow>[
@@ -264,6 +266,7 @@ class _SheetPreviewTabState extends ConsumerState<SheetPreviewTab> {
           rowIndex: entry.$1,
           row: entry.$2,
           previewHeaders: previewHeaders,
+          selected: entry.$1 == selectedRowIndex,
           rowPickRequest: rowPickRequest,
         ),
     ];
@@ -298,10 +301,20 @@ class _SheetPreviewTabState extends ConsumerState<SheetPreviewTab> {
     required int rowIndex,
     required List<String> row,
     required List<String> previewHeaders,
+    required bool selected,
     required SheetPreviewRowPickRequest? rowPickRequest,
   }) {
     final canPick = rowPickRequest?.canPick(rowIndex) ?? false;
+    final theme = Theme.of(context);
     return DataRow(
+      key: ValueKey('sheet-preview-row-$rowIndex'),
+      color: selected
+          ? WidgetStatePropertyAll(
+              Colors.green.withValues(
+                alpha: theme.brightness == Brightness.dark ? 0.30 : 0.20,
+              ),
+            )
+          : null,
       onSelectChanged: canPick ? (_) => _confirmRowPick(rowIndex) : null,
       cells: <DataCell>[
         if (rowPickRequest != null)

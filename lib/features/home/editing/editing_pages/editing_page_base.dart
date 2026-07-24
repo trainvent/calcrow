@@ -1488,6 +1488,14 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
             rows: _documentRows,
             fileName: _documentImportedFileName,
             rowCount: _documentRows.length,
+            selectedRowIndex:
+                _documentEditingRowIndex >= 0 &&
+                    _documentEditingRowIndex < _documentRows.length
+                ? _documentEditingRowIndex
+                : null,
+            clearSelectedRowIndex:
+                _documentEditingRowIndex < 0 ||
+                _documentEditingRowIndex >= _documentRows.length,
             onSaveAsIs: _saveDocumentRowAsIs,
           ),
         );
@@ -1512,6 +1520,7 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
       _documentTextSelectionValue = null;
     });
     _selectEditorTargetRow(preferredRowIndex: rowIndex);
+    _publishRowsToPreview();
   }
 
   void _selectNamelistPreviewRow(int rowIndex) {
@@ -1524,6 +1533,7 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
       preferredRowIndex: rowIndex,
       preserveSelectedTextTarget: textTarget != null,
     );
+    _publishRowsToPreview();
   }
 
   _TextTargetSelection? _documentTextTargetForRowIndex(int rowIndex) {
@@ -1732,6 +1742,7 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
       _documentTextSelectionColumnIndex = textColumnIndex;
       _documentTextSelectionValue = null;
     });
+    _publishRowsToPreview();
   }
 
   Future<void> _createNewDateOpenEndRow() async {
@@ -1756,6 +1767,7 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
       _documentTextSelectionColumnIndex = null;
       _documentTextSelectionValue = null;
     });
+    _publishRowsToPreview();
   }
 
   Future<PersistResult> _persistSheet({required PersistMode mode}) async {
@@ -2584,6 +2596,7 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
                         IconButton(
                           tooltip: context.l10n.hideFieldTypes,
                           onPressed: _toggleFieldTypes,
+                          style: AppLayoutConstants.pageHeaderControlStyle(),
                           icon: AnimatedBuilder(
                             animation: _typeTogglePulse,
                             builder: (context, child) {
@@ -2605,6 +2618,8 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
                       PopupMenuButton<_EditorAdjustAction>(
                         key: const ValueKey('editor-overflow-menu'),
                         tooltip: context.l10n.adjust,
+                        padding: EdgeInsets.zero,
+                        style: AppLayoutConstants.pageHeaderControlStyle(),
                         icon: const Icon(Icons.more_vert_rounded),
                         onSelected: _handleEditorMenuAction,
                         itemBuilder: _editorMenuItems,
@@ -2933,8 +2948,7 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
     return IconButton(
       key: const ValueKey('document-save-status'),
       tooltip: context.l10n.save,
-      visualDensity: VisualDensity.compact,
-      constraints: const BoxConstraints.tightFor(width: 42, height: 42),
+      style: AppLayoutConstants.pageHeaderControlStyle(),
       onPressed: _handleSaveStatusPressed,
       icon: Icon(
         _isDocumentSaving ? Icons.sync_rounded : Icons.save_rounded,
@@ -3247,7 +3261,12 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
     });
     ref
         .read(sheetPreviewProvider.notifier)
-        .update((preview) => preview.copyWith(clearOnSaveAsIs: true));
+        .update(
+          (preview) => preview.copyWith(
+            clearSelectedRowIndex: true,
+            clearOnSaveAsIs: true,
+          ),
+        );
   }
 }
 
@@ -3353,16 +3372,7 @@ class _TopHeader extends StatelessWidget {
               tooltip: context.l10n.back,
               onPressed: onBack,
               alignment: Alignment.topLeft,
-              style: IconButton.styleFrom(
-                minimumSize: const Size.square(
-                  AppLayoutConstants.pageHeaderIconSize,
-                ),
-                maximumSize: const Size.square(
-                  AppLayoutConstants.pageHeaderIconSize,
-                ),
-                padding: EdgeInsets.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
+              style: AppLayoutConstants.pageHeaderControlStyle(),
               icon: ClipRRect(
                 borderRadius: BorderRadius.circular(
                   AppLayoutConstants.pageHeaderIconRadius,
@@ -3392,6 +3402,8 @@ class _TopHeader extends StatelessWidget {
           _alignedHeaderControl(
             PopupMenuButton<_WidgetBlock>(
               tooltip: context.l10n.manageWidgets,
+              padding: EdgeInsets.zero,
+              style: AppLayoutConstants.pageHeaderControlStyle(),
               icon: const Icon(Icons.more_horiz_rounded),
               onSelected: onToggleWidget,
               itemBuilder: (context) => widgetOptions.map((block) {

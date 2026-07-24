@@ -160,85 +160,151 @@ class _HeroCopy extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final badgeLanguage = Localizations.localeOf(context).languageCode == 'de'
-        ? 'de'
-        : 'en';
     return Container(
       padding: const EdgeInsets.all(28),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.82),
         borderRadius: BorderRadius.circular(28),
         border: Border.all(color: const Color(0xFFE7DBCF)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFE6DB),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              context.l10n.worklogEditor,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFFB45231),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            context.l10n.sheetManipulationOnTheGo,
-            style: theme.textTheme.headlineLarge?.copyWith(
-              fontSize: 48,
-              height: 1.0,
-              fontFamily: 'Georgia',
-            ),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            context
-                .l10n
-                .openCSVXLSXOrODSFilesEditTheFocusedRowInCoreEditorAndSaveBackToLocalOrCloudStorage,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              fontSize: 17,
-              height: 1.45,
-              color: const Color(0xFF4C4F55),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 700;
+          final copy = _HeroText(theme: theme);
+          final showcase = Transform.translate(
+            offset: const Offset(0, 56),
+            child: const _HeroShowcase(),
+          );
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                copy,
+                const SizedBox(height: 24),
+                Center(child: showcase),
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: <Widget>[
-              InkWell(
-                onTap: () => openExternalUrl(MarketingLandingPage.playStoreUrl),
-                child: kIsWeb
-                    ? SvgPicture.network(
-                        'public/store-badges/google-play-$badgeLanguage.svg',
-                        height: 56,
-                      )
-                    : SvgPicture.asset(
-                        'assets/store-badges/google-play-$badgeLanguage.svg',
-                        height: 56,
-                      ),
-              ),
-              InkWell(
-                onTap: () => openExternalUrl(MarketingLandingPage.appStoreUrl),
-                child: kIsWeb
-                    ? SvgPicture.network(
-                        'public/store-badges/app-store-$badgeLanguage.svg',
-                        height: 56,
-                      )
-                    : SvgPicture.asset(
-                        'assets/store-badges/app-store-$badgeLanguage.svg',
-                        height: 56,
-                      ),
-              ),
+              Expanded(flex: 6, child: copy),
+              const SizedBox(width: 20),
+              Expanded(flex: 5, child: showcase),
             ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _HeroText extends StatelessWidget {
+  const _HeroText({required this.theme});
+
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final badgeLanguage = Localizations.localeOf(context).languageCode == 'de'
+        ? 'de'
+        : 'en';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFE6DB),
+            borderRadius: BorderRadius.circular(999),
           ),
-        ],
+          child: Text(
+            context.l10n.worklogEditor,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFFB45231),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          context.l10n.sheetManipulationOnTheGo,
+          key: const ValueKey('marketing-hero-title'),
+          style: theme.textTheme.headlineLarge?.copyWith(
+            fontSize: 48,
+            height: 1.0,
+            fontFamily: 'Georgia',
+          ),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          context
+              .l10n
+              .openCSVXLSXOrODSFilesEditTheFocusedRowInCoreEditorAndSaveBackToLocalOrCloudStorage,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            fontSize: 17,
+            height: 1.45,
+            color: const Color(0xFF4C4F55),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: <Widget>[
+            InkWell(
+              onTap: () => openExternalUrl(MarketingLandingPage.playStoreUrl),
+              child: kIsWeb
+                  ? SvgPicture.network(
+                      'public/store-badges/google-play-$badgeLanguage.svg',
+                      height: 56,
+                    )
+                  : SvgPicture.asset(
+                      'assets/store-badges/google-play-$badgeLanguage.svg',
+                      height: 56,
+                    ),
+            ),
+            InkWell(
+              onTap: () => openExternalUrl(MarketingLandingPage.appStoreUrl),
+              child: kIsWeb
+                  ? SvgPicture.network(
+                      'public/store-badges/app-store-$badgeLanguage.svg',
+                      height: 56,
+                    )
+                  : SvgPicture.asset(
+                      'assets/store-badges/app-store-$badgeLanguage.svg',
+                      height: 56,
+                    ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _HeroShowcase extends StatelessWidget {
+  const _HeroShowcase();
+
+  static const _imageUrl = 'public/showcases/showcase_pro.png';
+  static const _aspectRatio = 2560 / 2165;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 440),
+      child: AspectRatio(
+        aspectRatio: _aspectRatio,
+        child: Image.network(
+          _imageUrl,
+          key: const ValueKey('marketing-hero-showcase'),
+          fit: BoxFit.contain,
+          alignment: Alignment.bottomCenter,
+          filterQuality: FilterQuality.high,
+          semanticLabel: context.l10n.calcrow,
+          errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+        ),
       ),
     );
   }

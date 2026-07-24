@@ -36,7 +36,7 @@ class CalcrowApp extends ConsumerWidget {
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
-        themeMode: themeMode,
+        themeMode: ThemeMode.light,
         home: _WebSelectionHost(child: const MarketingLandingPage()),
       );
     }

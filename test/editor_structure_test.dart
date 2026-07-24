@@ -129,6 +129,13 @@ void main() {
     final editorTitlePosition = tester.getTopLeft(
       find.byKey(const ValueKey('editor-page-title')),
     );
+    final editorTitleCenter = tester.getCenter(
+      find.byKey(const ValueKey('editor-page-title')),
+    );
+    final overflowIconCenter = tester.getCenter(
+      find.byIcon(Icons.more_vert_rounded),
+    );
+    expect((editorTitleCenter.dy - overflowIconCenter.dy).abs(), lessThan(1));
     await tester.tap(find.byTooltip('Back'));
     await tester.pump();
 

@@ -98,4 +98,41 @@ void main() {
 
     expect(container.read(sheetPreviewPickedRowProvider), 204);
   });
+
+  testWidgets('highlights the currently selected sheet row in green', (
+    tester,
+  ) async {
+    container
+        .read(sheetPreviewProvider.notifier)
+        .setData(
+          const SheetPreviewData(
+            headers: ['Entry'],
+            rows: [
+              ['first'],
+              ['selected'],
+            ],
+            fileName: 'current.xlsx',
+            rowCount: 2,
+            selectedRowIndex: 1,
+          ),
+        );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: SheetPreviewTab())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final table = tester.widget<DataTable>(find.byType(DataTable));
+    final selectedRow = table.rows.singleWhere(
+      (row) => row.key == const ValueKey('sheet-preview-row-1'),
+    );
+    final rowColor = selectedRow.color?.resolve(<WidgetState>{});
+
+    expect(rowColor, isNotNull);
+    expect(rowColor!.g, greaterThan(rowColor.r));
+    expect(rowColor.g, greaterThan(rowColor.b));
+  });
 }

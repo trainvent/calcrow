@@ -26,6 +26,7 @@ class SheetPreviewData {
     required this.rows,
     required this.fileName,
     required this.rowCount,
+    this.selectedRowIndex,
     this.onSaveAsIs,
   });
 
@@ -44,6 +45,7 @@ class SheetPreviewData {
       rows: <List<String>>[],
       fileName: null,
       rowCount: 0,
+      selectedRowIndex: null,
       onSaveAsIs: null,
     );
   }
@@ -52,6 +54,7 @@ class SheetPreviewData {
   final List<List<String>> rows;
   final String? fileName;
   final int rowCount;
+  final int? selectedRowIndex;
   final SheetPreviewSaveAction? onSaveAsIs;
 
   SheetPreviewData copyWith({
@@ -59,8 +62,10 @@ class SheetPreviewData {
     List<List<String>>? rows,
     String? fileName,
     int? rowCount,
+    int? selectedRowIndex,
     SheetPreviewSaveAction? onSaveAsIs,
     bool clearFileName = false,
+    bool clearSelectedRowIndex = false,
     bool clearOnSaveAsIs = false,
   }) {
     return SheetPreviewData(
@@ -68,6 +73,9 @@ class SheetPreviewData {
       rows: rows ?? this.rows,
       fileName: clearFileName ? null : (fileName ?? this.fileName),
       rowCount: rowCount ?? this.rowCount,
+      selectedRowIndex: clearSelectedRowIndex
+          ? null
+          : (selectedRowIndex ?? this.selectedRowIndex),
       onSaveAsIs: clearOnSaveAsIs ? null : (onSaveAsIs ?? this.onSaveAsIs),
     );
   }
