@@ -241,13 +241,29 @@ class _DiagnosticsConsentHostState
 
   @override
   Widget build(BuildContext context) {
+    final session = ref.watch(authSessionProvider).asData?.value;
+    final isVerified =
+        session != null &&
+        (session.emailVerified ||
+            (ref.watch(emailVerifiedProvider(session.uid)).asData?.value ??
+                false));
+
     ref.listen(authSessionProvider, (previous, next) {
-      if (next.asData?.value == null) return;
+      final previousUid = previous?.asData?.value?.uid;
+      final nextUid = next.asData?.value?.uid;
+      if (previousUid == nextUid) return;
       _hasChecked = false;
+      if (nextUid == null) return;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _maybeShowDiagnosticsConsent();
       });
     });
+
+    if (session != null && isVerified) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _maybeShowDiagnosticsConsent();
+      });
+    }
     return widget.child;
   }
 
@@ -257,6 +273,10 @@ class _DiagnosticsConsentHostState
 
     final session = ref.read(authServiceProvider).currentSession;
     if (session == null) return;
+    final isVerified =
+        session.emailVerified ||
+        (ref.read(emailVerifiedProvider(session.uid)).asData?.value ?? false);
+    if (!isVerified) return;
 
     _isChecking = true;
     final diagnostics = ref.read(diagnosticsServiceProvider);

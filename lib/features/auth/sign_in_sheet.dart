@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:calcrow/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:trainvent_general/trainvent_general.dart';
 
 import 'package:calcrow/app/presentation/web_link_opener_stub.dart'
     if (dart.library.html) 'package:calcrow/app/presentation/web_link_opener_web.dart';
@@ -582,7 +583,14 @@ class _SignInSheetState extends ConsumerState<SignInSheet> {
                             _AuthStep.resetPasswordConfirm =>
                               _confirmPasswordReset,
                           },
-                    child: Text(_primaryButtonLabel(context.l10n)),
+                    child: _isLoading
+                        ? TriangleLoadingIndicator(
+                            size: 28,
+                            strokeWidth: 2,
+                            strokeColor: theme.colorScheme.onPrimary,
+                            baseColor: theme.colorScheme.onPrimary,
+                          )
+                        : Text(_primaryButtonLabel(context.l10n)),
                   ),
                 ),
                 const SizedBox(height: 8),
