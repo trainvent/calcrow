@@ -34,12 +34,10 @@ class MarketingLandingPage extends StatelessWidget {
             ),
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 920),
+                constraints: const BoxConstraints(maxWidth: 1320),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
-                    _TopBar(onOpenWeb: () => openSameTabUrl(webClientPath)),
-                    const SizedBox(height: 28),
                     _HeroCopy(theme: theme),
                     const SizedBox(height: 18),
                     _PreviewPanel(theme: theme),
@@ -108,47 +106,41 @@ class MarketingLandingPage extends StatelessWidget {
   }
 }
 
-class _TopBar extends StatelessWidget {
-  const _TopBar({required this.onOpenWeb});
-
-  final VoidCallback onOpenWeb;
+class _BrandPill extends StatelessWidget {
+  const _BrandPill();
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Row(
-      children: <Widget>[
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.8),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: const Color(0xFFE4D8C9)),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFE4D8C9)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: Image.asset(
+              'assets/images/AppIcon_1024_square.png',
+              width: 14,
+              height: 14,
+              fit: BoxFit.cover,
+            ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: Image.asset(
-                  'assets/images/AppIcon_1024_square.png',
-                  width: 14,
-                  height: 14,
-                  fit: BoxFit.cover,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                context.l10n.calcrow,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontFamily: 'Georgia',
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+          const SizedBox(width: 10),
+          Text(
+            context.l10n.calcrow,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontFamily: 'Georgia',
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -171,7 +163,7 @@ class _HeroCopy extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 700;
-          final copy = _HeroText(theme: theme);
+          final copy = _HeroText(theme: theme, showCapabilities: !compact);
           final showcase = Transform.translate(
             offset: const Offset(0, 56),
             child: const _HeroShowcase(),
@@ -180,18 +172,31 @@ class _HeroCopy extends StatelessWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
+                const _BrandPill(),
+                const SizedBox(height: 24),
                 copy,
                 const SizedBox(height: 24),
                 Center(child: showcase),
               ],
             );
           }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          return Stack(
             children: <Widget>[
-              Expanded(flex: 6, child: copy),
-              const SizedBox(width: 20),
-              Expanded(flex: 5, child: showcase),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Expanded(
+                    flex: 5,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 64),
+                      child: copy,
+                    ),
+                  ),
+                  const SizedBox(width: 32),
+                  Expanded(flex: 6, child: showcase),
+                ],
+              ),
+              const Positioned(top: 0, left: 0, child: _BrandPill()),
             ],
           );
         },
@@ -201,9 +206,10 @@ class _HeroCopy extends StatelessWidget {
 }
 
 class _HeroText extends StatelessWidget {
-  const _HeroText({required this.theme});
+  const _HeroText({required this.theme, required this.showCapabilities});
 
   final ThemeData theme;
+  final bool showCapabilities;
 
   @override
   Widget build(BuildContext context) {
@@ -279,6 +285,88 @@ class _HeroText extends StatelessWidget {
             ),
           ],
         ),
+        if (showCapabilities) ...<Widget>[
+          const SizedBox(height: 28),
+          _HeroCapabilities(theme: theme),
+        ],
+      ],
+    );
+  }
+}
+
+class _HeroCapabilities extends StatelessWidget {
+  const _HeroCapabilities({required this.theme});
+
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F3ED),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE8DDD1)),
+      ),
+      child: Column(
+        children: <Widget>[
+          _CapabilityRow(
+            theme: theme,
+            icon: Icons.description_outlined,
+            text: context.l10n.openCSVXLSXOrODS,
+          ),
+          const SizedBox(height: 10),
+          _CapabilityRow(
+            theme: theme,
+            icon: Icons.filter_center_focus_rounded,
+            text: context.l10n.focusedRowEditing,
+          ),
+          const SizedBox(height: 10),
+          _CapabilityRow(
+            theme: theme,
+            icon: Icons.cloud_outlined,
+            text: '${context.l10n.local} · Google Drive · WebDAV',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CapabilityRow extends StatelessWidget {
+  const _CapabilityRow({
+    required this.theme,
+    required this.icon,
+    required this.text,
+  });
+
+  final ThemeData theme;
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFE6DB),
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Icon(icon, size: 17, color: const Color(0xFFB45231)),
+        ),
+        const SizedBox(width: 11),
+        Expanded(
+          child: Text(
+            text,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFF4C4F55),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -293,7 +381,7 @@ class _HeroShowcase extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 440),
+      constraints: const BoxConstraints(maxWidth: 600),
       child: AspectRatio(
         aspectRatio: _aspectRatio,
         child: Image.network(
@@ -344,131 +432,28 @@ class _PreviewPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF283436),
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: const Color(0xFF36474B)),
-            ),
-            child: Column(
-              children: <Widget>[
-                const _MiniSheetRow(
-                  values: <String>['Date', 'Project', 'Start', 'End', 'Total'],
-                ),
-                const SizedBox(height: 10),
-                const _MiniSheetRow(
-                  values: <String>[
-                    '12/05',
-                    'Client B',
-                    '07:45',
-                    '15:30',
-                    '07:45',
-                  ],
-                ),
-                const SizedBox(height: 10),
-                const _MiniSheetRow(
-                  values: <String>[
-                    '13/05',
-                    'Client A',
-                    '08:00',
-                    '16:00',
-                    '08:00',
-                  ],
-                  highlight: true,
-                ),
-                const SizedBox(height: 10),
-                const _MiniSheetRow(
-                  values: <String>[
-                    '14/05',
-                    'Client C',
-                    '09:00',
-                    '17:00',
-                    '08:00',
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    context.l10n.focusedRowIsHighlighted,
-                    style: textTheme.bodySmall?.copyWith(
-                      color: const Color(0xFFB7C1C3),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF283436),
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: const Color(0xFF36474B)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  context.l10n.mobileTwoColumnView,
-                  style: textTheme.titleMedium?.copyWith(
-                    color: const Color(0xFFF6F3EE),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const desktopPreview = _DesktopSheetPreview();
+              const mobilePreview = _MobileSheetPreview();
+              if (constraints.maxWidth < 900) {
+                return const Column(
                   children: <Widget>[
-                    SizedBox(
-                      width: 176,
-                      child: Column(
-                        children: const <Widget>[
-                          _MobilePreviewCell(text: 'Date'),
-                          SizedBox(height: 8),
-                          _MobilePreviewCell(text: 'Project'),
-                          SizedBox(height: 8),
-                          _MobilePreviewCell(text: 'Start'),
-                          SizedBox(height: 8),
-                          _MobilePreviewCell(text: 'End'),
-                          SizedBox(height: 8),
-                          _MobilePreviewCell(text: 'Total'),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    SizedBox(
-                      width: 176,
-                      child: Column(
-                        children: const <Widget>[
-                          _MobilePreviewCell(text: '13/05', highlighted: true),
-                          SizedBox(height: 8),
-                          _MobilePreviewCell(
-                            text: 'Client A',
-                            highlighted: true,
-                          ),
-                          SizedBox(height: 8),
-                          _MobilePreviewCell(text: '08:00', highlighted: true),
-                          SizedBox(height: 8),
-                          _MobilePreviewCell(text: '16:00', highlighted: true),
-                          SizedBox(height: 8),
-                          _MobilePreviewCell(text: '08:00', highlighted: true),
-                        ],
-                      ),
-                    ),
+                    desktopPreview,
+                    SizedBox(height: 14),
+                    mobilePreview,
                   ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  context.l10n.sameRowCompactedForMobileScreens,
-                  style: textTheme.bodySmall?.copyWith(
-                    color: const Color(0xFFB7C1C3),
-                  ),
-                ),
-              ],
-            ),
+                );
+              }
+              return const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Expanded(flex: 7, child: desktopPreview),
+                  SizedBox(width: 14),
+                  Expanded(flex: 3, child: mobilePreview),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 8),
           Text(
@@ -476,6 +461,125 @@ class _PreviewPanel extends StatelessWidget {
             style: textTheme.bodyMedium?.copyWith(
               color: const Color(0xFFB7C1C3),
               height: 1.45,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DesktopSheetPreview extends StatelessWidget {
+  const _DesktopSheetPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF283436),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFF36474B)),
+      ),
+      child: Column(
+        children: <Widget>[
+          const _MiniSheetRow(
+            values: <String>['Date', 'Project', 'Start', 'End', 'Total'],
+          ),
+          const SizedBox(height: 10),
+          const _MiniSheetRow(
+            values: <String>['12/05', 'Client B', '07:45', '15:30', '07:45'],
+          ),
+          const SizedBox(height: 10),
+          const _MiniSheetRow(
+            values: <String>['13/05', 'Client A', '08:00', '16:00', '08:00'],
+            highlight: true,
+          ),
+          const SizedBox(height: 10),
+          const _MiniSheetRow(
+            values: <String>['14/05', 'Client C', '09:00', '17:00', '08:00'],
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              context.l10n.focusedRowIsHighlighted,
+              style: textTheme.bodySmall?.copyWith(
+                color: const Color(0xFFB7C1C3),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MobileSheetPreview extends StatelessWidget {
+  const _MobileSheetPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF283436),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFF36474B)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            context.l10n.mobileTwoColumnView,
+            style: textTheme.titleMedium?.copyWith(
+              color: const Color(0xFFF6F3EE),
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  children: <Widget>[
+                    _MobilePreviewCell(text: 'Date'),
+                    SizedBox(height: 8),
+                    _MobilePreviewCell(text: 'Project'),
+                    SizedBox(height: 8),
+                    _MobilePreviewCell(text: 'Start'),
+                    SizedBox(height: 8),
+                    _MobilePreviewCell(text: 'End'),
+                    SizedBox(height: 8),
+                    _MobilePreviewCell(text: 'Total'),
+                  ],
+                ),
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  children: <Widget>[
+                    _MobilePreviewCell(text: '13/05', highlighted: true),
+                    SizedBox(height: 8),
+                    _MobilePreviewCell(text: 'Client A', highlighted: true),
+                    SizedBox(height: 8),
+                    _MobilePreviewCell(text: '08:00', highlighted: true),
+                    SizedBox(height: 8),
+                    _MobilePreviewCell(text: '16:00', highlighted: true),
+                    SizedBox(height: 8),
+                    _MobilePreviewCell(text: '08:00', highlighted: true),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            context.l10n.sameRowCompactedForMobileScreens,
+            style: textTheme.bodySmall?.copyWith(
+              color: const Color(0xFFB7C1C3),
             ),
           ),
         ],
