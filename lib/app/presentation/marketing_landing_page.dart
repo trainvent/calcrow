@@ -192,6 +192,37 @@ class _BrandPill extends StatelessWidget {
   }
 }
 
+class _HeroPills extends StatelessWidget {
+  const _HeroPills();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Wrap(
+      spacing: 10,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: <Widget>[
+        const _BrandPill(),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFE6DB),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            context.l10n.worklogEditor,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFFB45231),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _HeroCopy extends StatelessWidget {
   const _HeroCopy({required this.theme});
 
@@ -209,17 +240,22 @@ class _HeroCopy extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final compact = constraints.maxWidth < 700;
-          final copy = _HeroText(theme: theme, showCapabilities: !compact);
-          final showcase = Transform.translate(
-            offset: Offset(0, compact ? 56 : 28),
-            child: _HeroShowcase(cropTransparentTop: !compact),
+          final stacked = constraints.maxWidth < 1100;
+          final showCapabilities = constraints.maxWidth >= 700;
+          final copy = _HeroText(
+            theme: theme,
+            showCapabilities: showCapabilities,
+            expandCapabilitySpacing: !stacked,
           );
-          if (compact) {
+          final showcase = Transform.translate(
+            offset: Offset(0, stacked ? 56 : 28),
+            child: _HeroShowcase(cropTransparentTop: !stacked),
+          );
+          if (stacked) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                const _BrandPill(),
+                const _HeroPills(),
                 const SizedBox(height: 24),
                 copy,
                 const SizedBox(height: 24),
@@ -246,7 +282,7 @@ class _HeroCopy extends StatelessWidget {
                   Expanded(flex: 6, child: showcase),
                 ],
               ),
-              const Positioned(top: 0, left: 0, child: _BrandPill()),
+              const Positioned(top: 0, left: 0, child: _HeroPills()),
             ],
           );
         },
@@ -256,10 +292,15 @@ class _HeroCopy extends StatelessWidget {
 }
 
 class _HeroText extends StatelessWidget {
-  const _HeroText({required this.theme, required this.showCapabilities});
+  const _HeroText({
+    required this.theme,
+    required this.showCapabilities,
+    required this.expandCapabilitySpacing,
+  });
 
   final ThemeData theme;
   final bool showCapabilities;
+  final bool expandCapabilitySpacing;
 
   @override
   Widget build(BuildContext context) {
@@ -269,21 +310,6 @@ class _HeroText extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFE6DB),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Text(
-            context.l10n.worklogEditor,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: const Color(0xFFB45231),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
         Text(
           context.l10n.sheetManipulationOnTheGo,
           key: const ValueKey('marketing-hero-title'),
@@ -336,7 +362,10 @@ class _HeroText extends StatelessWidget {
           ],
         ),
         if (showCapabilities) ...<Widget>[
-          const Spacer(),
+          if (expandCapabilitySpacing)
+            const Spacer()
+          else
+            const SizedBox(height: 28),
           _HeroCapabilities(theme: theme),
         ],
       ],
