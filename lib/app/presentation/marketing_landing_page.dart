@@ -25,83 +25,130 @@ class MarketingLandingPage extends StatelessWidget {
       body: Container(
         color: const Color(0xFFF5F1EA),
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(
-              horizontalPadding,
-              24,
-              horizontalPadding,
-              32,
-            ),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1320),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    _HeroCopy(theme: theme),
-                    const SizedBox(height: 18),
-                    _PreviewPanel(theme: theme),
-                    const SizedBox(height: 18),
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: 12,
-                      runSpacing: 8,
+          child: LayoutBuilder(
+            builder: (context, viewport) {
+              final availableWidth = viewport.maxWidth - horizontalPadding * 2;
+              final contentWidth = availableWidth.clamp(0.0, 1320.0);
+              final desktopStage =
+                  contentWidth >= 1100 &&
+                  viewport.maxWidth / viewport.maxHeight >= 1.3;
+
+              return SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  horizontalPadding,
+                  24,
+                  horizontalPadding,
+                  32,
+                ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1320),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
-                        TextButton(
-                          onPressed: () => openSameTabUrl('/privacy-policy/'),
-                          child: Text(context.l10n.privacyPolicy),
-                        ),
-                        TextButton(
-                          onPressed: () => openSameTabUrl('/terms-of-use/'),
-                          child: Text(context.l10n.terms),
-                        ),
-                        TextButton(
-                          onPressed: () =>
-                              openSameTabUrl('/privacy-policy-ads/'),
-                          child: Text(context.l10n.adsPrivacy),
-                        ),
-                        TextButton(
-                          onPressed: () => openSameTabUrl('/support/'),
-                          child: Text(context.l10n.support),
-                        ),
-                        TextButton(
-                          onPressed: () => openSameTabUrl('/delete-account/'),
-                          child: Text(context.l10n.deleteAccount),
-                        ),
+                        if (desktopStage)
+                          SizedBox(
+                            height: viewport.maxHeight - 48,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.topCenter,
+                              child: SizedBox(
+                                width: contentWidth,
+                                child: _ProductStage(theme: theme),
+                              ),
+                            ),
+                          )
+                        else
+                          _ProductStage(theme: theme),
+                        SizedBox(height: desktopStage ? 24 : 18),
+                        _MarketingFooter(theme: theme),
                       ],
                     ),
-                    const SizedBox(height: 6),
-                    Center(
-                      child: Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: <Widget>[
-                          Text(
-                            context.l10n.calcrowIsDeliveredBy,
-                            style: theme.textTheme.bodySmall,
-                          ),
-                          TextButton(
-                            onPressed: () =>
-                                openExternalUrl('https://next.trainvent.com/'),
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                                vertical: 0,
-                              ),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            child: Text(context.l10n.trainvent),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ProductStage extends StatelessWidget {
+  const _ProductStage({required this.theme});
+
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        _HeroCopy(theme: theme),
+        const SizedBox(height: 18),
+        _PreviewPanel(theme: theme),
+      ],
+    );
+  }
+}
+
+class _MarketingFooter extends StatelessWidget {
+  const _MarketingFooter({required this.theme});
+
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 12,
+          runSpacing: 8,
+          children: <Widget>[
+            TextButton(
+              onPressed: () => openSameTabUrl('/privacy-policy/'),
+              child: Text(context.l10n.privacyPolicy),
+            ),
+            TextButton(
+              onPressed: () => openSameTabUrl('/terms-of-use/'),
+              child: Text(context.l10n.terms),
+            ),
+            TextButton(
+              onPressed: () => openSameTabUrl('/privacy-policy-ads/'),
+              child: Text(context.l10n.adsPrivacy),
+            ),
+            TextButton(
+              onPressed: () => openSameTabUrl('/support/'),
+              child: Text(context.l10n.support),
+            ),
+            TextButton(
+              onPressed: () => openSameTabUrl('/delete-account/'),
+              child: Text(context.l10n.deleteAccount),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: <Widget>[
+            Text(
+              context.l10n.calcrowIsDeliveredBy,
+              style: theme.textTheme.bodySmall,
+            ),
+            TextButton(
+              onPressed: () => openExternalUrl('https://next.trainvent.com/'),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(context.l10n.trainvent),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -165,8 +212,8 @@ class _HeroCopy extends StatelessWidget {
           final compact = constraints.maxWidth < 700;
           final copy = _HeroText(theme: theme, showCapabilities: !compact);
           final showcase = Transform.translate(
-            offset: const Offset(0, 56),
-            child: const _HeroShowcase(),
+            offset: Offset(0, compact ? 56 : 28),
+            child: _HeroShowcase(cropTransparentTop: !compact),
           );
           if (compact) {
             return Column(
@@ -187,9 +234,12 @@ class _HeroCopy extends StatelessWidget {
                 children: <Widget>[
                   Expanded(
                     flex: 5,
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 64),
-                      child: copy,
+                    child: SizedBox(
+                      height: 500,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 64),
+                        child: copy,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 32),
@@ -286,7 +336,7 @@ class _HeroText extends StatelessWidget {
           ],
         ),
         if (showCapabilities) ...<Widget>[
-          const SizedBox(height: 28),
+          const Spacer(),
           _HeroCapabilities(theme: theme),
         ],
       ],
@@ -373,27 +423,52 @@ class _CapabilityRow extends StatelessWidget {
 }
 
 class _HeroShowcase extends StatelessWidget {
-  const _HeroShowcase();
+  const _HeroShowcase({required this.cropTransparentTop});
 
   static const _imageUrl = 'public/showcases/showcase_pro.png';
   static const _aspectRatio = 2560 / 2165;
+  final bool cropTransparentTop;
 
   @override
   Widget build(BuildContext context) {
+    if (cropTransparentTop) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final fullHeight = constraints.maxWidth / _aspectRatio;
+          return SizedBox(
+            height: 500,
+            child: ClipRect(
+              child: OverflowBox(
+                minWidth: constraints.maxWidth,
+                maxWidth: constraints.maxWidth,
+                minHeight: fullHeight,
+                maxHeight: fullHeight,
+                alignment: Alignment.bottomCenter,
+                child: _buildImage(context),
+              ),
+            ),
+          );
+        },
+      );
+    }
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 600),
       child: AspectRatio(
         aspectRatio: _aspectRatio,
-        child: Image.network(
-          _imageUrl,
-          key: const ValueKey('marketing-hero-showcase'),
-          fit: BoxFit.contain,
-          alignment: Alignment.bottomCenter,
-          filterQuality: FilterQuality.high,
-          semanticLabel: context.l10n.calcrow,
-          errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
-        ),
+        child: _buildImage(context),
       ),
+    );
+  }
+
+  Widget _buildImage(BuildContext context) {
+    return Image.network(
+      _imageUrl,
+      key: const ValueKey('marketing-hero-showcase'),
+      fit: BoxFit.contain,
+      alignment: Alignment.bottomCenter,
+      filterQuality: FilterQuality.high,
+      semanticLabel: context.l10n.calcrow,
+      errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
     );
   }
 }
