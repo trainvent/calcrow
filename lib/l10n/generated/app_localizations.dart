@@ -2580,6 +2580,36 @@ abstract class AppLocalizations {
   /// **'No matching files or folders'**
   String get noMatchingFilesOrFolders;
 
+  /// No description provided for @newFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'New folder'**
+  String get newFolder;
+
+  /// No description provided for @folderName.
+  ///
+  /// In en, this message translates to:
+  /// **'Folder name'**
+  String get folderName;
+
+  /// No description provided for @enterAValidFolderName.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid folder name without slashes.'**
+  String get enterAValidFolderName;
+
+  /// No description provided for @couldNotCreateFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not create folder: {details}'**
+  String couldNotCreateFolder(String details);
+
+  /// No description provided for @couldNotCreateWebDavFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not create WebDAV folder ({statusCode}).'**
+  String couldNotCreateWebDavFolder(int statusCode);
+
   /// No description provided for @trackSwimBikeRunAndStrengthWorkInOneRow.
   ///
   /// In en, this message translates to:
@@ -3054,7 +3084,7 @@ abstract class AppLocalizations {
   /// No description provided for @browserBlockedTheWebDAVRequestLikelyCORSTLSAllowThisAppOriginInWebDAVCORSAndPermitMethodsPROPFINDGETPUTWithHeadersAuthorizationDepthAndContentType.
   ///
   /// In en, this message translates to:
-  /// **'Browser blocked the WebDAV request (likely CORS/TLS). Allow this app origin in WebDAV CORS and permit methods PROPFIND/GET/PUT with headers Authorization, Depth, and Content-Type.'**
+  /// **'Browser blocked the WebDAV request (likely CORS/TLS). Allow this app origin in WebDAV CORS and permit methods PROPFIND/GET/PUT/MKCOL with headers Authorization, Depth, and Content-Type.'**
   String
   get browserBlockedTheWebDAVRequestLikelyCORSTLSAllowThisAppOriginInWebDAVCORSAndPermitMethodsPROPFINDGETPUTWithHeadersAuthorizationDepthAndContentType;
 

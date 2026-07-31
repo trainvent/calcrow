@@ -33,6 +33,7 @@ enum WebDavMessage {
   downloadFailed,
   filePathCouldNotSave,
   uploadFailed,
+  createFolderFailed,
   signInFailed,
   endpointRejected,
   serverResponded,
@@ -381,6 +382,48 @@ class WebDavService {
         kind: WebDavErrorKind.unknown,
       );
     }
+  }
+
+  Future<WebDavBrowserEntry> createFolder({
+    required String uid,
+    required String relativePath,
+    required String name,
+  }) async {
+    final credentials = await getCredentials(uid: uid);
+    late final Uri folderUri;
+    try {
+      folderUri = _resolveUri(
+        baseUrl: credentials.serverUrl,
+        relativePath: relativePath,
+        ensureTrailingSlash: true,
+      );
+    } on FormatException {
+      throw const WebDavException(WebDavMessage.folderPathUnsupported);
+    } on ArgumentError {
+      throw const WebDavException(WebDavMessage.folderPathCouldNotOpen);
+    }
+    final response = await _sendWebDavRequest(
+      method: 'MKCOL',
+      uri: folderUri,
+      username: credentials.username,
+      password: credentials.password,
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw WebDavException(
+        WebDavMessage.createFolderFailed,
+        statusCode: response.statusCode,
+        kind: WebDavErrorKind.http,
+        requestMethod: 'MKCOL',
+        requestUri: folderUri,
+        technicalDetails: response.body,
+      );
+    }
+    return WebDavBrowserEntry(
+      path: _normalizeRelativePath(relativePath)!,
+      name: name,
+      mimeType: 'httpd/unix-directory',
+      isFolder: true,
+    );
   }
 
   Future<Uint8List> downloadFileBytes({
@@ -820,6 +863,8 @@ extension WebDavExceptionLocalization on WebDavException {
     WebDavMessage.uploadFailed => localizations.couldNotUploadWebDavFile(
       statusCode ?? 0,
     ),
+    WebDavMessage.createFolderFailed =>
+      localizations.couldNotCreateWebDavFolder(statusCode ?? 0),
     WebDavMessage.signInFailed =>
       localizations.webdavSignInFailedCheckTheUsernameAndAppPassword,
     WebDavMessage.endpointRejected =>

@@ -1353,6 +1353,26 @@ class AppLocalizationsDe extends AppLocalizations {
   String get noMatchingFilesOrFolders => 'Keine passenden Dateien oder Ordner';
 
   @override
+  String get newFolder => 'Neuer Ordner';
+
+  @override
+  String get folderName => 'Ordnername';
+
+  @override
+  String get enterAValidFolderName =>
+      'Gib einen gültigen Ordnernamen ohne Schrägstriche ein.';
+
+  @override
+  String couldNotCreateFolder(String details) {
+    return 'Ordner konnte nicht erstellt werden: $details';
+  }
+
+  @override
+  String couldNotCreateWebDavFolder(int statusCode) {
+    return 'WebDAV-Ordner konnte nicht erstellt werden ($statusCode).';
+  }
+
+  @override
   String get trackSwimBikeRunAndStrengthWorkInOneRow =>
       'Schwimmen, Radfahren, Laufen und Krafttraining in einer Zeile erfassen.';
 
@@ -1652,7 +1672,7 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String
   get browserBlockedTheWebDAVRequestLikelyCORSTLSAllowThisAppOriginInWebDAVCORSAndPermitMethodsPROPFINDGETPUTWithHeadersAuthorizationDepthAndContentType =>
-      'Der Browser hat die WebDAV-Anfrage blockiert (wahrscheinlich CORS/TLS). Erlaube den Ursprung dieser App in WebDAV-CORS sowie die Methoden PROPFIND/GET/PUT mit den Headern Authorization, Depth und Content-Type.';
+      'Der Browser hat die WebDAV-Anfrage blockiert (wahrscheinlich CORS/TLS). Erlaube den Ursprung dieser App in WebDAV-CORS sowie die Methoden PROPFIND/GET/PUT/MKCOL mit den Headern Authorization, Depth und Content-Type.';
 
   @override
   String get couldNotReadCloudDocumentContent =>

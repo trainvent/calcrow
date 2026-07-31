@@ -25,6 +25,7 @@ import 'package:calcrow/core/theme/app_layout_constants.dart';
 import 'package:calcrow/core/prefills/document_prefill.dart';
 import 'package:calcrow/core/prefills/document_prefill_cache.dart';
 import 'package:calcrow/app/widgets/dual_text_button.dart';
+import 'package:calcrow/app/widgets/remote_file_browser.dart';
 import 'package:calcrow/app/widgets/select_page_dialogue.dart';
 
 import 'create_doc_page.dart';
@@ -2182,126 +2183,67 @@ class _CloudFolderPickResult {
   final String name;
 }
 
-class _CloudBrowserShell extends StatelessWidget {
-  const _CloudBrowserShell({
-    required this.title,
-    required this.folderStack,
-    required this.searchController,
-    required this.query,
-    required this.onSearchChanged,
-    required this.onNavigateToFolder,
-    required this.onRefresh,
-    required this.body,
-    required this.actions,
-  });
+bool _isValidFolderName(String value) {
+  final name = value.trim();
+  return name.isNotEmpty &&
+      name != '.' &&
+      name != '..' &&
+      !name.contains('/') &&
+      !name.contains(r'\');
+}
 
-  final String title;
-  final List<_CloudFolderNode> folderStack;
-  final TextEditingController searchController;
-  final String query;
-  final ValueChanged<String> onSearchChanged;
-  final ValueChanged<int> onNavigateToFolder;
-  final VoidCallback onRefresh;
-  final Widget body;
-  final List<Widget> actions;
+Future<String?> _promptForFolderName(BuildContext context) async {
+  final controller = TextEditingController();
+  String? errorText;
+  final result = await showDialog<String>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (context, setDialogState) {
+        void submit() {
+          final name = controller.text.trim();
+          if (!_isValidFolderName(name)) {
+            setDialogState(
+              () => errorText = context.l10n.enterAValidFolderName,
+            );
+            return;
+          }
+          Navigator.of(dialogContext).pop(name);
+        }
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isCompact = MediaQuery.sizeOf(context).width < 600;
-    final content = SafeArea(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          isCompact ? 16 : 24,
-          isCompact ? 12 : 20,
-          isCompact ? 16 : 24,
-          12,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(title, style: theme.textTheme.headlineSmall),
-                ),
-                IconButton(
-                  tooltip: context.l10n.refreshFolder,
-                  onPressed: onRefresh,
-                  icon: const Icon(Icons.refresh_rounded),
-                ),
-                IconButton(
-                  tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
+        return AlertDialog(
+          title: Text(context.l10n.newFolder),
+          content: TextField(
+            key: const ValueKey('new-folder-name'),
+            controller: controller,
+            autofocus: true,
+            textInputAction: TextInputAction.done,
+            decoration: InputDecoration(
+              labelText: context.l10n.folderName,
+              errorText: errorText,
             ),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 42,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: folderStack.length,
-                separatorBuilder: (context, index) =>
-                    const Icon(Icons.chevron_right_rounded, size: 18),
-                itemBuilder: (context, index) {
-                  final isCurrent = index == folderStack.length - 1;
-                  return TextButton.icon(
-                    onPressed: isCurrent
-                        ? null
-                        : () => onNavigateToFolder(index),
-                    icon: Icon(
-                      index == 0 ? Icons.cloud_outlined : Icons.folder_outlined,
-                      size: 18,
-                    ),
-                    label: Text(folderStack[index].name),
-                  );
-                },
-              ),
+            onChanged: (_) {
+              if (errorText != null) {
+                setDialogState(() => errorText = null);
+              }
+            },
+            onSubmitted: (_) => submit(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(context.l10n.cancel),
             ),
-            const SizedBox(height: 10),
-            SearchBar(
-              key: const ValueKey('cloud-browser-search'),
-              controller: searchController,
-              hintText: context.l10n.searchThisFolder,
-              leading: const Icon(Icons.search_rounded),
-              trailing: [
-                if (query.isNotEmpty)
-                  IconButton(
-                    tooltip: context.l10n.clearSearch,
-                    onPressed: () {
-                      searchController.clear();
-                      onSearchChanged('');
-                    },
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-              ],
-              onChanged: onSearchChanged,
-            ),
-            const SizedBox(height: 12),
-            Expanded(child: body),
-            const Divider(height: 20),
-            Wrap(
-              alignment: WrapAlignment.end,
-              spacing: 8,
-              runSpacing: 8,
-              children: actions,
+            FilledButton(
+              onPressed: submit,
+              child: Text(context.l10n.createAction),
             ),
           ],
-        ),
-      ),
-    );
-
-    if (isCompact) return Dialog.fullscreen(child: content);
-    final height = (MediaQuery.sizeOf(context).height - 48)
-        .clamp(420.0, 720.0)
-        .toDouble();
-    return Dialog(
-      insetPadding: const EdgeInsets.all(24),
-      child: SizedBox(width: 880, height: height, child: content),
-    );
-  }
+        );
+      },
+    ),
+  );
+  controller.dispose();
+  return result;
 }
 
 class _CloudFolderPickerDialog extends ConsumerStatefulWidget {
@@ -2319,6 +2261,7 @@ class _CloudFolderPickerDialogState
   List<CloudBrowserEntry> _entries = const <CloudBrowserEntry>[];
   List<_CloudFolderNode> _folderStack = const <_CloudFolderNode>[];
   bool _isLoading = true;
+  bool _isCreatingFolder = false;
   bool _initialized = false;
   String? _errorText;
   final TextEditingController _searchController = TextEditingController();
@@ -2400,6 +2343,32 @@ class _CloudFolderPickerDialogState
     );
   }
 
+  Future<void> _createFolder() async {
+    final name = await _promptForFolderName(context);
+    if (!mounted || name == null) return;
+    setState(() => _isCreatingFolder = true);
+    try {
+      final folder = await ref
+          .read(cloudDocumentServiceProvider)
+          .createFolder(name: name, parentFolderId: _currentFolderId);
+      if (!mounted) return;
+      _openFolder(folder);
+    } on CloudDocumentException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.l10n.couldNotCreateFolder(
+              error.localizedMessage(context.l10n),
+            ),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isCreatingFolder = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final normalizedQuery = _query.trim().toLowerCase();
@@ -2439,13 +2408,23 @@ class _CloudFolderPickerDialogState
               );
             },
           );
-    return _CloudBrowserShell(
+    return RemoteFileBrowserShell<String?>(
       title: context.l10n.chooseFolder,
-      folderStack: _folderStack,
+      locations: _folderStack
+          .map(
+            (folder) => RemoteBrowserLocation<String?>(
+              id: folder.id,
+              name: folder.name,
+            ),
+          )
+          .toList(growable: false),
       searchController: _searchController,
       query: _query,
+      searchHint: context.l10n.searchThisFolder,
+      clearSearchTooltip: context.l10n.clearSearch,
+      refreshTooltip: context.l10n.refreshFolder,
       onSearchChanged: (value) => setState(() => _query = value),
-      onNavigateToFolder: _navigateToFolder,
+      onNavigateToLocation: _navigateToFolder,
       onRefresh: _loadFolder,
       body: body,
       actions: [
@@ -2453,8 +2432,18 @@ class _CloudFolderPickerDialogState
           onPressed: () => Navigator.of(context).pop(),
           child: Text(context.l10n.cancel),
         ),
+        OutlinedButton.icon(
+          onPressed: _isLoading || _isCreatingFolder ? null : _createFolder,
+          icon: _isCreatingFolder
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: TriangleLoadingIndicator(size: 18, strokeWidth: 2),
+                )
+              : const Icon(Icons.create_new_folder_outlined),
+          label: Text(context.l10n.newFolder),
+        ),
         FilledButton(
-          onPressed: _isLoading || _errorText != null
+          onPressed: _isLoading || _isCreatingFolder || _errorText != null
               ? null
               : _useCurrentFolder,
           child: Text(context.l10n.useThisFolder),
@@ -2483,6 +2472,7 @@ class _CloudFilePickerDialogState
   List<CloudBrowserEntry> _entries = const <CloudBrowserEntry>[];
   List<_CloudFolderNode> _folderStack = const <_CloudFolderNode>[];
   bool _isLoading = true;
+  bool _isCreatingFolder = false;
   bool _initialized = false;
   String? _errorText;
   final TextEditingController _searchController = TextEditingController();
@@ -2553,6 +2543,32 @@ class _CloudFilePickerDialogState
     unawaited(_loadFolder());
   }
 
+  Future<void> _createFolder() async {
+    final name = await _promptForFolderName(context);
+    if (!mounted || name == null) return;
+    setState(() => _isCreatingFolder = true);
+    try {
+      final folder = await ref
+          .read(cloudDocumentServiceProvider)
+          .createFolder(name: name, parentFolderId: _currentFolderId);
+      if (!mounted) return;
+      _openFolder(folder);
+    } on CloudDocumentException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.l10n.couldNotCreateFolder(
+              error.localizedMessage(context.l10n),
+            ),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isCreatingFolder = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final normalizedQuery = _query.trim().toLowerCase();
@@ -2619,13 +2635,23 @@ class _CloudFilePickerDialogState
               );
             },
           );
-    return _CloudBrowserShell(
+    return RemoteFileBrowserShell<String?>(
       title: context.l10n.chooseSyncFile,
-      folderStack: _folderStack,
+      locations: _folderStack
+          .map(
+            (folder) => RemoteBrowserLocation<String?>(
+              id: folder.id,
+              name: folder.name,
+            ),
+          )
+          .toList(growable: false),
       searchController: _searchController,
       query: _query,
+      searchHint: context.l10n.searchThisFolder,
+      clearSearchTooltip: context.l10n.clearSearch,
+      refreshTooltip: context.l10n.refreshFolder,
       onSearchChanged: (value) => setState(() => _query = value),
-      onNavigateToFolder: _navigateToFolder,
+      onNavigateToLocation: _navigateToFolder,
       onRefresh: _loadFolder,
       body: body,
       actions: [
@@ -2639,6 +2665,16 @@ class _CloudFilePickerDialogState
             context,
           ).pop(_CloudFileSelection.createNew(folderId: _currentFolderId)),
           child: Text(context.l10n.createNew2),
+        ),
+        OutlinedButton.icon(
+          onPressed: _isLoading || _isCreatingFolder ? null : _createFolder,
+          icon: _isCreatingFolder
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: TriangleLoadingIndicator(size: 18, strokeWidth: 2),
+                )
+              : const Icon(Icons.create_new_folder_outlined),
+          label: Text(context.l10n.newFolder),
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),

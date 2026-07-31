@@ -8,6 +8,39 @@ import 'package:calcrow/core/data/services/webdav_service.dart';
 
 void main() {
   group('WebDavService error classification', () {
+    test('creates a folder with MKCOL and returns browser metadata', () async {
+      late http.BaseRequest capturedRequest;
+      final service = WebDavService(
+        secureStorage: _MemorySecureStorage(),
+        client: _FakeClient((request) async {
+          capturedRequest = request;
+          return _response(statusCode: 201);
+        }),
+        isWebBuildOverride: false,
+      );
+      await service.saveCredentialsWithoutValidation(
+        uid: 'u1',
+        serverUrl: 'https://cloud.example.com/dav/user/',
+        username: 'user',
+        password: 'pw',
+      );
+
+      final folder = await service.createFolder(
+        uid: 'u1',
+        relativePath: 'Projects/Calcrow',
+        name: 'Calcrow',
+      );
+
+      expect(capturedRequest.method, 'MKCOL');
+      expect(
+        capturedRequest.url.toString(),
+        'https://cloud.example.com/dav/user/Projects/Calcrow/',
+      );
+      expect(folder.path, 'Projects/Calcrow');
+      expect(folder.name, 'Calcrow');
+      expect(folder.isFolder, isTrue);
+    });
+
     test('classifies web fetch/XHR failure as browserBlocked', () async {
       final service = WebDavService(
         secureStorage: _MemorySecureStorage(),

@@ -129,6 +129,34 @@ class CloudDocumentService {
     };
   }
 
+  Future<CloudBrowserEntry> createFolder({
+    required String name,
+    String? parentFolderId,
+  }) async {
+    final normalizedName = name.trim();
+    if (normalizedName.isEmpty ||
+        normalizedName == '.' ||
+        normalizedName == '..' ||
+        normalizedName.contains('/') ||
+        normalizedName.contains(r'\')) {
+      throw const CloudDocumentException('Enter a valid folder name.');
+    }
+    final session = _requireSession();
+    final settings = await _userRepository.getUserSettings(session.uid);
+    final provider = _requireProvider(settings);
+    return switch (provider) {
+      CloudSyncProvider.googleDrive => _createGoogleDriveFolder(
+        name: normalizedName,
+        parentFolderId: parentFolderId,
+      ),
+      CloudSyncProvider.webDav => _createWebDavFolder(
+        sessionUid: session.uid,
+        name: normalizedName,
+        parentFolderPath: parentFolderId,
+      ),
+    };
+  }
+
   Future<void> setSelectedSyncFile({required CloudFileMetadata file}) async {
     final session = _requireSession();
     switch (file.provider) {
@@ -451,6 +479,64 @@ class CloudDocumentService {
             ),
           )
           .toList();
+    } on WebDavException catch (error) {
+      throw CloudDocumentException.fromWebDav(error);
+    }
+  }
+
+  Future<CloudBrowserEntry> _createGoogleDriveFolder({
+    required String name,
+    String? parentFolderId,
+  }) async {
+    final client = await _googleDriveAuthService.getAuthenticatedClient();
+    try {
+      final folder = await _googleDriveSyncService.createFolder(
+        authenticatedClient: client,
+        name: name,
+        parentFolderId: parentFolderId,
+      );
+      return CloudBrowserEntry(
+        provider: CloudSyncProvider.googleDrive,
+        id: folder.id,
+        name: folder.name,
+        mimeType: folder.mimeType,
+        isFolder: true,
+        modifiedTime: folder.modifiedTime,
+      );
+    } on GoogleDriveAuthException catch (error) {
+      throw CloudDocumentException(error.message);
+    } on GoogleDriveSyncException catch (error) {
+      throw CloudDocumentException(error.message);
+    } finally {
+      client.close();
+    }
+  }
+
+  Future<CloudBrowserEntry> _createWebDavFolder({
+    required String sessionUid,
+    required String name,
+    String? parentFolderPath,
+  }) async {
+    await _restoreWebDavCredentialsIfNeeded(sessionUid);
+    final relativePath = <String>[
+      if (parentFolderPath != null && parentFolderPath.trim().isNotEmpty)
+        parentFolderPath.trim().replaceAll(RegExp(r'/+$'), ''),
+      name,
+    ].join('/');
+    try {
+      final folder = await _webDavService.createFolder(
+        uid: sessionUid,
+        relativePath: relativePath,
+        name: name,
+      );
+      return CloudBrowserEntry(
+        provider: CloudSyncProvider.webDav,
+        id: folder.path,
+        name: folder.name,
+        mimeType: folder.mimeType,
+        isFolder: true,
+        modifiedTime: folder.modifiedTime,
+      );
     } on WebDavException catch (error) {
       throw CloudDocumentException.fromWebDav(error);
     }

@@ -65,6 +65,31 @@ class GoogleDriveSyncService {
     googleSheetsMimeType,
   ];
 
+  Future<GoogleDriveBrowserEntry> createFolder({
+    required http.Client authenticatedClient,
+    required String name,
+    String? parentFolderId,
+  }) async {
+    final driveApi = drive.DriveApi(authenticatedClient);
+    final folder = drive.File()
+      ..name = name
+      ..mimeType = folderMimeType;
+    final normalizedParentFolderId = parentFolderId?.trim();
+    if (normalizedParentFolderId != null &&
+        normalizedParentFolderId.isNotEmpty) {
+      folder.parents = <String>[normalizedParentFolderId];
+    }
+    try {
+      final created = await driveApi.files.create(
+        folder,
+        $fields: 'id,name,mimeType,modifiedTime',
+      );
+      return _convertBrowserEntry(created);
+    } catch (error) {
+      throw GoogleDriveSyncException('Could not create Drive folder: $error');
+    }
+  }
+
   Future<GoogleDriveFileMetadata> createSyncFile({
     required http.Client authenticatedClient,
     required String fileName,
