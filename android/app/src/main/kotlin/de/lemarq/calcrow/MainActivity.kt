@@ -12,6 +12,7 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterFragmentActivity() {
 	private val openFileChannelName = "de.lemarq.calcrow/file_open"
+	private val consentSignalsChannelName = "de.lemarq.calcrow/consent_signals"
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		enableEdgeToEdge()
@@ -51,6 +52,30 @@ class MainActivity : FlutterFragmentActivity() {
 
 					else -> result.notImplemented()
 				}
+			}
+
+		MethodChannel(flutterEngine.dartExecutor.binaryMessenger, consentSignalsChannelName)
+			.setMethodCallHandler { call, result ->
+				if (call.method != "getTcfConsentState") {
+					result.notImplemented()
+					return@setMethodCallHandler
+				}
+
+				val preferences = getSharedPreferences("${packageName}_preferences", MODE_PRIVATE)
+				result.success(
+					mapOf(
+						"gdprApplies" to if (preferences.contains("IABTCF_gdprApplies")) {
+							preferences.getInt("IABTCF_gdprApplies", 0)
+						} else {
+							null
+						},
+						"purposeConsents" to preferences.getString("IABTCF_PurposeConsents", null),
+						"purposeLegitimateInterests" to preferences.getString(
+							"IABTCF_PurposeLegitimateInterests",
+							null,
+						),
+					),
+				)
 			}
 	}
 }

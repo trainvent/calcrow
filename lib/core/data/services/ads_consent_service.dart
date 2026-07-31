@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import '../../constants/internal_constants.dart';
@@ -9,9 +10,15 @@ class AdsConsentService {
   AdsConsentService._();
 
   static final AdsConsentService instance = AdsConsentService._();
+  static const MethodChannel _consentSignalsChannel = MethodChannel(
+    'de.lemarq.calcrow/consent_signals',
+  );
 
   final ValueNotifier<bool> canRequestAdsListenable = ValueNotifier<bool>(
     false,
+  );
+  final ValueNotifier<bool> hasMinimumAdChoicesListenable = ValueNotifier<bool>(
+    true,
   );
   final ValueNotifier<PrivacyOptionsRequirementStatus>
   privacyOptionsRequirementStatusListenable =
@@ -125,6 +132,7 @@ class AdsConsentService {
   Future<void> _refreshCachedState() async {
     if (!isSupported) {
       canRequestAdsListenable.value = false;
+      hasMinimumAdChoicesListenable.value = true;
       privacyOptionsRequirementStatusListenable.value =
           PrivacyOptionsRequirementStatus.unknown;
       return;
@@ -132,14 +140,53 @@ class AdsConsentService {
 
     canRequestAdsListenable.value = await ConsentInformation.instance
         .canRequestAds();
+    hasMinimumAdChoicesListenable.value = await _readHasMinimumAdChoices();
     privacyOptionsRequirementStatusListenable.value = await ConsentInformation
         .instance
         .getPrivacyOptionsRequirementStatus();
   }
 
+  Future<bool> _readHasMinimumAdChoices() async {
+    try {
+      final values = await _consentSignalsChannel
+          .invokeMapMethod<String, dynamic>('getTcfConsentState');
+      return hasMinimumAdChoicesFromTcf(
+        gdprApplies: values?['gdprApplies'] as int?,
+        purposeConsents: values?['purposeConsents'] as String?,
+        purposeLegitimateInterests:
+            values?['purposeLegitimateInterests'] as String?,
+      );
+    } on MissingPluginException {
+      return true;
+    } catch (_) {
+      // A platform-read failure must not lock users out of the app.
+      return true;
+    }
+  }
+
   String _formatFormError(FormError error) {
     return '${error.errorCode}: ${error.message}';
   }
+}
+
+@visibleForTesting
+bool hasMinimumAdChoicesFromTcf({
+  required int? gdprApplies,
+  required String? purposeConsents,
+  required String? purposeLegitimateInterests,
+}) {
+  if (gdprApplies != 1) return true;
+
+  final consentChoices = purposeConsents?.trim();
+  final legitimateInterestChoices = purposeLegitimateInterests?.trim();
+  if ((consentChoices == null || consentChoices.isEmpty) &&
+      (legitimateInterestChoices == null ||
+          legitimateInterestChoices.isEmpty)) {
+    return true;
+  }
+
+  return consentChoices?.contains('1') == true ||
+      legitimateInterestChoices?.contains('1') == true;
 }
 
 class AdsConsentException implements Exception {

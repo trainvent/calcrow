@@ -122,6 +122,24 @@ abstract class AppLocalizations {
   /// **'Ad privacy choices updated.'**
   String get adPrivacyChoicesUpdated;
 
+  /// No description provided for @adChoicesRequiredForFreeMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Ad choices required for free mode'**
+  String get adChoicesRequiredForFreeMode;
+
+  /// No description provided for @enableNecessaryAdChoicesOrChooseProDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Calcrow\'s free mode is supported by ads. Enable at least the necessary ad-processing choices, or choose Pro to continue without ads.'**
+  String get enableNecessaryAdChoicesOrChooseProDescription;
+
+  /// No description provided for @reviewAdChoices.
+  ///
+  /// In en, this message translates to:
+  /// **'Review ad choices'**
+  String get reviewAdChoices;
+
   /// No description provided for @addField.
   ///
   /// In en, this message translates to:

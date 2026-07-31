@@ -89,3 +89,88 @@ class MonetizationChoiceScreen extends StatelessWidget {
     );
   }
 }
+
+class AdConsentRequiredScreen extends StatelessWidget {
+  const AdConsentRequiredScreen({
+    super.key,
+    required this.isBusy,
+    required this.onReviewAdChoices,
+    required this.onChoosePro,
+    this.errorMessage,
+  });
+
+  final bool isBusy;
+  final VoidCallback onReviewAdChoices;
+  final VoidCallback onChoosePro;
+  final String? errorMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Icon(
+                        Icons.privacy_tip_outlined,
+                        size: 44,
+                        color: colorScheme.primary,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        context.l10n.adChoicesRequiredForFreeMode,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        context
+                            .l10n
+                            .enableNecessaryAdChoicesOrChooseProDescription,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                      FilledButton.icon(
+                        onPressed: isBusy ? null : onReviewAdChoices,
+                        icon: const Icon(Icons.tune_rounded),
+                        label: Text(context.l10n.reviewAdChoices),
+                      ),
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: isBusy ? null : onChoosePro,
+                        icon: const Icon(Icons.workspace_premium_outlined),
+                        label: Text(context.l10n.explorePro),
+                      ),
+                      if (errorMessage != null) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          errorMessage!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: colorScheme.error),
+                        ),
+                      ],
+                      if (isBusy) ...[
+                        const SizedBox(height: 20),
+                        const Center(child: CircularProgressIndicator()),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

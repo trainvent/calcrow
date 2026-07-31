@@ -23,6 +23,17 @@ class AppLocalizationsDe extends AppLocalizations {
       'Datenschutzauswahl für Werbung aktualisiert.';
 
   @override
+  String get adChoicesRequiredForFreeMode =>
+      'Werbeoptionen für den kostenlosen Modus erforderlich';
+
+  @override
+  String get enableNecessaryAdChoicesOrChooseProDescription =>
+      'Calcrows kostenloser Modus wird durch Werbung finanziert. Aktiviere mindestens die notwendigen Optionen zur Werbeverarbeitung oder wähle Pro, um ohne Werbung fortzufahren.';
+
+  @override
+  String get reviewAdChoices => 'Werbeoptionen prüfen';
+
+  @override
   String get addField => 'Feld hinzufügen';
 
   @override

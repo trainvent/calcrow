@@ -89,4 +89,31 @@ void main() {
     );
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
   });
+
+  testWidgets('blocked free mode can review ad choices or choose Pro', (
+    tester,
+  ) async {
+    var reviewedChoices = false;
+    var chosePro = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AdConsentRequiredScreen(
+          isBusy: false,
+          onReviewAdChoices: () => reviewedChoices = true,
+          onChoosePro: () => chosePro = true,
+        ),
+      ),
+    );
+
+    expect(find.text('Ad choices required for free mode'), findsOneWidget);
+    expect(find.text('Review ad choices'), findsOneWidget);
+    expect(find.text('Explore Pro'), findsOneWidget);
+
+    await tester.tap(find.text('Review ad choices'));
+    await tester.tap(find.text('Explore Pro'));
+
+    expect(reviewedChoices, isTrue);
+    expect(chosePro, isTrue);
+  });
 }

@@ -7,6 +7,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/data/di/service_locator.dart';
+import '../core/data/services/ads_consent_service.dart';
 import '../core/data/services/monetization_choice_service.dart';
 import '../core/data/services/purchases_service.dart';
 import '../core/data/services/user_repository.dart';
@@ -193,6 +194,7 @@ class _PostAuthMonetizationGateState
   bool _hasLocalAdsChoice = false;
   bool _isHandlingChoice = false;
   bool _hasScheduledConsentRefresh = false;
+  bool _hasCompletedAdsConsentCheck = false;
   String? _errorMessage;
 
   @override
@@ -209,6 +211,7 @@ class _PostAuthMonetizationGateState
     _hasLocalAdsChoice = false;
     _isHandlingChoice = false;
     _hasScheduledConsentRefresh = false;
+    _hasCompletedAdsConsentCheck = false;
     _errorMessage = null;
     _loadLocalChoice();
   }
@@ -248,7 +251,30 @@ class _PostAuthMonetizationGateState
             );
           }
           _scheduleConsentRefresh();
-          return widget.child;
+          if (!_hasCompletedAdsConsentCheck) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          return ListenableBuilder(
+            listenable: Listenable.merge([
+              adsConsent.canRequestAdsListenable,
+              adsConsent.hasMinimumAdChoicesListenable,
+            ]),
+            builder: (context, _) {
+              final choiceBlocksFreeMode =
+                  adsConsent.lastErrorMessage == null &&
+                  (!adsConsent.canRequestAds ||
+                      !adsConsent.hasMinimumAdChoicesListenable.value);
+              if (!choiceBlocksFreeMode) return widget.child;
+              return AdConsentRequiredScreen(
+                isBusy: _isHandlingChoice,
+                errorMessage: _errorMessage,
+                onReviewAdChoices: _reviewAdChoices,
+                onChoosePro: _choosePro,
+              );
+            },
+          );
         }
 
         return MonetizationChoiceScreen(
@@ -325,7 +351,12 @@ class _PostAuthMonetizationGateState
       } catch (_) {
         // The app remains available; ads stay off until consent can refresh.
       }
-      if (mounted) setState(() => _hasLocalAdsChoice = true);
+      if (mounted) {
+        setState(() {
+          _hasLocalAdsChoice = true;
+          _hasCompletedAdsConsentCheck = true;
+        });
+      }
     } finally {
       if (mounted) setState(() => _isHandlingChoice = false);
     }
@@ -342,8 +373,44 @@ class _PostAuthMonetizationGateState
         await adsConsent.refreshConsentInfo();
       } catch (_) {
         // Consent failures keep ads disabled without blocking the app.
+      } finally {
+        if (mounted) {
+          setState(() => _hasCompletedAdsConsentCheck = true);
+        }
       }
     });
+  }
+
+  Future<void> _reviewAdChoices() async {
+    if (_isHandlingChoice) return;
+    setState(() {
+      _isHandlingChoice = true;
+      _errorMessage = null;
+    });
+    final adsConsent = ref.read(adsConsentServiceProvider);
+    try {
+      await adsConsent.refreshConsentInfo(showFormIfAvailable: false);
+      await adsConsent.showPrivacyOptionsForm();
+      final message = adsConsent.lastErrorMessage;
+      if (message != null) {
+        throw AdsConsentException(message);
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _errorMessage = context.l10n.couldNotOpenAdPrivacyChoices(
+            '$error',
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _hasCompletedAdsConsentCheck = true;
+          _isHandlingChoice = false;
+        });
+      }
+    }
   }
 }
 

@@ -21,6 +21,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get adPrivacyChoicesUpdated => 'Ad privacy choices updated.';
 
   @override
+  String get adChoicesRequiredForFreeMode =>
+      'Ad choices required for free mode';
+
+  @override
+  String get enableNecessaryAdChoicesOrChooseProDescription =>
+      'Calcrow\'s free mode is supported by ads. Enable at least the necessary ad-processing choices, or choose Pro to continue without ads.';
+
+  @override
+  String get reviewAdChoices => 'Review ad choices';
+
+  @override
   String get addField => 'Add field';
 
   @override
