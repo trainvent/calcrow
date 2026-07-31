@@ -135,4 +135,37 @@ void main() {
     expect(rowColor!.g, greaterThan(rowColor.r));
     expect(rowColor.g, greaterThan(rowColor.b));
   });
+
+  testWidgets('shows the active worksheet beside the file name', (
+    tester,
+  ) async {
+    container
+        .read(sheetPreviewProvider.notifier)
+        .setData(
+          const SheetPreviewData(
+            headers: ['Entry'],
+            rows: [
+              ['first'],
+            ],
+            fileName: 'current.xlsx',
+            rowCount: 1,
+            sheetName: 'July 2026',
+          ),
+        );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: SheetPreviewTab())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('current.xlsx'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('sheet-preview-active-sheet')),
+      findsOneWidget,
+    );
+    expect(find.text('• Active sheet: July 2026'), findsOneWidget);
+  });
 }

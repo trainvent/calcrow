@@ -4,6 +4,7 @@ import 'package:calcrow/core/prefills/document_prefill.dart';
 
 import 'auth_service.dart';
 import 'db_service.dart';
+import 'monetization_choice_service.dart';
 
 enum CloudSyncProvider { googleDrive, webDav }
 
@@ -161,6 +162,7 @@ class UserSettingsData {
     this.usageAnalyticsEnabled = false,
     this.crashReportsEnabled = false,
     this.isPro = false,
+    this.monetizationChoice,
     this.cloudSyncProvider,
     this.googleDriveLinked = false,
     this.googleDriveEmail,
@@ -187,6 +189,7 @@ class UserSettingsData {
   final bool usageAnalyticsEnabled;
   final bool crashReportsEnabled;
   final bool isPro;
+  final MonetizationChoice? monetizationChoice;
   final CloudSyncProvider? cloudSyncProvider;
   final bool googleDriveLinked;
   final String? googleDriveEmail;
@@ -240,6 +243,9 @@ class UserSettingsData {
       usageAnalyticsEnabled: settings['usageAnalyticsEnabled'] == true,
       crashReportsEnabled: settings['crashReportsEnabled'] == true,
       isPro: settings['isPro'] == true,
+      monetizationChoice: monetizationChoiceFromStorage(
+        settings['monetizationChoice'],
+      ),
       cloudSyncProvider:
           parsedCloudProvider ??
           (googleDriveLinked
@@ -384,6 +390,16 @@ class UserRepository {
   Future<void> setIsPro({required String uid, required bool isPro}) {
     return _firestore.collection(_usersCollection).doc(uid).set({
       'settings': {'isPro': isPro},
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> setMonetizationChoice({
+    required String uid,
+    required MonetizationChoice choice,
+  }) {
+    return _firestore.collection(_usersCollection).doc(uid).set({
+      'settings': {'monetizationChoice': choice.name},
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }

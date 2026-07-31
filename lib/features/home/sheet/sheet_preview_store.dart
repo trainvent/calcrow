@@ -26,6 +26,7 @@ class SheetPreviewData {
     required this.rows,
     required this.fileName,
     required this.rowCount,
+    this.sheetName,
     this.selectedRowIndex,
     this.onSaveAsIs,
   });
@@ -45,6 +46,7 @@ class SheetPreviewData {
       rows: <List<String>>[],
       fileName: null,
       rowCount: 0,
+      sheetName: null,
       selectedRowIndex: null,
       onSaveAsIs: null,
     );
@@ -54,6 +56,7 @@ class SheetPreviewData {
   final List<List<String>> rows;
   final String? fileName;
   final int rowCount;
+  final String? sheetName;
   final int? selectedRowIndex;
   final SheetPreviewSaveAction? onSaveAsIs;
 
@@ -62,9 +65,11 @@ class SheetPreviewData {
     List<List<String>>? rows,
     String? fileName,
     int? rowCount,
+    String? sheetName,
     int? selectedRowIndex,
     SheetPreviewSaveAction? onSaveAsIs,
     bool clearFileName = false,
+    bool clearSheetName = false,
     bool clearSelectedRowIndex = false,
     bool clearOnSaveAsIs = false,
   }) {
@@ -73,6 +78,7 @@ class SheetPreviewData {
       rows: rows ?? this.rows,
       fileName: clearFileName ? null : (fileName ?? this.fileName),
       rowCount: rowCount ?? this.rowCount,
+      sheetName: clearSheetName ? null : (sheetName ?? this.sheetName),
       selectedRowIndex: clearSelectedRowIndex
           ? null
           : (selectedRowIndex ?? this.selectedRowIndex),

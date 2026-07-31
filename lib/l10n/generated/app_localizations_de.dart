@@ -86,6 +86,23 @@ class AppLocalizationsDe extends AppLocalizations {
   String get choose => 'Auswählen';
 
   @override
+  String get chooseHowToContinue => 'Wähle, wie du fortfahren möchtest';
+
+  @override
+  String get chooseProOrAdsDescription =>
+      'Nutze Calcrow Pro ohne Werbung oder weiterhin die kostenlose, werbefinanzierte Version.';
+
+  @override
+  String get explorePro => 'Pro ansehen';
+
+  @override
+  String get continueWithAds => 'Mit Werbung fortfahren';
+
+  @override
+  String get adPrivacyChoiceDoesNotLimitAppAccess =>
+      'Deine Auswahl zum Datenschutz bei Werbung ist davon getrennt. Du kannst personalisierte Werbung ablehnen und Calcrow weiterhin nutzen; Google zeigt dann möglicherweise nicht personalisierte oder eingeschränkte Werbung.';
+
+  @override
   String get chooseADocumentFromGetStarted =>
       'Wähle unter „Loslegen“ ein Dokument aus.';
 
@@ -1822,6 +1839,32 @@ class AppLocalizationsDe extends AppLocalizations {
       zero: 'Keine Einträge',
     );
     return '$_temp0 · Überschriften in Zeile $headerRowNumber';
+  }
+
+  @override
+  String get createCurrentMonthWorksheet =>
+      'Tabellenblatt für den aktuellen Monat erstellen';
+
+  @override
+  String createWorksheetNamed(String sheetName) {
+    return '„$sheetName“ erstellen?';
+  }
+
+  @override
+  String createMonthlyWorksheetConfirmation(
+    String sheetName,
+    String sourceSheetName,
+    int year,
+  ) {
+    return 'Calcrow versucht, die Struktur von „$sourceSheetName“ für $sheetName $year zu kopieren, datierte Zeilen in den neuen Monat zu verschieben, bearbeitbare Einträge zu leeren und Formeln beizubehalten. Bitte prüfe das Ergebnis vor dem Speichern.';
+  }
+
+  @override
+  String get tryCreateWorksheet => 'Erstellung versuchen';
+
+  @override
+  String couldNotCreateCurrentMonthWorksheet(String error) {
+    return 'Das Tabellenblatt für den aktuellen Monat konnte nicht erstellt werden: $error';
   }
 
   @override

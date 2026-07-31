@@ -136,11 +136,23 @@ class _SheetPreviewTabState extends ConsumerState<SheetPreviewTab> {
           if (rowPickRequest != null) ...[
             Text(rowPickRequest.subtitle, style: theme.textTheme.bodyLarge),
           ] else if (preview.fileName != null) ...[
-            Text(
-              preview.fileName!,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleMedium,
+            Wrap(
+              spacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  preview.fileName!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium,
+                ),
+                if (preview.sheetName?.trim().isNotEmpty == true)
+                  Text(
+                    '• ${context.l10n.activeSheet(preview.sheetName!.trim())}',
+                    key: const ValueKey('sheet-preview-active-sheet'),
+                    style: theme.textTheme.titleMedium,
+                  ),
+              ],
             ),
             const SizedBox(height: 2),
             Wrap(

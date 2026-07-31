@@ -69,7 +69,11 @@ final emailVerifiedProvider = StreamProvider.family<bool, String>((ref, uid) {
 });
 
 final entitlementTierProvider = StreamProvider<EntitlementTier>((ref) {
-  return ref.watch(purchasesServiceProvider).entitlementStream;
+  final purchases = ref.watch(purchasesServiceProvider);
+  return (() async* {
+    yield purchases.currentTier;
+    yield* purchases.entitlementStream;
+  })();
 });
 
 ThemeMode themeModeFromStorage(Object? value) {

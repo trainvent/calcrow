@@ -340,24 +340,40 @@ void main() {
       expect(parsed.rows, isEmpty);
     });
 
-    test('XLSX monthly logbook creates a current month sheet on open', () {
-      final parsed = parseXlsx(
-        buildNamedWorkbookBytes({
-          'June': [
-            ['Date', 'Start', 'End', 'Pause', 'Notes'],
-            ['2026-06-28', '09:00:00', '17:00:00', '00:30:00', 'old month'],
-          ],
-        }),
+    test('XLSX suggests and creates a current month sheet on request', () {
+      final bytes = buildNamedWorkbookBytes({
+        'March': [
+          ['Date', 'Start', 'End', 'Pause', 'Notes'],
+          ['2026-03-28', '09:00:00', '17:00:00', '00:30:00', 'older month'],
+        ],
+        'April': [
+          ['Date', 'Start', 'End', 'Pause', 'Notes'],
+          ['2026-04-28', '09:00:00', '17:00:00', '00:30:00', 'old month'],
+        ],
+      });
+      final suggestion = XlsxSheetCodec.suggestCurrentMonthSheet(
+        bytes: bytes,
         fileName: 'calcrow_sheet_2026.xlsx',
+        now: DateTime(2026, 7, 11),
+      );
+
+      expect(suggestion?.sourceSheetName, 'March');
+      expect(suggestion?.targetSheetName, 'July');
+
+      final parsed = XlsxSheetCodec.createCurrentMonthSheet(
+        bytes: bytes,
+        fileName: 'calcrow_sheet_2026.xlsx',
+        path: '/tmp/calcrow_sheet_2026.xlsx',
         now: DateTime(2026, 7, 11),
       );
 
       expect(parsed.xlsxSheetName, 'July');
       expect(parsed.headers, ['Date', 'Start', 'End', 'Pause', 'Notes']);
       expect(parsed.valueTypes, ['date', 'time', 'time', 'duration', 'text']);
-      expect(parsed.rows, isEmpty);
+      expect(parsed.rows, [
+        ['2026-07-28', '', '', '', ''],
+      ]);
       expect(parsed.workbook?.tables.containsKey('July'), isTrue);
-      expect(parsed.workbook?.tables['July']?.rows.length, 1);
 
       final reparsed = parseXlsx(
         XlsxSheetCodec.buildBytes(
@@ -365,7 +381,7 @@ void main() {
             parsed,
             rows: const <List<String>>[
               <String>[
-                '2026-07-11',
+                '2026-07-28',
                 '09:00:00',
                 '17:00:00',
                 '00:30:00',
@@ -380,7 +396,87 @@ void main() {
 
       expect(reparsed.xlsxSheetName, 'July');
       expect(reparsed.rows, [
-        ['2026-07-11', '09:00:00', '17:00:00', '00:30:00', 'new month'],
+        ['2026-07-28', '09:00:00', '17:00:00', '00:30:00', 'new month'],
+      ]);
+    });
+
+    test('XLSX monthly clone preserves styles and retargets formulas', () {
+      final workbook = excel_pkg.Excel.createExcel();
+      final defaultSheet = workbook.getDefaultSheet()!;
+      workbook.rename(defaultSheet, 'März');
+      final sheet = workbook['März'];
+      sheet.cell(excel_pkg.CellIndex.indexByString('A1'))
+        ..value = excel_pkg.TextCellValue('Datum')
+        ..cellStyle = excel_pkg.CellStyle(bold: true);
+      sheet.cell(excel_pkg.CellIndex.indexByString('B1')).value =
+          excel_pkg.TextCellValue('Betrag');
+      sheet.cell(excel_pkg.CellIndex.indexByString('C1')).value =
+          excel_pkg.TextCellValue('Berechnet');
+      sheet.cell(excel_pkg.CellIndex.indexByString('A2')).value =
+          excel_pkg.TextCellValue('2026-03-30');
+      sheet.cell(excel_pkg.CellIndex.indexByString('B2')).value =
+          excel_pkg.IntCellValue(12);
+      sheet.cell(excel_pkg.CellIndex.indexByString('C2')).value =
+          excel_pkg.FormulaCellValue("'März'!B2*2");
+      final encoded = Uint8List.fromList(workbook.encode()!);
+
+      final suggestion = XlsxSheetCodec.suggestCurrentMonthSheet(
+        bytes: encoded,
+        fileName: 'tagebuch_2026.xlsx',
+        now: DateTime(2026, 7, 1),
+        preferredLanguageCode: 'de',
+      );
+      final created = XlsxSheetCodec.createCurrentMonthSheet(
+        bytes: encoded,
+        fileName: 'tagebuch_2026.xlsx',
+        path: null,
+        now: DateTime(2026, 7, 1),
+        preferredLanguageCode: 'de',
+      );
+      final target = created.workbook!.tables['Juli']!;
+
+      expect(suggestion?.targetSheetName, 'Juli');
+      expect(
+        target.cell(excel_pkg.CellIndex.indexByString('A1')).cellStyle?.isBold,
+        isTrue,
+      );
+      expect(
+        target.cell(excel_pkg.CellIndex.indexByString('A2')).value.toString(),
+        contains('2026-07-30'),
+      );
+      expect(
+        target.cell(excel_pkg.CellIndex.indexByString('B2')).value,
+        isNull,
+      );
+      expect(
+        target.cell(excel_pkg.CellIndex.indexByString('C2')).value,
+        isA<excel_pkg.FormulaCellValue>().having(
+          (value) => value.formula,
+          'formula',
+          "'Juli'!B2*2",
+        ),
+      );
+    });
+
+    test('XLSX monthly logbook opens an existing current month sheet', () {
+      final parsed = parseXlsx(
+        buildNamedWorkbookBytes({
+          'June': [
+            ['Date', 'Start', 'End', 'Pause', 'Notes'],
+            ['2026-06-28', '09:00:00', '17:00:00', '00:30:00', 'old month'],
+          ],
+          'July': [
+            ['Date', 'Start', 'End', 'Pause', 'Notes'],
+            ['2026-07-11', '09:00:00', '17:00:00', '00:30:00', 'current'],
+          ],
+        }),
+        fileName: 'calcrow_sheet_2026.xlsx',
+        now: DateTime(2026, 7, 11),
+      );
+
+      expect(parsed.xlsxSheetName, 'July');
+      expect(parsed.rows, [
+        ['2026-07-11', '09:00:00', '17:00:00', '00:30:00', 'current'],
       ]);
     });
 

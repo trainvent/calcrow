@@ -59,6 +59,7 @@ class PurchasesService {
 
   final StreamController<EntitlementTier> _entitlementController =
       StreamController<EntitlementTier>.broadcast();
+  final ValueNotifier<bool> isReadyListenable = ValueNotifier<bool>(false);
 
   Stream<EntitlementTier> get entitlementStream =>
       _entitlementController.stream;
@@ -77,16 +78,20 @@ class PurchasesService {
     String? appUserId,
     String? appUserEmail,
   }) async {
-    if (_isInitialized) return;
+    if (_isInitialized || isReadyListenable.value) return;
     _appUserEmail = _normalizeEmail(appUserEmail);
     await _loadDefaultProEmails();
     if (_isAllowlistedProEmail(_appUserEmail)) {
       _setTier(EntitlementTier.pro);
     }
     final trimmedApiKey = apiKey.trim();
-    if (kIsWeb) return;
+    if (kIsWeb) {
+      isReadyListenable.value = true;
+      return;
+    }
     if (trimmedApiKey.isEmpty) {
       _initFailure = PurchasesFailure.missingConfiguration;
+      isReadyListenable.value = true;
       return;
     }
     try {
@@ -100,9 +105,11 @@ class PurchasesService {
       Purchases.addCustomerInfoUpdateListener(_onCustomerInfoUpdated);
       final customerInfo = await Purchases.getCustomerInfo();
       _onCustomerInfoUpdated(customerInfo);
+      isReadyListenable.value = true;
     } catch (error, stackTrace) {
       log('Purchases init failed: $error\n$stackTrace');
       _initFailure = PurchasesFailure.temporarilyUnavailable;
+      isReadyListenable.value = true;
       rethrow;
     }
   }

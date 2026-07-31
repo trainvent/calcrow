@@ -32,6 +32,18 @@ class XlsxSheetInfo {
   final bool hasEditableTextColumn;
 }
 
+class XlsxMonthlySheetSuggestion {
+  const XlsxMonthlySheetSuggestion({
+    required this.sourceSheetName,
+    required this.targetSheetName,
+    required this.year,
+  });
+
+  final String sourceSheetName;
+  final String targetSheetName;
+  final int year;
+}
+
 class XlsxSheetCodec {
   const XlsxSheetCodec._();
 
@@ -143,6 +155,89 @@ class XlsxSheetCodec {
     return XlsxWorkbookInspection(
       sheetCount: excel.tables.length,
       sheets: sheets,
+    );
+  }
+
+  static XlsxMonthlySheetSuggestion? suggestCurrentMonthSheet({
+    required Uint8List bytes,
+    required String fileName,
+    DateTime? now,
+    String preferredLanguageCode = 'en',
+  }) {
+    final effectiveNow = now ?? DateTime.now();
+    final year = _monthlyLogbookYear(fileName);
+    if (year == null || year != effectiveNow.year) return null;
+
+    final excel = excel_pkg.Excel.decodeBytes(bytes);
+    if (_findMonthSheetName(excel.tables.keys, effectiveNow.month) != null) {
+      return null;
+    }
+    final sourceSheetName = _monthlyTemplateSheetName(
+      excel,
+      targetMonth: effectiveNow.month,
+      fileName: fileName,
+    );
+    if (sourceSheetName == null) return null;
+
+    final languageCode = _monthLanguageCode(
+      excel.tables.keys,
+      fallback: preferredLanguageCode,
+    );
+    return XlsxMonthlySheetSuggestion(
+      sourceSheetName: sourceSheetName,
+      targetSheetName: _monthName(
+        effectiveNow.month,
+        languageCode: languageCode,
+      ),
+      year: year,
+    );
+  }
+
+  static SheetData createCurrentMonthSheet({
+    required Uint8List bytes,
+    required String fileName,
+    required String? path,
+    DateTime? now,
+    String preferredLanguageCode = 'en',
+  }) {
+    final effectiveNow = now ?? DateTime.now();
+    final suggestion = suggestCurrentMonthSheet(
+      bytes: bytes,
+      fileName: fileName,
+      now: effectiveNow,
+      preferredLanguageCode: preferredLanguageCode,
+    );
+    if (suggestion == null) {
+      throw const FormatException(
+        'A current-month worksheet cannot be safely suggested.',
+      );
+    }
+
+    final excel = excel_pkg.Excel.decodeBytes(bytes);
+    final source = _parseSheet(
+      excel: excel,
+      fileName: fileName,
+      path: path,
+      sheetName: suggestion.sourceSheetName,
+    );
+    excel.copy(suggestion.sourceSheetName, suggestion.targetSheetName);
+    final target = excel.tables[suggestion.targetSheetName];
+    if (target == null) {
+      throw StateError('Could not create the suggested worksheet.');
+    }
+    _prepareMonthlySheetClone(
+      source: source,
+      target: target,
+      sourceSheetName: suggestion.sourceSheetName,
+      targetSheetName: suggestion.targetSheetName,
+      now: effectiveNow,
+    );
+    excel.setDefaultSheet(suggestion.targetSheetName);
+    return _parseSheet(
+      excel: excel,
+      fileName: fileName,
+      path: path,
+      sheetName: suggestion.targetSheetName,
     );
   }
 
@@ -268,18 +363,7 @@ class XlsxSheetCodec {
     final existing = _findMonthSheetName(excel.tables.keys, now.month);
     if (existing != null) return existing;
 
-    final sourceSheetName = _selectBestSheetName(excel, now);
-    final source = _parseSheet(
-      excel: excel,
-      fileName: fileName,
-      path: null,
-      sheetName: sourceSheetName,
-    );
-    final monthSheetName = _monthName(now.month);
-    final monthSheet = excel[monthSheetName];
-    _copySheetStructure(source: source, target: monthSheet);
-    excel.setDefaultSheet(monthSheetName);
-    return monthSheetName;
+    return null;
   }
 
   static String? _currentYearSheetNameForYearlyLogbook(
@@ -326,6 +410,98 @@ class XlsxSheetCodec {
     }
   }
 
+  static String? _monthlyTemplateSheetName(
+    excel_pkg.Excel excel, {
+    required int targetMonth,
+    required String fileName,
+  }) {
+    final candidates = <({String name, int month, bool sameLength})>[];
+    final targetDays = _daysInMonth(2000, targetMonth);
+    for (final name in excel.tables.keys) {
+      final month = _monthNumberForSheetName(name);
+      if (month == null) continue;
+      try {
+        _parseSheet(
+          excel: excel,
+          fileName: fileName,
+          path: null,
+          sheetName: name,
+        );
+      } on FormatException {
+        continue;
+      }
+      candidates.add((
+        name: name,
+        month: month,
+        sameLength: _daysInMonth(2000, month) == targetDays,
+      ));
+    }
+    if (candidates.isEmpty) return null;
+
+    candidates.sort((a, b) {
+      if (a.sameLength != b.sameLength) return a.sameLength ? -1 : 1;
+      final aDistance = (targetMonth - a.month + 12) % 12;
+      final bDistance = (targetMonth - b.month + 12) % 12;
+      return aDistance.compareTo(bDistance);
+    });
+    return candidates.first.name;
+  }
+
+  static void _prepareMonthlySheetClone({
+    required SheetData source,
+    required excel_pkg.Sheet target,
+    required String sourceSheetName,
+    required String targetSheetName,
+    required DateTime now,
+  }) {
+    final dateColumn = FieldTypeGuesser.findDateColumnIndex(
+      headers: source.headers,
+      rows: source.rows,
+    );
+    final dataStartRowIndex =
+        source.headerRowIndex + (source.hasTypeRow ? 2 : 1);
+
+    for (var rowIndex = 0; rowIndex < source.rows.length; rowIndex++) {
+      for (var column = 0; column < source.headers.length; column++) {
+        final cell = target.cell(
+          excel_pkg.CellIndex.indexByColumnRow(
+            columnIndex: source.startColumnIndex + column,
+            rowIndex: dataStartRowIndex + rowIndex,
+          ),
+        );
+        if (cell.value is excel_pkg.FormulaCellValue) continue;
+        if (column == dateColumn) {
+          final sourceDate = _parseDate(source.rows[rowIndex][column]);
+          final day = sourceDate?.day;
+          if (day != null && day <= _daysInMonth(now.year, now.month)) {
+            cell.value = excel_pkg.DateCellValue.fromDateTime(
+              DateTime(now.year, now.month, day),
+            );
+          } else {
+            cell.value = null;
+          }
+        } else if (!FieldTypeGuesser.looksLikeFormulaExpression(
+          source.rows[rowIndex][column],
+        )) {
+          cell.value = null;
+        }
+      }
+    }
+
+    for (final row in target.rows) {
+      for (final cell in row) {
+        final value = cell?.value;
+        if (value is! excel_pkg.FormulaCellValue) continue;
+        final formula = value.formula
+            .replaceAll("'$sourceSheetName'!", "'$targetSheetName'!")
+            .replaceAll('$sourceSheetName!', '$targetSheetName!');
+        if (formula != value.formula) {
+          cell!.value = excel_pkg.FormulaCellValue(formula);
+        }
+      }
+    }
+  }
+
   static int? _monthlyLogbookYear(String fileName) {
     final match = RegExp(
       r'_(\d{4})(?:\.[^.]+)?$',
@@ -336,20 +512,8 @@ class XlsxSheetCodec {
   }
 
   static String? _findMonthSheetName(Iterable<String> names, int month) {
-    final candidates = <String>{
-      _monthName(month),
-      ..._monthTokens(month),
-    }.map((value) => value.toLowerCase()).toSet();
     for (final name in names) {
-      if (candidates.contains(name.trim().toLowerCase())) {
-        return name;
-      }
-    }
-    for (final name in names) {
-      final lowered = name.trim().toLowerCase();
-      if (candidates.any(lowered.contains)) {
-        return name;
-      }
+      if (_monthNumberForSheetName(name) == month) return name;
     }
     return null;
   }
@@ -378,21 +542,92 @@ class XlsxSheetCodec {
     return latestName;
   }
 
-  static String _monthName(int month) {
-    return const <String>[
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ][month - 1];
+  static String _monthName(int month, {String languageCode = 'en'}) {
+    final names = languageCode.toLowerCase().startsWith('de')
+        ? const <String>[
+            'Januar',
+            'Februar',
+            'März',
+            'April',
+            'Mai',
+            'Juni',
+            'Juli',
+            'August',
+            'September',
+            'Oktober',
+            'November',
+            'Dezember',
+          ]
+        : const <String>[
+            'January',
+            'February',
+            'March',
+            'April',
+            'May',
+            'June',
+            'July',
+            'August',
+            'September',
+            'October',
+            'November',
+            'December',
+          ];
+    return names[month - 1];
+  }
+
+  static int? _monthNumberForSheetName(String name) {
+    final normalized = _normalizeMonthName(name);
+    for (var month = 1; month <= 12; month++) {
+      if (_monthNamesForDetection(month).contains(normalized)) return month;
+    }
+    return null;
+  }
+
+  static String _monthLanguageCode(
+    Iterable<String> names, {
+    required String fallback,
+  }) {
+    const germanOnly = <String>{
+      'januar',
+      'februar',
+      'maerz',
+      'mai',
+      'juni',
+      'juli',
+      'oktober',
+      'dezember',
+    };
+    const englishOnly = <String>{
+      'january',
+      'february',
+      'march',
+      'may',
+      'june',
+      'july',
+      'october',
+      'december',
+    };
+    for (final name in names.map(_normalizeMonthName)) {
+      if (germanOnly.contains(name)) return 'de';
+      if (englishOnly.contains(name)) return 'en';
+    }
+    return fallback.toLowerCase().startsWith('de') ? 'de' : 'en';
+  }
+
+  static Set<String> _monthNamesForDetection(int month) {
+    return <String>{
+      _normalizeMonthName(_monthName(month)),
+      _normalizeMonthName(_monthName(month, languageCode: 'de')),
+      ..._monthTokens(month).map(_normalizeMonthName),
+    };
+  }
+
+  static String _normalizeMonthName(String value) {
+    return value.trim().toLowerCase().replaceAll('ä', 'ae');
+  }
+
+  static int _daysInMonth(int year, int month) {
+    return DateTime(year, month + 1, 0).day;
   }
 
   static Iterable<String> _monthTokens(int month) {

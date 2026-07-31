@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:calcrow/l10n/app_localizations.dart';
@@ -5,11 +7,14 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/data/di/service_locator.dart';
+import '../core/data/services/monetization_choice_service.dart';
+import '../core/data/services/purchases_service.dart';
 import '../core/data/services/user_repository.dart';
 import '../core/providers/app_providers.dart';
 import '../features/home/home_shell.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import 'presentation/marketing_landing_page.dart';
+import 'presentation/monetization_choice_screen.dart';
 import '../core/theme/app_theme.dart';
 
 class CalcrowApp extends ConsumerWidget {
@@ -51,15 +56,7 @@ class CalcrowApp extends ConsumerWidget {
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
         themeMode: themeMode,
-        home: _AdsConsentHost(
-          enabled: !_showMarketingLanding(),
-          child: _WebSelectionHost(
-            child: _DiagnosticsConsentHost(
-              enabled: !_showMarketingLanding(),
-              child: _AppEntry(isSignedIn: false),
-            ),
-          ),
-        ),
+        home: _WebSelectionHost(child: const _AppEntry(isSignedIn: false)),
       );
     }
 
@@ -84,15 +81,7 @@ class CalcrowApp extends ConsumerWidget {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: themeMode,
-      home: _AdsConsentHost(
-        enabled: !_showMarketingLanding(),
-        child: _WebSelectionHost(
-          child: _DiagnosticsConsentHost(
-            enabled: !_showMarketingLanding(),
-            child: child,
-          ),
-        ),
-      ),
+      home: _WebSelectionHost(child: child),
     );
   }
 
@@ -128,14 +117,31 @@ class _AuthGate extends ConsumerWidget {
       return const _AppEntry(isSignedIn: false);
     }
     if (session.emailVerified) {
-      return const _AppEntry(isSignedIn: true);
+      return _PostAuthMonetizationGate(
+        uid: session.uid,
+        email: session.email,
+        child: const _DiagnosticsConsentHost(
+          enabled: true,
+          child: _AppEntry(isSignedIn: true),
+        ),
+      );
     }
 
     final verificationState = ref.watch(emailVerifiedProvider(session.uid));
     if (verificationState.isLoading) {
       return const Scaffold();
     }
-    return _AppEntry(isSignedIn: verificationState.asData?.value ?? false);
+    if (verificationState.asData?.value != true) {
+      return const _AppEntry(isSignedIn: false);
+    }
+    return _PostAuthMonetizationGate(
+      uid: session.uid,
+      email: session.email,
+      child: const _DiagnosticsConsentHost(
+        enabled: true,
+        child: _AppEntry(isSignedIn: true),
+      ),
+    );
   }
 }
 
@@ -151,55 +157,6 @@ class _WebSelectionHost extends StatelessWidget {
   }
 }
 
-class _AdsConsentHost extends ConsumerStatefulWidget {
-  const _AdsConsentHost({required this.child, required this.enabled});
-
-  final Widget child;
-  final bool enabled;
-
-  @override
-  ConsumerState<_AdsConsentHost> createState() => _AdsConsentHostState();
-}
-
-class _AdsConsentHostState extends ConsumerState<_AdsConsentHost> {
-  bool _hasChecked = false;
-  bool _isRefreshing = false;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _maybeRefreshAdsConsent();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return widget.child;
-  }
-
-  Future<void> _maybeRefreshAdsConsent() async {
-    if (!mounted || !widget.enabled || !ServiceLocator.isSetup) return;
-    if (_hasChecked || _isRefreshing) return;
-
-    final adsConsent = ref.read(adsConsentServiceProvider);
-    if (!adsConsent.isSupported) {
-      _hasChecked = true;
-      return;
-    }
-
-    _hasChecked = true;
-    _isRefreshing = true;
-    try {
-      await adsConsent.refreshConsentInfo();
-    } catch (_) {
-      // Keep app startup resilient if UMP is unavailable.
-    } finally {
-      _isRefreshing = false;
-    }
-  }
-}
-
 class _AppEntry extends StatelessWidget {
   const _AppEntry({required this.isSignedIn});
 
@@ -211,6 +168,182 @@ class _AppEntry extends StatelessWidget {
       return const HomeShell();
     }
     return const OnboardingScreen();
+  }
+}
+
+class _PostAuthMonetizationGate extends ConsumerStatefulWidget {
+  const _PostAuthMonetizationGate({
+    required this.uid,
+    required this.email,
+    required this.child,
+  });
+
+  final String uid;
+  final String email;
+  final Widget child;
+
+  @override
+  ConsumerState<_PostAuthMonetizationGate> createState() =>
+      _PostAuthMonetizationGateState();
+}
+
+class _PostAuthMonetizationGateState
+    extends ConsumerState<_PostAuthMonetizationGate> {
+  bool _isLoadingLocalChoice = true;
+  bool _hasLocalAdsChoice = false;
+  bool _isHandlingChoice = false;
+  bool _hasScheduledConsentRefresh = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLocalChoice();
+  }
+
+  @override
+  void didUpdateWidget(_PostAuthMonetizationGate oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.uid == widget.uid) return;
+    _isLoadingLocalChoice = true;
+    _hasLocalAdsChoice = false;
+    _isHandlingChoice = false;
+    _hasScheduledConsentRefresh = false;
+    _errorMessage = null;
+    _loadLocalChoice();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final adsConsent = ref.watch(adsConsentServiceProvider);
+    if (!adsConsent.isSupported) return widget.child;
+
+    final purchases = ref.watch(purchasesServiceProvider);
+    final tier =
+        ref.watch(entitlementTierProvider).asData?.value ??
+        purchases.currentTier;
+    final remoteSettings = ref.watch(userSettingsProvider(widget.uid));
+
+    return ValueListenableBuilder<bool>(
+      valueListenable: purchases.isReadyListenable,
+      builder: (context, purchasesReady, _) {
+        if (_isLoadingLocalChoice || !purchasesReady) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (tier == EntitlementTier.pro) return widget.child;
+
+        final remoteChoice = remoteSettings.asData?.value.monetizationChoice;
+        final choseAds =
+            _hasLocalAdsChoice || remoteChoice == MonetizationChoice.ads;
+        if (choseAds) {
+          if (!_hasLocalAdsChoice) {
+            _hasLocalAdsChoice = true;
+            unawaited(
+              MonetizationChoiceService.save(
+                widget.uid,
+                MonetizationChoice.ads,
+              ),
+            );
+          }
+          _scheduleConsentRefresh();
+          return widget.child;
+        }
+
+        return MonetizationChoiceScreen(
+          isBusy: _isHandlingChoice,
+          errorMessage: _errorMessage,
+          onChoosePro: _choosePro,
+          onContinueWithAds: _continueWithAds,
+        );
+      },
+    );
+  }
+
+  Future<void> _loadLocalChoice() async {
+    final choice = await MonetizationChoiceService.read(widget.uid);
+    if (!mounted) return;
+    setState(() {
+      _hasLocalAdsChoice = choice == MonetizationChoice.ads;
+      _isLoadingLocalChoice = false;
+    });
+  }
+
+  Future<void> _choosePro() async {
+    if (_isHandlingChoice) return;
+    setState(() {
+      _isHandlingChoice = true;
+      _errorMessage = null;
+    });
+    final purchases = ref.read(purchasesServiceProvider);
+    try {
+      await purchases.syncAppUser(widget.uid, email: widget.email);
+      await purchases.presentPaywall();
+      await purchases.refreshCustomerInfo();
+      if (mounted) setState(() {});
+    } on PurchasesServiceException catch (error) {
+      if (mounted) {
+        setState(() => _errorMessage = error.localizedMessage(context.l10n));
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _errorMessage =
+              context.l10n.purchasesAreUnavailableRightNowPleaseTryAgainLater,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isHandlingChoice = false);
+    }
+  }
+
+  Future<void> _continueWithAds() async {
+    if (_isHandlingChoice) return;
+    setState(() {
+      _isHandlingChoice = true;
+      _errorMessage = null;
+    });
+    try {
+      await MonetizationChoiceService.save(widget.uid, MonetizationChoice.ads);
+      try {
+        await ref
+            .read(userRepositoryProvider)
+            .setMonetizationChoice(
+              uid: widget.uid,
+              choice: MonetizationChoice.ads,
+            );
+      } catch (_) {
+        // The device choice remains valid while account sync is unavailable.
+      }
+
+      _hasScheduledConsentRefresh = true;
+      final adsConsent = ref.read(adsConsentServiceProvider);
+      await adsConsent.init();
+      try {
+        await adsConsent.refreshConsentInfo();
+      } catch (_) {
+        // The app remains available; ads stay off until consent can refresh.
+      }
+      if (mounted) setState(() => _hasLocalAdsChoice = true);
+    } finally {
+      if (mounted) setState(() => _isHandlingChoice = false);
+    }
+  }
+
+  void _scheduleConsentRefresh() {
+    if (_hasScheduledConsentRefresh) return;
+    _hasScheduledConsentRefresh = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final adsConsent = ref.read(adsConsentServiceProvider);
+      await adsConsent.init();
+      try {
+        await adsConsent.refreshConsentInfo();
+      } catch (_) {
+        // Consent failures keep ads disabled without blocking the app.
+      }
+    });
   }
 }
 

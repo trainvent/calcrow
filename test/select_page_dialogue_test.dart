@@ -46,4 +46,47 @@ void main() {
 
     expect(selectedPage, 'Archive 2025');
   });
+
+  testWidgets('plus action can return a newly created worksheet', (
+    tester,
+  ) async {
+    String? selectedPage;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () async {
+                selectedPage = await showSelectPageDialogue(
+                  context: context,
+                  title: 'Choose a worksheet',
+                  description: 'Compatible worksheets',
+                  cancelLabel: 'Cancel',
+                  detailsBuilder: (entryCount, headerRowNumber) => '',
+                  options: const [
+                    SelectPageOption(
+                      name: 'April',
+                      entryCount: 30,
+                      headerRowNumber: 1,
+                    ),
+                  ],
+                  createOptionTooltip: 'Create current month worksheet',
+                  onCreateOption: () async => 'July',
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Create current month worksheet'));
+    await tester.pumpAndSettle();
+
+    expect(selectedPage, 'July');
+  });
 }

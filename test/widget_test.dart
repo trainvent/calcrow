@@ -13,6 +13,7 @@ void main() {
 
     expect(find.text('Track workdays in under a minute'), findsOneWidget);
     expect(find.text('Skip for now'), findsNothing);
+    expect(find.text('Choose how to continue'), findsNothing);
   });
 
   testWidgets('onboarding requires sign in on final page', (tester) async {

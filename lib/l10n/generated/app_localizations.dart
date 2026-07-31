@@ -237,6 +237,36 @@ abstract class AppLocalizations {
   /// **'Choose'**
   String get choose;
 
+  /// No description provided for @chooseHowToContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose how to continue'**
+  String get chooseHowToContinue;
+
+  /// No description provided for @chooseProOrAdsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Use Calcrow Pro without ads, or keep using the free version supported by ads.'**
+  String get chooseProOrAdsDescription;
+
+  /// No description provided for @explorePro.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore Pro'**
+  String get explorePro;
+
+  /// No description provided for @continueWithAds.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with ads'**
+  String get continueWithAds;
+
+  /// No description provided for @adPrivacyChoiceDoesNotLimitAppAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Your ad privacy choice is separate. You can decline personalized advertising and Calcrow will still work; Google may then show non-personalized or limited ads.'**
+  String get adPrivacyChoiceDoesNotLimitAppAccess;
+
   /// No description provided for @chooseADocumentFromGetStarted.
   ///
   /// In en, this message translates to:
@@ -3286,6 +3316,40 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{entryCount, plural, =0{No entries} =1{1 entry} other{{entryCount} entries}} · Headers in row {headerRowNumber}'**
   String worksheetEntryAndHeaderDetails(int entryCount, int headerRowNumber);
+
+  /// No description provided for @createCurrentMonthWorksheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Create current month worksheet'**
+  String get createCurrentMonthWorksheet;
+
+  /// No description provided for @createWorksheetNamed.
+  ///
+  /// In en, this message translates to:
+  /// **'Create “{sheetName}”?'**
+  String createWorksheetNamed(String sheetName);
+
+  /// No description provided for @createMonthlyWorksheetConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Calcrow will try to copy the structure of “{sourceSheetName}” for {sheetName} {year}, move dated rows to the new month, clear editable entry values, and preserve formulas. Check the result before saving.'**
+  String createMonthlyWorksheetConfirmation(
+    String sheetName,
+    String sourceSheetName,
+    int year,
+  );
+
+  /// No description provided for @tryCreateWorksheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Try to create'**
+  String get tryCreateWorksheet;
+
+  /// No description provided for @couldNotCreateCurrentMonthWorksheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not create the current month worksheet: {error}'**
+  String couldNotCreateCurrentMonthWorksheet(String error);
 
   /// No description provided for @firstRowHasNoHeaderTitles.
   ///

@@ -125,6 +125,15 @@ class _SelectionPageState extends ConsumerState<SelectionPage> {
         path: path,
       );
       if (inspection.sheetCount > 1) {
+        final monthSuggestion = _documentOpenMode == EditorOpenMode.textBased
+            ? null
+            : XlsxSheetCodec.suggestCurrentMonthSheet(
+                bytes: bytes,
+                fileName: fileName,
+                preferredLanguageCode: Localizations.localeOf(
+                  context,
+                ).languageCode,
+              );
         final compatibleSheets = inspection.sheets.where((sheet) {
           return switch (_documentOpenMode) {
             EditorOpenMode.dateBased ||
@@ -140,6 +149,7 @@ class _SelectionPageState extends ConsumerState<SelectionPage> {
           );
         }
         if (!mounted) throw const _SheetSelectionCanceled();
+        SheetData? createdSheetData;
         final selectedSheetName = await showSelectPageDialogue(
           context: context,
           title: context.l10n.chooseWorksheet,
@@ -158,10 +168,72 @@ class _SelectionPageState extends ConsumerState<SelectionPage> {
                 ),
               )
               .toList(),
+          createOptionTooltip: monthSuggestion == null
+              ? null
+              : context.l10n.createCurrentMonthWorksheet,
+          onCreateOption: monthSuggestion == null
+              ? null
+              : () async {
+                  final shouldCreate = await showDialog<bool>(
+                    context: context,
+                    builder: (dialogContext) => AlertDialog(
+                      title: Text(
+                        context.l10n.createWorksheetNamed(
+                          monthSuggestion.targetSheetName,
+                        ),
+                      ),
+                      content: Text(
+                        context.l10n.createMonthlyWorksheetConfirmation(
+                          monthSuggestion.targetSheetName,
+                          monthSuggestion.sourceSheetName,
+                          monthSuggestion.year,
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () =>
+                              Navigator.of(dialogContext).pop(false),
+                          child: Text(context.l10n.cancel),
+                        ),
+                        FilledButton(
+                          onPressed: () =>
+                              Navigator.of(dialogContext).pop(true),
+                          child: Text(context.l10n.tryCreateWorksheet),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (shouldCreate != true || !mounted) return null;
+                  try {
+                    createdSheetData = XlsxSheetCodec.createCurrentMonthSheet(
+                      bytes: bytes,
+                      fileName: fileName,
+                      path: path,
+                      preferredLanguageCode: Localizations.localeOf(
+                        context,
+                      ).languageCode,
+                    );
+                    return createdSheetData?.xlsxSheetName;
+                  } catch (error) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            context.l10n.couldNotCreateCurrentMonthWorksheet(
+                              error.toString(),
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                    return null;
+                  }
+                },
         );
         if (!mounted || selectedSheetName == null) {
           throw const _SheetSelectionCanceled();
         }
+        if (createdSheetData != null) return createdSheetData!;
         return SheetFileService.parse(
           bytes: bytes,
           fileName: fileName,

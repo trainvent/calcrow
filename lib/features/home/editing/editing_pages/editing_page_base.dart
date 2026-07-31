@@ -1488,6 +1488,8 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
             rows: _documentRows,
             fileName: _documentImportedFileName,
             rowCount: _documentRows.length,
+            sheetName: _documentImportedSheetName,
+            clearSheetName: _documentImportedSheetName?.trim().isEmpty != false,
             selectedRowIndex:
                 _documentEditingRowIndex >= 0 &&
                     _documentEditingRowIndex < _documentRows.length
