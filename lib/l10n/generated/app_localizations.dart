@@ -3422,6 +3422,32 @@ abstract class AppLocalizations {
   String
   get refreshAdPrivacyChoicesAndReviewTheLatestGoogleConsentOptionsForThisDevice;
 
+  /// No description provided for @reenterGoogleAdsConsent.
+  ///
+  /// In en, this message translates to:
+  /// **'Re-enter Google ads consent'**
+  String get reenterGoogleAdsConsent;
+
+  /// No description provided for @clearTheStoredGoogleAdConsentOnThisDeviceAndOpenTheConsentFlowAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear the stored Google ad consent on this device and open the consent flow again.'**
+  String
+  get clearTheStoredGoogleAdConsentOnThisDeviceAndOpenTheConsentFlowAgain;
+
+  /// No description provided for @yourSavedGoogleAdConsentOnThisDeviceWillBeClearedThenGooglesConsentFormWillOpenSoYouCanChooseAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Your saved Google ad consent on this device will be cleared. Google\'s consent form will then open so you can choose again.'**
+  String
+  get yourSavedGoogleAdConsentOnThisDeviceWillBeClearedThenGooglesConsentFormWillOpenSoYouCanChooseAgain;
+
+  /// No description provided for @proStatusEnabledNoAdRelatedSettingsNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Pro status enabled, no ad-related settings needed.'**
+  String get proStatusEnabledNoAdRelatedSettingsNeeded;
+
   /// No description provided for @clearTheCurrentAdMobConsentStateOnThisDeviceAdsStayDisabledUntilGoogleCollectsConsentAgain.
   ///
   /// In en, this message translates to:

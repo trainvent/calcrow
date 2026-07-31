@@ -11,7 +11,14 @@ import 'package:calcrow/core/data/services/purchases_service.dart';
 import 'package:calcrow/core/providers/app_providers.dart';
 
 class DataCollectionPage extends ConsumerStatefulWidget {
-  const DataCollectionPage({super.key});
+  const DataCollectionPage({
+    super.key,
+    this.tierOverride,
+    this.adsSupportedOverride,
+  });
+
+  final EntitlementTier? tierOverride;
+  final bool? adsSupportedOverride;
 
   @override
   ConsumerState<DataCollectionPage> createState() => _DataCollectionPageState();
@@ -20,6 +27,7 @@ class DataCollectionPage extends ConsumerStatefulWidget {
 class _DataCollectionPageState extends ConsumerState<DataCollectionPage> {
   bool _isUpdatingAnalytics = false;
   bool _isUpdatingCrashReports = false;
+  bool _isReenteringAdsConsent = false;
   bool _isOpeningAdsPrivacyChoices = false;
   bool _isOpeningAdsPolicy = false;
   bool _isResettingAdsConsent = false;
@@ -30,9 +38,11 @@ class _DataCollectionPageState extends ConsumerState<DataCollectionPage> {
     final diagnostics = ref.read(diagnosticsServiceProvider);
     final theme = Theme.of(context);
     final tier =
+        widget.tierOverride ??
         ref.watch(entitlementTierProvider).asData?.value ??
         ref.read(purchasesServiceProvider).currentTier;
     final isPro = tier == EntitlementTier.pro;
+    final adsSupported = widget.adsSupportedOverride ?? adsConsent.isSupported;
 
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.dataCollection)),
@@ -63,7 +73,40 @@ class _DataCollectionPageState extends ConsumerState<DataCollectionPage> {
               ),
             ),
           ),
-          if (!isPro && adsConsent.isSupported) ...[
+          if (isPro) ...[
+            const SizedBox(height: 12),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.workspace_premium_outlined),
+                title: Text(
+                  context.l10n.proStatusEnabledNoAdRelatedSettingsNeeded,
+                ),
+              ),
+            ),
+          ] else if (adsSupported) ...[
+            const SizedBox(height: 12),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.ads_click_outlined),
+                title: Text(context.l10n.reenterGoogleAdsConsent),
+                subtitle: Text(
+                  context
+                      .l10n
+                      .clearTheStoredGoogleAdConsentOnThisDeviceAndOpenTheConsentFlowAgain,
+                ),
+                trailing: _isReenteringAdsConsent
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: TriangleLoadingIndicator(
+                          size: 18,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Icon(Icons.replay_rounded),
+                onTap: _isReenteringAdsConsent ? null : _reenterAdsConsent,
+              ),
+            ),
             const SizedBox(height: 12),
             Card(
               child: ValueListenableBuilder<PrivacyOptionsRequirementStatus>(
@@ -310,6 +353,64 @@ class _DataCollectionPageState extends ConsumerState<DataCollectionPage> {
     } finally {
       if (mounted) {
         setState(() => _isUpdatingCrashReports = false);
+      }
+    }
+  }
+
+  Future<void> _reenterAdsConsent() async {
+    if (_isReenteringAdsConsent) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(context.l10n.reenterGoogleAdsConsent),
+        content: Text(
+          context
+              .l10n
+              .yourSavedGoogleAdConsentOnThisDeviceWillBeClearedThenGooglesConsentFormWillOpenSoYouCanChooseAgain,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(context.l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(context.l10n.continueLabel),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isReenteringAdsConsent = true);
+    try {
+      final adsConsent = ref.read(adsConsentServiceProvider);
+      await adsConsent.resetConsent();
+      await adsConsent.refreshConsentInfo();
+      if (!mounted) return;
+      final message = adsConsent.lastErrorMessage;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            message == null
+                ? context.l10n.adPrivacyChoicesUpdated
+                : context.l10n.couldNotRefreshAdPrivacyChoices(message),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.couldNotRefreshAdPrivacyChoices('$error')),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isReenteringAdsConsent = false);
       }
     }
   }

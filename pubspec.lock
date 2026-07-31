@@ -1181,10 +1181,10 @@ packages:
     dependency: "direct main"
     description:
       name: trainvent_general
-      sha256: "9fdf8b931d83d787dfd3c9e6fa1afd72731ae31ab5b4d4208bba2801c043fd1d"
+      sha256: b7961b3fec81b37034f06a3120aa4d1dd7e05aa017fc3464b8a0f971c3dc5bbc
       url: "https://pub.dev"
     source: hosted
-    version: "0.0.1"
+    version: "0.0.3"
   typed_data:
     dependency: transitive
     description:

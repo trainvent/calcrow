@@ -1915,6 +1915,24 @@ class AppLocalizationsDe extends AppLocalizations {
       'Aktualisiere die Werbedatenschutzauswahl und prüfe die neuesten Google-Einwilligungsoptionen für dieses Gerät.';
 
   @override
+  String get reenterGoogleAdsConsent =>
+      'Google-Werbeeinwilligung erneut festlegen';
+
+  @override
+  String
+  get clearTheStoredGoogleAdConsentOnThisDeviceAndOpenTheConsentFlowAgain =>
+      'Lösche die gespeicherte Google-Werbeeinwilligung auf diesem Gerät und öffne den Einwilligungsdialog erneut.';
+
+  @override
+  String
+  get yourSavedGoogleAdConsentOnThisDeviceWillBeClearedThenGooglesConsentFormWillOpenSoYouCanChooseAgain =>
+      'Deine gespeicherte Google-Werbeeinwilligung auf diesem Gerät wird gelöscht. Anschließend wird der Google-Einwilligungsdialog geöffnet, damit du erneut wählen kannst.';
+
+  @override
+  String get proStatusEnabledNoAdRelatedSettingsNeeded =>
+      'Pro-Status aktiviert, keine werbebezogenen Einstellungen erforderlich.';
+
+  @override
   String
   get clearTheCurrentAdMobConsentStateOnThisDeviceAdsStayDisabledUntilGoogleCollectsConsentAgain =>
       'Lösche den aktuellen AdMob-Einwilligungsstatus auf diesem Gerät. Werbung bleibt deaktiviert, bis Google erneut eine Einwilligung erfasst.';

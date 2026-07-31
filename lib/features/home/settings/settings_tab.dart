@@ -182,6 +182,11 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
     final settings = session == null
         ? null
         : ref.watch(userSettingsProvider(session.uid)).asData?.value;
+    final purchases = ref.watch(purchasesServiceProvider);
+    final entitlementTier =
+        ref.watch(entitlementTierProvider).asData?.value ??
+        purchases.currentTier;
+    final isPro = entitlementTier == EntitlementTier.pro;
 
     return ListView(
       padding: AppLayoutConstants.pageContentPadding,
@@ -426,7 +431,7 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
                       leading: const Icon(Icons.workspace_premium_outlined),
                       title: Text(context.l10n.entitlement),
                       subtitle: Text(
-                        settings?.isPro == true
+                        isPro
                             ? context.l10n.proEnabled
                             : context.l10n.openSubscriptionAndPurchaseOptions,
                       ),
@@ -444,7 +449,6 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
                           ? null
                           : () => _openRevenueCatEntitlementFlow(
                               session: session,
-                              isPro: settings?.isPro == true,
                             ),
                     ),
                     const Divider(height: 1),
@@ -1470,23 +1474,20 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
 
   Future<void> _openRevenueCatEntitlementFlow({
     required AuthSession session,
-    required bool isPro,
   }) async {
     if (!mounted) return;
     setState(() => _isOpeningRevenueCat = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await PurchasesService.instance.syncAppUser(
-        session.uid,
-        email: session.email,
-      );
-      await PurchasesService.instance.refreshCustomerInfo();
-      if (isPro) {
-        await PurchasesService.instance.presentCustomerCenter();
+      final purchases = ref.read(purchasesServiceProvider);
+      await purchases.syncAppUser(session.uid, email: session.email);
+      await purchases.refreshCustomerInfo();
+      if (purchases.currentTier == EntitlementTier.pro) {
+        await purchases.presentCustomerCenter();
       } else {
-        await PurchasesService.instance.presentPaywall();
+        await purchases.presentPaywall();
       }
-      await PurchasesService.instance.refreshCustomerInfo();
+      await purchases.refreshCustomerInfo();
     } on PurchasesServiceException catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(

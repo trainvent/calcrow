@@ -1875,6 +1875,23 @@ class AppLocalizationsEn extends AppLocalizations {
       'Refresh ad privacy choices and review the latest Google consent options for this device.';
 
   @override
+  String get reenterGoogleAdsConsent => 'Re-enter Google ads consent';
+
+  @override
+  String
+  get clearTheStoredGoogleAdConsentOnThisDeviceAndOpenTheConsentFlowAgain =>
+      'Clear the stored Google ad consent on this device and open the consent flow again.';
+
+  @override
+  String
+  get yourSavedGoogleAdConsentOnThisDeviceWillBeClearedThenGooglesConsentFormWillOpenSoYouCanChooseAgain =>
+      'Your saved Google ad consent on this device will be cleared. Google\'s consent form will then open so you can choose again.';
+
+  @override
+  String get proStatusEnabledNoAdRelatedSettingsNeeded =>
+      'Pro status enabled, no ad-related settings needed.';
+
+  @override
   String
   get clearTheCurrentAdMobConsentStateOnThisDeviceAdsStayDisabledUntilGoogleCollectsConsentAgain =>
       'Clear the current AdMob consent state on this device. Ads stay disabled until Google collects consent again.';
