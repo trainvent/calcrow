@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:calcrow/l10n/app_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:trainvent_general/trainvent_general.dart';
 
 import '../core/data/di/service_locator.dart';
 import '../core/data/services/ads_consent_service.dart';
@@ -232,7 +233,7 @@ class _PostAuthMonetizationGateState
       builder: (context, purchasesReady, _) {
         if (_isLoadingLocalChoice || !purchasesReady) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            body: Center(child: TriangleLoadingIndicator()),
           );
         }
         if (tier == EntitlementTier.pro) return widget.child;
@@ -253,7 +254,7 @@ class _PostAuthMonetizationGateState
           _scheduleConsentRefresh();
           if (!_hasCompletedAdsConsentCheck) {
             return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
+              body: Center(child: TriangleLoadingIndicator()),
             );
           }
           return ListenableBuilder(

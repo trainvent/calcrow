@@ -60,6 +60,12 @@ class AppLocalizationsDe extends AppLocalizations {
       'Anonyme Nutzungsmuster, um zu verstehen, welche Ansichten und Abläufe verwendet werden.';
 
   @override
+  String get analytical => 'Analyse';
+
+  @override
+  String get adRelated => 'Werbung';
+
+  @override
   String get appPassword => 'App-Passwort';
 
   @override
@@ -1089,6 +1095,21 @@ class AppLocalizationsDe extends AppLocalizations {
   String get dynamicWorkoutTracker => 'Dynamischer Trainingsplaner';
 
   @override
+  String get projectOriented => 'Projektorientiert';
+
+  @override
+  String get todaysGoal => 'Heutiges Ziel';
+
+  @override
+  String get accomplishmentOfTheDay => 'Erfolg des Tages';
+
+  @override
+  String get satisfactionRating => 'Zufriedenheit (1–10)';
+
+  @override
+  String get productivityRating => 'Produktivität (1–10)';
+
+  @override
   String get definePrefills => 'Vorbelegungen definieren';
 
   @override
@@ -1295,6 +1316,10 @@ class AppLocalizationsDe extends AppLocalizations {
       'Flexible Trainingseinheiten nach Distanz, Wiederholungen oder Zeit erfassen.';
 
   @override
+  String get trackProjectGoalsSatisfactionAndProductivity =>
+      'Erfasse dein heutiges Ziel und deinen Erfolg des Tages und bewerte anschließend Zufriedenheit und Produktivität von 1 bis 10.';
+
+  @override
   String get templateCategoryOther => 'Sonstiges';
 
   @override
@@ -1305,6 +1330,27 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get useTemplate => 'Vorlage verwenden';
+
+  @override
+  String get searchTemplates => 'Vorlagen durchsuchen';
+
+  @override
+  String get noTemplatesFound => 'Keine Vorlagen gefunden';
+
+  @override
+  String get searchThisFolder => 'Diesen Ordner durchsuchen';
+
+  @override
+  String get clearSearch => 'Suche löschen';
+
+  @override
+  String get refreshFolder => 'Ordner aktualisieren';
+
+  @override
+  String get noMatchingFolders => 'Keine passenden Ordner';
+
+  @override
+  String get noMatchingFilesOrFolders => 'Keine passenden Dateien oder Ordner';
 
   @override
   String get trackSwimBikeRunAndStrengthWorkInOneRow =>

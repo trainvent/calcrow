@@ -283,6 +283,31 @@ void main() {
     expect(find.text('Other'), findsOneWidget);
   });
 
+  testWidgets('template picker searches names, descriptions, and fields', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: CreateDocPage()));
+
+    await tester.tap(find.text('Templates'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('template-search-bar')),
+      'accomplishment',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Project-Oriented'), findsOneWidget);
+    expect(find.text('Workout like Bruce Lee'), findsNothing);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('template-search-bar')),
+      'something unavailable',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('No templates found'), findsOneWidget);
+  });
+
   testWidgets('template tile expands on tap and only its arrow selects it', (
     tester,
   ) async {
@@ -343,8 +368,7 @@ void main() {
 
     await tester.tap(find.text('Templates'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Dynamic Workout Tracker'));
-    await tester.pumpAndSettle();
+    await _scrollTemplateIntoView(tester, 'Dynamic Workout Tracker');
     await _chooseTemplate(tester, 'dynamic_workout_tracker');
 
     expect(find.text('Date'), findsOneWidget);
@@ -365,8 +389,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Templates'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Dynamic Workout Tracker'));
-    await tester.pumpAndSettle();
+    await _scrollTemplateIntoView(tester, 'Dynamic Workout Tracker');
     await _chooseTemplate(tester, 'dynamic_workout_tracker');
 
     await tester.tap(find.text('Continue'));
@@ -458,6 +481,27 @@ void main() {
     expect(find.text('Work done'), findsOneWidget);
     expect(find.text('Notes'), findsOneWidget);
   });
+
+  testWidgets('Project-Oriented template preconfigures project log fields', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: CreateDocPage()));
+
+    await tester.tap(find.text('Templates'));
+    await tester.pumpAndSettle();
+    await _scrollTemplateIntoView(tester, 'Project-Oriented');
+    await _chooseTemplate(tester, 'project_oriented');
+
+    expect(find.text('Date'), findsOneWidget);
+    expect(find.text("Today's Goal"), findsOneWidget);
+    expect(find.text('Accomplishment of the Day'), findsOneWidget);
+    expect(find.text('Satisfaction (1–10)'), findsOneWidget);
+    expect(find.text('Productivity (1–10)'), findsOneWidget);
+    expect(find.text('Notes'), findsOneWidget);
+    expect(find.text('boolean'), findsNothing);
+    expect(find.text('text'), findsNWidgets(3));
+    expect(find.text('integer'), findsNWidgets(2));
+  });
 }
 
 Future<void> _scrollTemplateIntoView(WidgetTester tester, String label) async {
@@ -465,7 +509,10 @@ Future<void> _scrollTemplateIntoView(WidgetTester tester, String label) async {
     find.text(label),
     300,
     scrollable: find
-        .descendant(of: find.byType(Dialog), matching: find.byType(Scrollable))
+        .descendant(
+          of: find.byKey(const ValueKey('template-results-list')),
+          matching: find.byType(Scrollable),
+        )
         .first,
   );
   await tester.pumpAndSettle();

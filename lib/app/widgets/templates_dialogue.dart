@@ -111,6 +111,20 @@ final documentTemplates = <DocumentTemplate>[
       TemplateColumn(header: _notes, type: FieldType.text),
     ],
   ),
+  DocumentTemplate(
+    name: (l10n) => l10n.projectOriented,
+    fileName: 'project_oriented',
+    category: TemplateCategory.other,
+    description: (l10n) => l10n.trackProjectGoalsSatisfactionAndProductivity,
+    columns: <TemplateColumn>[
+      TemplateColumn(header: _date, type: FieldType.date),
+      TemplateColumn(header: _todaysGoal, type: FieldType.text),
+      TemplateColumn(header: _accomplishmentOfTheDay, type: FieldType.text),
+      TemplateColumn(header: _satisfactionRating, type: FieldType.integer),
+      TemplateColumn(header: _productivityRating, type: FieldType.integer),
+      TemplateColumn(header: _notes, type: FieldType.text),
+    ],
+  ),
 ];
 
 enum TemplateCategory { sports, work, other }
@@ -183,81 +197,179 @@ String _client(AppLocalizations l10n) => l10n.client;
 String _invoice(AppLocalizations l10n) => l10n.invoice;
 String _amount(AppLocalizations l10n) => l10n.amount;
 String _status(AppLocalizations l10n) => l10n.status;
+String _todaysGoal(AppLocalizations l10n) => l10n.todaysGoal;
+String _accomplishmentOfTheDay(AppLocalizations l10n) =>
+    l10n.accomplishmentOfTheDay;
+String _satisfactionRating(AppLocalizations l10n) => l10n.satisfactionRating;
+String _productivityRating(AppLocalizations l10n) => l10n.productivityRating;
 
-class TemplatesDialogue extends StatelessWidget {
+class TemplatesDialogue extends StatefulWidget {
   const TemplatesDialogue({super.key, required this.templates});
 
   final List<DocumentTemplate> templates;
 
   @override
+  State<TemplatesDialogue> createState() => _TemplatesDialogueState();
+}
+
+class _TemplatesDialogueState extends State<TemplatesDialogue> {
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  bool _matchesQuery(DocumentTemplate template, AppLocalizations l10n) {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return true;
+    final searchableText = <String>[
+      template.name(l10n),
+      template.description(l10n),
+      _categoryLabel(l10n, template.category),
+      for (final column in template.columns) column.header(l10n),
+    ].join(' ').toLowerCase();
+    return searchableText.contains(query);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isCompact = MediaQuery.sizeOf(context).width < 600;
     final categorizedTemplates = <TemplateCategory, List<DocumentTemplate>>{
       for (final category in TemplateCategory.values)
-        category: templates
-            .where((template) => template.category == category)
+        category: widget.templates
+            .where(
+              (template) =>
+                  template.category == category &&
+                  _matchesQuery(template, context.l10n),
+            )
             .toList(growable: false),
     };
-    return Dialog(
-      insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 760, maxHeight: 680),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      context.l10n.templates,
-                      style: theme.textTheme.headlineSmall,
-                    ),
+    final hasResults = categorizedTemplates.values.any(
+      (templates) => templates.isNotEmpty,
+    );
+    final content = SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          isCompact ? 16 : 24,
+          isCompact ? 12 : 20,
+          isCompact ? 16 : 24,
+          12,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    context.l10n.templates,
+                    style: theme.textTheme.headlineSmall,
                   ),
+                ),
+                IconButton(
+                  tooltip: context.l10n.closeTemplates,
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              context.l10n.everyTemplateStartsWithDateAsTheFirstColumn,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            SearchBar(
+              key: const ValueKey('template-search-bar'),
+              controller: _searchController,
+              hintText: context.l10n.searchTemplates,
+              leading: const Icon(Icons.search_rounded),
+              trailing: [
+                if (_query.isNotEmpty)
                   IconButton(
-                    tooltip: context.l10n.closeTemplates,
-                    onPressed: () => Navigator.of(context).pop(),
+                    tooltip: MaterialLocalizations.of(
+                      context,
+                    ).deleteButtonTooltip,
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() => _query = '');
+                    },
                     icon: const Icon(Icons.close_rounded),
                   ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                context.l10n.everyTemplateStartsWithDateAsTheFirstColumn,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: ListView(
-                  children: [
-                    for (final category in TemplateCategory.values)
-                      if (categorizedTemplates[category]!.isNotEmpty) ...[
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(4, 8, 4, 10),
-                          child: Text(
-                            _categoryLabel(context.l10n, category),
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w600,
+              ],
+              onChanged: (value) => setState(() => _query = value),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: hasResults
+                  ? ListView(
+                      key: const ValueKey('template-results-list'),
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      children: [
+                        for (final category in TemplateCategory.values)
+                          if (categorizedTemplates[category]!.isNotEmpty) ...[
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(4, 8, 4, 10),
+                              child: Text(
+                                _categoryLabel(context.l10n, category),
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        for (final template in categorizedTemplates[category]!)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: _TemplateOptionTile(template: template),
-                          ),
-                        const SizedBox(height: 8),
+                            for (final template
+                                in categorizedTemplates[category]!)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: _TemplateOptionTile(template: template),
+                              ),
+                            const SizedBox(height: 8),
+                          ],
                       ],
-                  ],
-                ),
-              ),
-            ],
-          ),
+                    )
+                  : Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.search_off_rounded,
+                              size: 44,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              context.l10n.noTemplatesFound,
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.titleMedium,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+            ),
+          ],
         ),
+      ),
+    );
+
+    if (isCompact) {
+      return Dialog.fullscreen(child: content);
+    }
+    return Dialog(
+      insetPadding: const EdgeInsets.all(24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 920, maxHeight: 760),
+        child: content,
       ),
     );
   }

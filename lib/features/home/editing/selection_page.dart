@@ -2182,6 +2182,128 @@ class _CloudFolderPickResult {
   final String name;
 }
 
+class _CloudBrowserShell extends StatelessWidget {
+  const _CloudBrowserShell({
+    required this.title,
+    required this.folderStack,
+    required this.searchController,
+    required this.query,
+    required this.onSearchChanged,
+    required this.onNavigateToFolder,
+    required this.onRefresh,
+    required this.body,
+    required this.actions,
+  });
+
+  final String title;
+  final List<_CloudFolderNode> folderStack;
+  final TextEditingController searchController;
+  final String query;
+  final ValueChanged<String> onSearchChanged;
+  final ValueChanged<int> onNavigateToFolder;
+  final VoidCallback onRefresh;
+  final Widget body;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isCompact = MediaQuery.sizeOf(context).width < 600;
+    final content = SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          isCompact ? 16 : 24,
+          isCompact ? 12 : 20,
+          isCompact ? 16 : 24,
+          12,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(title, style: theme.textTheme.headlineSmall),
+                ),
+                IconButton(
+                  tooltip: context.l10n.refreshFolder,
+                  onPressed: onRefresh,
+                  icon: const Icon(Icons.refresh_rounded),
+                ),
+                IconButton(
+                  tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 42,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: folderStack.length,
+                separatorBuilder: (context, index) =>
+                    const Icon(Icons.chevron_right_rounded, size: 18),
+                itemBuilder: (context, index) {
+                  final isCurrent = index == folderStack.length - 1;
+                  return TextButton.icon(
+                    onPressed: isCurrent
+                        ? null
+                        : () => onNavigateToFolder(index),
+                    icon: Icon(
+                      index == 0 ? Icons.cloud_outlined : Icons.folder_outlined,
+                      size: 18,
+                    ),
+                    label: Text(folderStack[index].name),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 10),
+            SearchBar(
+              key: const ValueKey('cloud-browser-search'),
+              controller: searchController,
+              hintText: context.l10n.searchThisFolder,
+              leading: const Icon(Icons.search_rounded),
+              trailing: [
+                if (query.isNotEmpty)
+                  IconButton(
+                    tooltip: context.l10n.clearSearch,
+                    onPressed: () {
+                      searchController.clear();
+                      onSearchChanged('');
+                    },
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+              ],
+              onChanged: onSearchChanged,
+            ),
+            const SizedBox(height: 12),
+            Expanded(child: body),
+            const Divider(height: 20),
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
+              children: actions,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (isCompact) return Dialog.fullscreen(child: content);
+    final height = (MediaQuery.sizeOf(context).height - 48)
+        .clamp(420.0, 720.0)
+        .toDouble();
+    return Dialog(
+      insetPadding: const EdgeInsets.all(24),
+      child: SizedBox(width: 880, height: height, child: content),
+    );
+  }
+}
+
 class _CloudFolderPickerDialog extends ConsumerStatefulWidget {
   const _CloudFolderPickerDialog({required this.provider});
 
@@ -2199,8 +2321,16 @@ class _CloudFolderPickerDialogState
   bool _isLoading = true;
   bool _initialized = false;
   String? _errorText;
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
 
   String? get _currentFolderId => _folderStack.last.id;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -2245,14 +2375,18 @@ class _CloudFolderPickerDialogState
         ..._folderStack,
         _CloudFolderNode(id: entry.id, name: entry.name),
       ];
+      _query = '';
+      _searchController.clear();
     });
     unawaited(_loadFolder());
   }
 
-  void _goUp() {
-    if (_folderStack.length <= 1) return;
+  void _navigateToFolder(int index) {
+    if (index < 0 || index >= _folderStack.length - 1) return;
     setState(() {
-      _folderStack = _folderStack.sublist(0, _folderStack.length - 1);
+      _folderStack = _folderStack.sublist(0, index + 1);
+      _query = '';
+      _searchController.clear();
     });
     unawaited(_loadFolder());
   }
@@ -2268,59 +2402,52 @@ class _CloudFolderPickerDialogState
 
   @override
   Widget build(BuildContext context) {
-    final folderLabel = _folderStack.map((node) => node.name).join(' / ');
-    return AlertDialog(
-      title: Text(context.l10n.chooseFolder),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  onPressed: _folderStack.length > 1 ? _goUp : null,
-                  icon: const Icon(Icons.arrow_upward_rounded),
-                  tooltip: context.l10n.upOneFolder,
-                ),
-                Expanded(
-                  child: Text(
-                    folderLabel,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (_isLoading)
-              Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: TriangleLoadingIndicator(),
+    final normalizedQuery = _query.trim().toLowerCase();
+    final visibleEntries = normalizedQuery.isEmpty
+        ? _entries
+        : _entries
+              .where(
+                (entry) => entry.name.toLowerCase().contains(normalizedQuery),
               )
-            else if (_errorText != null)
-              SelectableText(_errorText!)
-            else if (_entries.isEmpty)
-              Text(context.l10n.thisFolderHasNoSubfolders),
-            if (!_isLoading && _errorText == null && _entries.isNotEmpty)
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: _entries
-                      .map(
-                        (entry) => ListTile(
-                          leading: const Icon(Icons.folder_outlined),
-                          title: Text(entry.name),
-                          subtitle: Text(context.l10n.folder),
-                          onTap: () => _openFolder(entry),
-                        ),
-                      )
-                      .toList(),
-                ),
-              ),
-          ],
-        ),
-      ),
+              .toList(growable: false);
+    final body = _isLoading
+        ? const Center(child: TriangleLoadingIndicator())
+        : _errorText != null
+        ? Center(child: SelectableText(_errorText!))
+        : visibleEntries.isEmpty
+        ? Center(
+            child: Text(
+              normalizedQuery.isEmpty
+                  ? context.l10n.thisFolderHasNoSubfolders
+                  : context.l10n.noMatchingFolders,
+              textAlign: TextAlign.center,
+            ),
+          )
+        : ListView.separated(
+            key: const ValueKey('cloud-folder-results'),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            itemCount: visibleEntries.length,
+            separatorBuilder: (context, index) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final entry = visibleEntries[index];
+              return ListTile(
+                leading: const Icon(Icons.folder_rounded),
+                title: Text(entry.name),
+                subtitle: Text(context.l10n.folder),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => _openFolder(entry),
+              );
+            },
+          );
+    return _CloudBrowserShell(
+      title: context.l10n.chooseFolder,
+      folderStack: _folderStack,
+      searchController: _searchController,
+      query: _query,
+      onSearchChanged: (value) => setState(() => _query = value),
+      onNavigateToFolder: _navigateToFolder,
+      onRefresh: _loadFolder,
+      body: body,
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
@@ -2358,8 +2485,16 @@ class _CloudFilePickerDialogState
   bool _isLoading = true;
   bool _initialized = false;
   String? _errorText;
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
 
   String? get _currentFolderId => _folderStack.last.id;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -2402,99 +2537,97 @@ class _CloudFilePickerDialogState
         ..._folderStack,
         _CloudFolderNode(id: entry.id, name: entry.name),
       ];
+      _query = '';
+      _searchController.clear();
     });
     unawaited(_loadFolder());
   }
 
-  void _goUp() {
-    if (_folderStack.length <= 1) return;
+  void _navigateToFolder(int index) {
+    if (index < 0 || index >= _folderStack.length - 1) return;
     setState(() {
-      _folderStack = _folderStack.sublist(0, _folderStack.length - 1);
+      _folderStack = _folderStack.sublist(0, index + 1);
+      _query = '';
+      _searchController.clear();
     });
     unawaited(_loadFolder());
   }
 
   @override
   Widget build(BuildContext context) {
-    final folderLabel = _folderStack.map((node) => node.name).join(' / ');
-    return AlertDialog(
-      title: Text(context.l10n.chooseSyncFile),
-      content: SelectionArea(
-        child: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  IconButton(
-                    onPressed: _folderStack.length > 1 ? _goUp : null,
-                    icon: const Icon(Icons.arrow_upward_rounded),
-                    tooltip: context.l10n.upOneFolder,
-                  ),
-                  Expanded(
-                    child: Text(
-                      folderLabel,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
+    final normalizedQuery = _query.trim().toLowerCase();
+    final visibleEntries = normalizedQuery.isEmpty
+        ? _entries
+        : _entries
+              .where(
+                (entry) => entry.name.toLowerCase().contains(normalizedQuery),
+              )
+              .toList(growable: false);
+    final body = _isLoading
+        ? const Center(child: TriangleLoadingIndicator())
+        : _errorText != null
+        ? Center(child: SelectableText(_errorText!))
+        : visibleEntries.isEmpty
+        ? Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                normalizedQuery.isEmpty
+                    ? context
+                          .l10n
+                          .thisFolderHasNoSupportedCSVXLSXOrODSFilesYetOpenAnotherFolderOrCreateANewSyncFileHere
+                    : context.l10n.noMatchingFilesOrFolders,
+                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 8),
-              if (_isLoading)
-                Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
-                  child: TriangleLoadingIndicator(),
-                )
-              else if (_errorText != null)
-                SelectableText(_errorText!)
-              else if (_entries.isEmpty)
-                Text(
-                  context
-                      .l10n
-                      .thisFolderHasNoSupportedCSVXLSXOrODSFilesYetOpenAnotherFolderOrCreateANewSyncFileHere,
-                )
-              else
-                Flexible(
-                  child: ListView(
-                    shrinkWrap: true,
-                    children: _entries
-                        .map(
-                          (entry) => ListTile(
-                            leading: Icon(
-                              entry.isFolder
-                                  ? Icons.folder_outlined
-                                  : entry.id == widget.selectedFileId
-                                  ? Icons.check_circle_rounded
-                                  : Icons.insert_drive_file_outlined,
-                            ),
-                            title: Text(entry.name),
-                            subtitle: Text(
-                              entry.isFolder
-                                  ? context.l10n.folder
-                                  : _mimeLabel(context.l10n, entry.mimeType),
-                            ),
-                            onTap: () {
-                              if (entry.isFolder) {
-                                _openFolder(entry);
-                                return;
-                              }
-                              Navigator.of(context).pop(
-                                _CloudFileSelection.pick(
-                                  entry.asFileMetadata(),
-                                ),
-                              );
-                            },
-                          ),
-                        )
-                        .toList(),
-                  ),
+            ),
+          )
+        : ListView.separated(
+            key: const ValueKey('cloud-file-results'),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            itemCount: visibleEntries.length,
+            separatorBuilder: (context, index) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final entry = visibleEntries[index];
+              final isSelected = entry.id == widget.selectedFileId;
+              return ListTile(
+                selected: isSelected,
+                leading: Icon(
+                  entry.isFolder
+                      ? Icons.folder_rounded
+                      : isSelected
+                      ? Icons.check_circle_rounded
+                      : Icons.insert_drive_file_outlined,
                 ),
-            ],
-          ),
-        ),
-      ),
+                title: Text(entry.name),
+                subtitle: Text(
+                  entry.isFolder
+                      ? context.l10n.folder
+                      : _mimeLabel(context.l10n, entry.mimeType),
+                ),
+                trailing: entry.isFolder
+                    ? const Icon(Icons.chevron_right_rounded)
+                    : null,
+                onTap: () {
+                  if (entry.isFolder) {
+                    _openFolder(entry);
+                    return;
+                  }
+                  Navigator.of(
+                    context,
+                  ).pop(_CloudFileSelection.pick(entry.asFileMetadata()));
+                },
+              );
+            },
+          );
+    return _CloudBrowserShell(
+      title: context.l10n.chooseSyncFile,
+      folderStack: _folderStack,
+      searchController: _searchController,
+      query: _query,
+      onSearchChanged: (value) => setState(() => _query = value),
+      onNavigateToFolder: _navigateToFolder,
+      onRefresh: _loadFolder,
+      body: body,
       actions: [
         TextButton(
           onPressed: () =>

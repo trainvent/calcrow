@@ -57,6 +57,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'Anonymous usage patterns to understand which screens and flows are used.';
 
   @override
+  String get analytical => 'Analytical';
+
+  @override
+  String get adRelated => 'Ad-related';
+
+  @override
   String get appPassword => 'App password';
 
   @override
@@ -1072,6 +1078,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dynamicWorkoutTracker => 'Dynamic Workout Tracker';
 
   @override
+  String get projectOriented => 'Project-Oriented';
+
+  @override
+  String get todaysGoal => 'Today\'s Goal';
+
+  @override
+  String get accomplishmentOfTheDay => 'Accomplishment of the Day';
+
+  @override
+  String get satisfactionRating => 'Satisfaction (1–10)';
+
+  @override
+  String get productivityRating => 'Productivity (1–10)';
+
+  @override
   String get definePrefills => 'Define prefills';
 
   @override
@@ -1276,6 +1297,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Track flexible workouts by distance, repetitions, or time.';
 
   @override
+  String get trackProjectGoalsSatisfactionAndProductivity =>
+      'Log today\'s goal and accomplishment, then rate satisfaction and productivity from 1 to 10.';
+
+  @override
   String get templateCategoryOther => 'Other';
 
   @override
@@ -1286,6 +1311,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get useTemplate => 'Use template';
+
+  @override
+  String get searchTemplates => 'Search templates';
+
+  @override
+  String get noTemplatesFound => 'No templates found';
+
+  @override
+  String get searchThisFolder => 'Search this folder';
+
+  @override
+  String get clearSearch => 'Clear search';
+
+  @override
+  String get refreshFolder => 'Refresh folder';
+
+  @override
+  String get noMatchingFolders => 'No matching folders';
+
+  @override
+  String get noMatchingFilesOrFolders => 'No matching files or folders';
 
   @override
   String get trackSwimBikeRunAndStrengthWorkInOneRow =>

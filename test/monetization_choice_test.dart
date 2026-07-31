@@ -4,6 +4,7 @@ import 'package:calcrow/core/data/services/user_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:trainvent_general/trainvent_general.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -87,7 +88,7 @@ void main() {
       tester.widget<OutlinedButton>(find.byType(OutlinedButton)).onPressed,
       isNull,
     );
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(TriangleLoadingIndicator), findsOneWidget);
   });
 
   testWidgets('blocked free mode can review ad choices or choose Pro', (

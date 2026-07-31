@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:trainvent_general/trainvent_general.dart';
 
 class SelectPageOption {
   const SelectPageOption({
@@ -89,7 +90,7 @@ class _SelectPageDialogueState extends State<SelectPageDialogue> {
               icon: _isCreating
                   ? const SizedBox.square(
                       dimension: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: TriangleLoadingIndicator(size: 20, strokeWidth: 2),
                     )
                   : const Icon(Icons.add),
             ),

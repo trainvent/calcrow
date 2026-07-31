@@ -73,220 +73,235 @@ class _DataCollectionPageState extends ConsumerState<DataCollectionPage> {
               ),
             ),
           ),
-          if (isPro) ...[
-            const SizedBox(height: 12),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.workspace_premium_outlined),
-                title: Text(
-                  context.l10n.proStatusEnabledNoAdRelatedSettingsNeeded,
+          const SizedBox(height: 12),
+          _buildSectionTitle(context, context.l10n.analytical),
+          Card(
+            child: Column(
+              children: [
+                ValueListenableBuilder<bool>(
+                  valueListenable: diagnostics.usageAnalyticsEnabledListenable,
+                  builder: (context, enabled, _) {
+                    return SwitchListTile(
+                      secondary: const Icon(Icons.insights_outlined),
+                      title: Text(context.l10n.usageAnalytics),
+                      subtitle: Text(
+                        diagnostics.supportsUsageAnalytics
+                            ? context
+                                  .l10n
+                                  .collectAnonymousUsagePatternsToUnderstandWhichScreensAndFlowsAreUsed
+                            : context
+                                  .l10n
+                                  .usageAnalyticsAreNotAvailableOnThisPlatform,
+                      ),
+                      value: enabled,
+                      onChanged:
+                          !diagnostics.supportsUsageAnalytics ||
+                              _isUpdatingAnalytics
+                          ? null
+                          : (value) => _setUsageAnalyticsEnabled(value),
+                    );
+                  },
                 ),
-              ),
-            ),
-          ] else if (adsSupported) ...[
-            const SizedBox(height: 12),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.ads_click_outlined),
-                title: Text(context.l10n.reenterGoogleAdsConsent),
-                subtitle: Text(
-                  context
-                      .l10n
-                      .clearTheStoredGoogleAdConsentOnThisDeviceAndOpenTheConsentFlowAgain,
+                const Divider(height: 1),
+                ValueListenableBuilder<bool>(
+                  valueListenable: diagnostics.crashReportsEnabledListenable,
+                  builder: (context, enabled, _) {
+                    return SwitchListTile(
+                      secondary: const Icon(Icons.health_and_safety_outlined),
+                      title: Text(context.l10n.crashReportsAndPerformance),
+                      subtitle: Text(
+                        diagnostics.supportsCrashReports
+                            ? context
+                                  .l10n
+                                  .sendCrashLogsNonFatalErrorsAndPerformanceMonitoringDataToHelpAnalyzeAppFailuresAndSlowPaths
+                            : context
+                                  .l10n
+                                  .crashReportingAndPerformanceMonitoringAreOnlyAvailableOnSupportedMobileBuilds,
+                      ),
+                      value: enabled,
+                      onChanged:
+                          !diagnostics.supportsCrashReports ||
+                              _isUpdatingCrashReports
+                          ? null
+                          : (value) => _setCrashReportsEnabled(value),
+                    );
+                  },
                 ),
-                trailing: _isReenteringAdsConsent
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: TriangleLoadingIndicator(
-                          size: 18,
-                          strokeWidth: 2,
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          context.l10n.currentBehavior,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
-                      )
-                    : const Icon(Icons.replay_rounded),
-                onTap: _isReenteringAdsConsent ? null : _reenterAdsConsent,
-              ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        context
+                            .l10n
+                            .bothCategoriesStayOffUntilYouExplicitlyEnableThemHereYouCanTurnThemOffAgainAtAnyTime,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
+          ),
+          if (isPro || adsSupported) ...[
+            const SizedBox(height: 16),
+            _buildSectionTitle(context, context.l10n.adRelated),
             Card(
-              child: ValueListenableBuilder<PrivacyOptionsRequirementStatus>(
-                valueListenable:
-                    adsConsent.privacyOptionsRequirementStatusListenable,
-                builder: (context, status, _) {
-                  final isRequired =
-                      status == PrivacyOptionsRequirementStatus.required;
-                  final subtitle = switch (status) {
-                    PrivacyOptionsRequirementStatus.required =>
-                      context
-                          .l10n
-                          .manageYourGoogleAdPrivacyChoicesThisEntryPointMustStayAvailableAfterConsentIsCollected,
-                    PrivacyOptionsRequirementStatus.notRequired =>
-                      context
-                          .l10n
-                          .googleDoesNotCurrentlyRequireAPersistentAdPrivacyOptionsButtonOnThisDeviceOrRegion,
-                    PrivacyOptionsRequirementStatus.unknown =>
-                      context
-                          .l10n
-                          .refreshAdPrivacyChoicesAndReviewTheLatestGoogleConsentOptionsForThisDevice,
-                  };
-
-                  return ListTile(
-                    leading: const Icon(Icons.gpp_maybe_outlined),
-                    title: Text(context.l10n.adsPrivacyChoices),
-                    subtitle: Text(subtitle),
-                    trailing: _isOpeningAdsPrivacyChoices
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: TriangleLoadingIndicator(
-                              size: 18,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : Icon(
-                            isRequired
-                                ? Icons.chevron_right_rounded
-                                : Icons.refresh_rounded,
+              child: isPro
+                  ? ListTile(
+                      leading: const Icon(Icons.workspace_premium_outlined),
+                      title: Text(
+                        context.l10n.proStatusEnabledNoAdRelatedSettingsNeeded,
+                      ),
+                    )
+                  : Column(
+                      children: [
+                        ListTile(
+                          leading: const Icon(Icons.ads_click_outlined),
+                          title: Text(context.l10n.reenterGoogleAdsConsent),
+                          subtitle: Text(
+                            context
+                                .l10n
+                                .clearTheStoredGoogleAdConsentOnThisDeviceAndOpenTheConsentFlowAgain,
                           ),
-                    onTap: _isOpeningAdsPrivacyChoices
-                        ? null
-                        : _openAdsPrivacyChoices,
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            Card(
-              child: ValueListenableBuilder<bool>(
-                valueListenable: adsConsent.canRequestAdsListenable,
-                builder: (context, canRequestAds, _) {
-                  return ListTile(
-                    leading: const Icon(Icons.block_outlined),
-                    title: Text(context.l10n.resetAdConsent),
-                    subtitle: Text(
-                      canRequestAds
-                          ? context
-                                .l10n
-                                .clearTheCurrentAdMobConsentStateOnThisDeviceAdsStayDisabledUntilGoogleCollectsConsentAgain
-                          : context
-                                .l10n
-                                .clearAnyStoredAdMobConsentStateOnThisDeviceAndForceTheGoogleConsentFlowToAskAgainLater,
-                    ),
-                    trailing: _isResettingAdsConsent
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: TriangleLoadingIndicator(
-                              size: 18,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Icon(Icons.restart_alt_rounded),
-                    onTap: _isResettingAdsConsent ? null : _resetAdsConsent,
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.description_outlined),
-                title: Text(context.l10n.adsPrivacyPolicy),
-                subtitle: Text(
-                  context
-                      .l10n
-                      .readHowCalcrowAndGoogleAdMobHandleConsentChoicesForTheEEAUKSwitzerlandAndApplicableUSStatePrivacyRules,
-                ),
-                trailing: _isOpeningAdsPolicy
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: TriangleLoadingIndicator(
-                          size: 18,
-                          strokeWidth: 2,
+                          trailing: _isReenteringAdsConsent
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: TriangleLoadingIndicator(
+                                    size: 18,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.chevron_right_rounded),
+                          onTap: _isReenteringAdsConsent
+                              ? null
+                              : _reenterAdsConsent,
                         ),
-                      )
-                    : const Icon(Icons.open_in_new_rounded),
-                onTap: _isOpeningAdsPolicy ? null : _openAdsPrivacyPolicy,
-              ),
+                        const Divider(height: 1),
+                        ValueListenableBuilder<PrivacyOptionsRequirementStatus>(
+                          valueListenable: adsConsent
+                              .privacyOptionsRequirementStatusListenable,
+                          builder: (context, status, _) {
+                            final subtitle = switch (status) {
+                              PrivacyOptionsRequirementStatus.required =>
+                                context
+                                    .l10n
+                                    .manageYourGoogleAdPrivacyChoicesThisEntryPointMustStayAvailableAfterConsentIsCollected,
+                              PrivacyOptionsRequirementStatus.notRequired =>
+                                context
+                                    .l10n
+                                    .googleDoesNotCurrentlyRequireAPersistentAdPrivacyOptionsButtonOnThisDeviceOrRegion,
+                              PrivacyOptionsRequirementStatus.unknown =>
+                                context
+                                    .l10n
+                                    .refreshAdPrivacyChoicesAndReviewTheLatestGoogleConsentOptionsForThisDevice,
+                            };
+
+                            return ListTile(
+                              leading: const Icon(Icons.gpp_maybe_outlined),
+                              title: Text(context.l10n.adsPrivacyChoices),
+                              subtitle: Text(subtitle),
+                              trailing: _isOpeningAdsPrivacyChoices
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: TriangleLoadingIndicator(
+                                        size: 18,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.chevron_right_rounded),
+                              onTap: _isOpeningAdsPrivacyChoices
+                                  ? null
+                                  : _openAdsPrivacyChoices,
+                            );
+                          },
+                        ),
+                        const Divider(height: 1),
+                        ValueListenableBuilder<bool>(
+                          valueListenable: adsConsent.canRequestAdsListenable,
+                          builder: (context, canRequestAds, _) {
+                            return ListTile(
+                              leading: const Icon(Icons.restart_alt_rounded),
+                              title: Text(context.l10n.resetAdConsent),
+                              subtitle: Text(
+                                canRequestAds
+                                    ? context
+                                          .l10n
+                                          .clearTheCurrentAdMobConsentStateOnThisDeviceAdsStayDisabledUntilGoogleCollectsConsentAgain
+                                    : context
+                                          .l10n
+                                          .clearAnyStoredAdMobConsentStateOnThisDeviceAndForceTheGoogleConsentFlowToAskAgainLater,
+                              ),
+                              trailing: _isResettingAdsConsent
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: TriangleLoadingIndicator(
+                                        size: 18,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.chevron_right_rounded),
+                              onTap: _isResettingAdsConsent
+                                  ? null
+                                  : _resetAdsConsent,
+                            );
+                          },
+                        ),
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.description_outlined),
+                          title: Text(context.l10n.adsPrivacyPolicy),
+                          subtitle: Text(
+                            context
+                                .l10n
+                                .readHowCalcrowAndGoogleAdMobHandleConsentChoicesForTheEEAUKSwitzerlandAndApplicableUSStatePrivacyRules,
+                          ),
+                          trailing: _isOpeningAdsPolicy
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: TriangleLoadingIndicator(
+                                    size: 18,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.open_in_new_rounded),
+                          onTap: _isOpeningAdsPolicy
+                              ? null
+                              : _openAdsPrivacyPolicy,
+                        ),
+                      ],
+                    ),
             ),
           ],
-          const SizedBox(height: 12),
-          Card(
-            child: ValueListenableBuilder<bool>(
-              valueListenable: diagnostics.usageAnalyticsEnabledListenable,
-              builder: (context, enabled, _) {
-                return SwitchListTile(
-                  secondary: const Icon(Icons.insights_outlined),
-                  title: Text(context.l10n.usageAnalytics),
-                  subtitle: Text(
-                    diagnostics.supportsUsageAnalytics
-                        ? context
-                              .l10n
-                              .collectAnonymousUsagePatternsToUnderstandWhichScreensAndFlowsAreUsed
-                        : context
-                              .l10n
-                              .usageAnalyticsAreNotAvailableOnThisPlatform,
-                  ),
-                  value: enabled,
-                  onChanged:
-                      !diagnostics.supportsUsageAnalytics ||
-                          _isUpdatingAnalytics
-                      ? null
-                      : (value) => _setUsageAnalyticsEnabled(value),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: ValueListenableBuilder<bool>(
-              valueListenable: diagnostics.crashReportsEnabledListenable,
-              builder: (context, enabled, _) {
-                return SwitchListTile(
-                  secondary: const Icon(Icons.health_and_safety_outlined),
-                  title: Text(context.l10n.crashReportsAndPerformance),
-                  subtitle: Text(
-                    diagnostics.supportsCrashReports
-                        ? context
-                              .l10n
-                              .sendCrashLogsNonFatalErrorsAndPerformanceMonitoringDataToHelpAnalyzeAppFailuresAndSlowPaths
-                        : context
-                              .l10n
-                              .crashReportingAndPerformanceMonitoringAreOnlyAvailableOnSupportedMobileBuilds,
-                  ),
-                  value: enabled,
-                  onChanged:
-                      !diagnostics.supportsCrashReports ||
-                          _isUpdatingCrashReports
-                      ? null
-                      : (value) => _setCrashReportsEnabled(value),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.l10n.currentBehavior,
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    context
-                        .l10n
-                        .bothCategoriesStayOffUntilYouExplicitlyEnableThemHereYouCanTurnThemOffAgainAtAnyTime,
-                  ),
-                ],
-              ),
-            ),
-          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(BuildContext context, String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          title,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+        ),
       ),
     );
   }

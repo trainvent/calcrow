@@ -188,6 +188,18 @@ abstract class AppLocalizations {
   /// **'Anonymous usage patterns to understand which screens and flows are used.'**
   String get anonymousUsagePatternsToUnderstandWhichScreensAndFlowsAreUsed;
 
+  /// No description provided for @analytical.
+  ///
+  /// In en, this message translates to:
+  /// **'Analytical'**
+  String get analytical;
+
+  /// No description provided for @adRelated.
+  ///
+  /// In en, this message translates to:
+  /// **'Ad-related'**
+  String get adRelated;
+
   /// No description provided for @appPassword.
   ///
   /// In en, this message translates to:
@@ -2086,6 +2098,36 @@ abstract class AppLocalizations {
   /// **'Dynamic Workout Tracker'**
   String get dynamicWorkoutTracker;
 
+  /// No description provided for @projectOriented.
+  ///
+  /// In en, this message translates to:
+  /// **'Project-Oriented'**
+  String get projectOriented;
+
+  /// No description provided for @todaysGoal.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s Goal'**
+  String get todaysGoal;
+
+  /// No description provided for @accomplishmentOfTheDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Accomplishment of the Day'**
+  String get accomplishmentOfTheDay;
+
+  /// No description provided for @satisfactionRating.
+  ///
+  /// In en, this message translates to:
+  /// **'Satisfaction (1–10)'**
+  String get satisfactionRating;
+
+  /// No description provided for @productivityRating.
+  ///
+  /// In en, this message translates to:
+  /// **'Productivity (1–10)'**
+  String get productivityRating;
+
   /// No description provided for @definePrefills.
   ///
   /// In en, this message translates to:
@@ -2466,6 +2508,12 @@ abstract class AppLocalizations {
   /// **'Track flexible workouts by distance, repetitions, or time.'**
   String get trackFlexibleWorkoutsDistanceRepetitionsAndTime;
 
+  /// No description provided for @trackProjectGoalsSatisfactionAndProductivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Log today\'s goal and accomplishment, then rate satisfaction and productivity from 1 to 10.'**
+  String get trackProjectGoalsSatisfactionAndProductivity;
+
   /// No description provided for @templateCategoryOther.
   ///
   /// In en, this message translates to:
@@ -2489,6 +2537,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Use template'**
   String get useTemplate;
+
+  /// No description provided for @searchTemplates.
+  ///
+  /// In en, this message translates to:
+  /// **'Search templates'**
+  String get searchTemplates;
+
+  /// No description provided for @noTemplatesFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No templates found'**
+  String get noTemplatesFound;
+
+  /// No description provided for @searchThisFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Search this folder'**
+  String get searchThisFolder;
+
+  /// No description provided for @clearSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear search'**
+  String get clearSearch;
+
+  /// No description provided for @refreshFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh folder'**
+  String get refreshFolder;
+
+  /// No description provided for @noMatchingFolders.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching folders'**
+  String get noMatchingFolders;
+
+  /// No description provided for @noMatchingFilesOrFolders.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching files or folders'**
+  String get noMatchingFilesOrFolders;
 
   /// No description provided for @trackSwimBikeRunAndStrengthWorkInOneRow.
   ///

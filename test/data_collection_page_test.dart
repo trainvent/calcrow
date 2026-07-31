@@ -24,6 +24,11 @@ void main() {
       buildPage(tier: EntitlementTier.free, adsSupported: true),
     );
 
+    expect(find.text('Analytical'), findsOneWidget);
+    await tester.drag(find.byType(ListView), const Offset(0, -700));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ad-related'), findsOneWidget);
     expect(find.text('Re-enter Google ads consent'), findsOneWidget);
     expect(
       find.text('Pro status enabled, no ad-related settings needed.'),
@@ -35,6 +40,9 @@ void main() {
     await tester.pumpWidget(
       buildPage(tier: EntitlementTier.pro, adsSupported: true),
     );
+
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pumpAndSettle();
 
     expect(find.text('Re-enter Google ads consent'), findsNothing);
     expect(find.text('Ads privacy choices'), findsNothing);

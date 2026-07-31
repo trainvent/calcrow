@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:calcrow/l10n/app_localizations.dart';
+import 'package:trainvent_general/trainvent_general.dart';
 
 class MonetizationChoiceScreen extends StatelessWidget {
   const MonetizationChoiceScreen({
@@ -76,7 +77,7 @@ class MonetizationChoiceScreen extends StatelessWidget {
                       ],
                       if (isBusy) ...[
                         const SizedBox(height: 20),
-                        const Center(child: CircularProgressIndicator()),
+                        const Center(child: TriangleLoadingIndicator()),
                       ],
                     ],
                   ),
@@ -161,7 +162,7 @@ class AdConsentRequiredScreen extends StatelessWidget {
                       ],
                       if (isBusy) ...[
                         const SizedBox(height: 20),
-                        const Center(child: CircularProgressIndicator()),
+                        const Center(child: TriangleLoadingIndicator()),
                       ],
                     ],
                   ),
