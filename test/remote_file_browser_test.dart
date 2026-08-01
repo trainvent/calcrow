@@ -3,6 +3,43 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('folder prompt remains safe while closing after submission', (
+    tester,
+  ) async {
+    String? result;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => FilledButton(
+            onPressed: () async {
+              result = await showRemoteFolderNameDialog(
+                context: context,
+                title: 'New folder',
+                fieldLabel: 'Folder name',
+                invalidNameMessage: 'Invalid folder name',
+                cancelLabel: 'Cancel',
+                createLabel: 'Create',
+              );
+            },
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('new-folder-name')),
+      'Reports',
+    );
+    await tester.tap(find.text('Create'));
+    await tester.pumpAndSettle();
+
+    expect(result, 'Reports');
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('remote browser shell exposes search and breadcrumb callbacks', (
     tester,
   ) async {

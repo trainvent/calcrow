@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:calcrow/l10n/app_localizations.dart';
 
 import 'package:calcrow/features/auth/sign_in_sheet.dart';
+import 'package:calcrow/features/auth/auth_choice_sheet.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -36,7 +37,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _openAuthSheet() async {
-    final done = await showSignInSheet<bool>(context);
+    final choice = await showAuthChoiceSheet(context);
+    if (!mounted) return;
+    if (choice == null) return;
+    if (choice == AuthEntryChoice.google) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.signedInWelcomeToCalcrow)),
+      );
+      return;
+    }
+    final done = await showSignInSheet<bool>(
+      context,
+      initialMode: choice == AuthEntryChoice.register
+          ? AuthSheetMode.register
+          : AuthSheetMode.signIn,
+    );
     if (!mounted) return;
     if (done ?? false) {
       ScaffoldMessenger.of(context).showSnackBar(

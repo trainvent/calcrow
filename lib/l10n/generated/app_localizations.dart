@@ -1580,6 +1580,90 @@ abstract class AppLocalizations {
   /// **'Sign in or create account'**
   String get signInOrCreateAccount;
 
+  /// No description provided for @continueToCalcrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue to Calcrow'**
+  String get continueToCalcrow;
+
+  /// No description provided for @chooseHowYouWantToAccessYourAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Log in, register, or continue with your Google account.'**
+  String get chooseHowYouWantToAccessYourAccount;
+
+  /// No description provided for @login.
+  ///
+  /// In en, this message translates to:
+  /// **'Log in'**
+  String get login;
+
+  /// No description provided for @or.
+  ///
+  /// In en, this message translates to:
+  /// **'or'**
+  String get or;
+
+  /// No description provided for @continueWithGoogle.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with Google'**
+  String get continueWithGoogle;
+
+  /// No description provided for @googleSignInTermsNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'By continuing with Google, you agree to Calcrow\'s Terms of Use and Privacy Policies.'**
+  String get googleSignInTermsNotice;
+
+  /// No description provided for @useGoogleDriveWithThisAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Use Google Drive with this account?'**
+  String get useGoogleDriveWithThisAccount;
+
+  /// No description provided for @googleDriveAccessPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow Calcrow to access Google Drive for {email}? This is optional and can be enabled later.'**
+  String googleDriveAccessPrompt(String email);
+
+  /// No description provided for @notNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get notNow;
+
+  /// No description provided for @enableGoogleDrive.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Google Drive'**
+  String get enableGoogleDrive;
+
+  /// No description provided for @googleDriveWasNotConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Google Drive was not connected'**
+  String get googleDriveWasNotConnected;
+
+  /// No description provided for @googleDriveCanBeEnabledLater.
+  ///
+  /// In en, this message translates to:
+  /// **'You can continue with your Google account and enable Drive later in Settings.'**
+  String get googleDriveCanBeEnabledLater;
+
+  /// No description provided for @continueWithoutDrive.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue without Drive'**
+  String get continueWithoutDrive;
+
+  /// No description provided for @couldNotContinueWithGoogle.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not continue with Google. Please try again.'**
+  String get couldNotContinueWithGoogle;
+
   /// No description provided for @signInToSaveThisAndroidFolderSettingToYourAccount.
   ///
   /// In en, this message translates to:

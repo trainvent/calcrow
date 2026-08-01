@@ -23,9 +23,14 @@ enum _AuthStep {
   resetPasswordConfirm,
 }
 
+enum AuthSheetMode { signIn, register }
+
 typedef _LocalizedText = String Function(AppLocalizations localizations);
 
-Future<T?> showSignInSheet<T>(BuildContext context) {
+Future<T?> showSignInSheet<T>(
+  BuildContext context, {
+  AuthSheetMode initialMode = AuthSheetMode.signIn,
+}) {
   return showGeneralDialog<T>(
     context: context,
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
@@ -33,7 +38,7 @@ Future<T?> showSignInSheet<T>(BuildContext context) {
     barrierColor: Colors.black54,
     transitionDuration: const Duration(milliseconds: 260),
     pageBuilder: (context, animation, secondaryAnimation) {
-      return const _AuthSheetRoute();
+      return _AuthSheetRoute(initialMode: initialMode);
     },
     transitionBuilder: (context, animation, secondaryAnimation, child) {
       final curvedAnimation = CurvedAnimation(
@@ -56,7 +61,9 @@ Future<T?> showSignInSheet<T>(BuildContext context) {
 }
 
 class SignInSheet extends ConsumerStatefulWidget {
-  const SignInSheet({super.key});
+  const SignInSheet({super.key, this.initialMode = AuthSheetMode.signIn});
+
+  final AuthSheetMode initialMode;
 
   @override
   ConsumerState<SignInSheet> createState() => _SignInSheetState();
@@ -73,7 +80,7 @@ class _SignInSheetState extends ConsumerState<SignInSheet> {
   final TextEditingController _resetConfirmPasswordController =
       TextEditingController();
 
-  _AuthStep _step = _AuthStep.signIn;
+  late _AuthStep _step;
   bool _isLoading = false;
   _LocalizedText? _errorText;
   String? _pendingUid;
@@ -81,6 +88,15 @@ class _SignInSheetState extends ConsumerState<SignInSheet> {
   String? _debugCode;
   bool _isUsingLocalDebugVerification = false;
   bool _acceptedLegalTerms = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _step = switch (widget.initialMode) {
+      AuthSheetMode.signIn => _AuthStep.signIn,
+      AuthSheetMode.register => _AuthStep.register,
+    };
+  }
 
   @override
   void dispose() {
@@ -872,7 +888,9 @@ class _LegalAgreementControl extends StatelessWidget {
 }
 
 class _AuthSheetRoute extends StatelessWidget {
-  const _AuthSheetRoute();
+  const _AuthSheetRoute({required this.initialMode});
+
+  final AuthSheetMode initialMode;
 
   @override
   Widget build(BuildContext context) {
@@ -902,7 +920,7 @@ class _AuthSheetRoute extends StatelessWidget {
                     elevation: 14,
                     borderRadius: BorderRadius.circular(28),
                     clipBehavior: Clip.antiAlias,
-                    child: const SignInSheet(),
+                    child: SignInSheet(initialMode: initialMode),
                   ),
                 ),
               ),

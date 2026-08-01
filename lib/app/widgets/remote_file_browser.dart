@@ -1,5 +1,69 @@
 import 'package:flutter/material.dart';
 
+bool isValidRemoteFolderName(String value) {
+  final name = value.trim();
+  return name.isNotEmpty &&
+      name != '.' &&
+      name != '..' &&
+      !name.contains('/') &&
+      !name.contains(r'\');
+}
+
+/// Opens a lifecycle-safe folder-name prompt for a remote filesystem.
+Future<String?> showRemoteFolderNameDialog({
+  required BuildContext context,
+  required String title,
+  required String fieldLabel,
+  required String invalidNameMessage,
+  required String cancelLabel,
+  required String createLabel,
+}) {
+  var folderName = '';
+  String? errorText;
+  return showDialog<String>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (context, setDialogState) {
+        void submit() {
+          final name = folderName.trim();
+          if (!isValidRemoteFolderName(name)) {
+            setDialogState(() => errorText = invalidNameMessage);
+            return;
+          }
+          Navigator.of(dialogContext).pop(name);
+        }
+
+        return AlertDialog(
+          title: Text(title),
+          content: TextField(
+            key: const ValueKey('new-folder-name'),
+            autofocus: true,
+            textInputAction: TextInputAction.done,
+            decoration: InputDecoration(
+              labelText: fieldLabel,
+              errorText: errorText,
+            ),
+            onChanged: (value) {
+              folderName = value;
+              if (errorText != null) {
+                setDialogState(() => errorText = null);
+              }
+            },
+            onSubmitted: (_) => submit(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(cancelLabel),
+            ),
+            FilledButton(onPressed: submit, child: Text(createLabel)),
+          ],
+        );
+      },
+    ),
+  );
+}
+
 /// A provider-neutral location in a remote filesystem breadcrumb trail.
 class RemoteBrowserLocation<T> {
   const RemoteBrowserLocation({required this.id, required this.name});

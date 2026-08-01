@@ -18,6 +18,18 @@ class GoogleDriveLinkResult {
   final String accessToken;
 }
 
+class GoogleIdentitySignInResult {
+  const GoogleIdentitySignInResult({
+    required this.email,
+    required this.idToken,
+    required this.accessToken,
+  });
+
+  final String email;
+  final String? idToken;
+  final String? accessToken;
+}
+
 class GoogleAuthClient extends http.BaseClient {
   final Map<String, String> _headers;
   final http.Client _client = http.Client();
@@ -34,13 +46,70 @@ class GoogleAuthClient extends http.BaseClient {
 class GoogleDriveAuthService {
   GoogleDriveAuthService();
 
+  static const List<String> _driveScopes = <String>[
+    'https://www.googleapis.com/auth/drive',
+    'https://www.googleapis.com/auth/spreadsheets',
+  ];
+
   GoogleSignIn? _googleSignIn;
 
-  Future<GoogleDriveLinkResult> linkAccount() async {
+  Stream<GoogleIdentitySignInResult> identitySignIns() {
+    final signIn = _googleSignIn ??= _buildGoogleSignIn();
+    return signIn.onCurrentUserChanged
+        .where((account) => account != null)
+        .asyncMap((account) => _identityResult(account!));
+  }
+
+  Future<GoogleIdentitySignInResult> signInForIdentity() async {
     try {
       final signIn = _googleSignIn ??= _buildGoogleSignIn();
       final account = await signIn.signIn();
       if (account == null) {
+        throw const GoogleDriveAuthException('google-sign-in-canceled');
+      }
+      return _identityResult(account);
+    } catch (error) {
+      if (error is GoogleDriveAuthException) rethrow;
+      throw GoogleDriveAuthException(
+        'Google sign-in failed (${error.runtimeType}): $error',
+      );
+    }
+  }
+
+  Future<GoogleIdentitySignInResult> _identityResult(
+    GoogleSignInAccount account,
+  ) async {
+    final auth = await account.authentication;
+    if ((auth.idToken == null || auth.idToken!.isEmpty) &&
+        (auth.accessToken == null || auth.accessToken!.isEmpty)) {
+      throw const GoogleDriveAuthException(
+        'Google identity tokens are unavailable.',
+      );
+    }
+    final email = account.email.trim();
+    if (email.isEmpty) {
+      throw const GoogleDriveAuthException(
+        'Google account email is unavailable.',
+      );
+    }
+    return GoogleIdentitySignInResult(
+      email: email,
+      idToken: auth.idToken,
+      accessToken: auth.accessToken,
+    );
+  }
+
+  Future<GoogleDriveLinkResult> linkAccount() async {
+    try {
+      final signIn = _googleSignIn ??= _buildGoogleSignIn();
+      final account = signIn.currentUser ?? await signIn.signIn();
+      if (account == null) {
+        throw const GoogleDriveAuthException(
+          'Google Drive authorization was canceled.',
+        );
+      }
+      final granted = await signIn.requestScopes(_driveScopes);
+      if (!granted) {
         throw const GoogleDriveAuthException(
           'Google Drive authorization was canceled.',
         );
@@ -78,6 +147,14 @@ class GoogleDriveAuthService {
           'Google Drive is not connected in this session. Connect Google Drive again to refresh access.',
         );
       }
+      if (!await signIn.canAccessScopes(_driveScopes)) {
+        final granted = await signIn.requestScopes(_driveScopes);
+        if (!granted) {
+          throw const GoogleDriveAuthException(
+            'Google Drive authorization was canceled.',
+          );
+        }
+      }
       final headers = await account.authHeaders;
       if (headers.isEmpty) {
         throw const GoogleDriveAuthException(
@@ -103,6 +180,16 @@ class GoogleDriveAuthService {
     }
   }
 
+  Future<void> signOutAccount() async {
+    final signIn = _googleSignIn;
+    if (signIn == null) return;
+    try {
+      await signIn.signOut();
+    } catch (_) {
+      // Firebase sign-out must still be allowed if Google session cleanup fails.
+    }
+  }
+
   GoogleSignIn _buildGoogleSignIn() {
     const configuredWebClientId = String.fromEnvironment(
       'GOOGLE_WEB_CLIENT_ID',
@@ -115,11 +202,7 @@ class GoogleDriveAuthService {
         webClientId: webClientId,
         iosClientId: iosClientId,
       ),
-      scopes: const <String>[
-        'email',
-        'https://www.googleapis.com/auth/drive',
-        'https://www.googleapis.com/auth/spreadsheets',
-      ],
+      scopes: const <String>['email'],
     );
   }
 

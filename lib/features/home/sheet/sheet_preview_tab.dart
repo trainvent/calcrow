@@ -148,7 +148,7 @@ class _SheetPreviewTabState extends ConsumerState<SheetPreviewTab> {
                 ),
                 if (preview.sheetName?.trim().isNotEmpty == true)
                   Text(
-                    '• ${context.l10n.activeSheet(preview.sheetName!.trim())}',
+                    '• ${preview.sheetName!.trim()}',
                     key: const ValueKey('sheet-preview-active-sheet'),
                     style: theme.textTheme.titleMedium,
                   ),

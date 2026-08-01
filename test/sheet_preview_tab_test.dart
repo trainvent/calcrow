@@ -166,6 +166,7 @@ void main() {
       find.byKey(const ValueKey('sheet-preview-active-sheet')),
       findsOneWidget,
     );
-    expect(find.text('• Active sheet: July 2026'), findsOneWidget);
+    expect(find.text('• July 2026'), findsOneWidget);
+    expect(find.textContaining('Active sheet:'), findsNothing);
   });
 }

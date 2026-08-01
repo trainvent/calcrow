@@ -807,6 +807,55 @@ class AppLocalizationsEn extends AppLocalizations {
   String get signInOrCreateAccount => 'Sign in or create account';
 
   @override
+  String get continueToCalcrow => 'Continue to Calcrow';
+
+  @override
+  String get chooseHowYouWantToAccessYourAccount =>
+      'Log in, register, or continue with your Google account.';
+
+  @override
+  String get login => 'Log in';
+
+  @override
+  String get or => 'or';
+
+  @override
+  String get continueWithGoogle => 'Continue with Google';
+
+  @override
+  String get googleSignInTermsNotice =>
+      'By continuing with Google, you agree to Calcrow\'s Terms of Use and Privacy Policies.';
+
+  @override
+  String get useGoogleDriveWithThisAccount =>
+      'Use Google Drive with this account?';
+
+  @override
+  String googleDriveAccessPrompt(String email) {
+    return 'Allow Calcrow to access Google Drive for $email? This is optional and can be enabled later.';
+  }
+
+  @override
+  String get notNow => 'Not now';
+
+  @override
+  String get enableGoogleDrive => 'Enable Google Drive';
+
+  @override
+  String get googleDriveWasNotConnected => 'Google Drive was not connected';
+
+  @override
+  String get googleDriveCanBeEnabledLater =>
+      'You can continue with your Google account and enable Drive later in Settings.';
+
+  @override
+  String get continueWithoutDrive => 'Continue without Drive';
+
+  @override
+  String get couldNotContinueWithGoogle =>
+      'Could not continue with Google. Please try again.';
+
+  @override
   String get signInToSaveThisAndroidFolderSettingToYourAccount =>
       'Sign in to save this Android folder setting to your account.';
 

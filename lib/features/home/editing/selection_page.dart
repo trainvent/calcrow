@@ -2183,67 +2183,15 @@ class _CloudFolderPickResult {
   final String name;
 }
 
-bool _isValidFolderName(String value) {
-  final name = value.trim();
-  return name.isNotEmpty &&
-      name != '.' &&
-      name != '..' &&
-      !name.contains('/') &&
-      !name.contains(r'\');
-}
-
-Future<String?> _promptForFolderName(BuildContext context) async {
-  final controller = TextEditingController();
-  String? errorText;
-  final result = await showDialog<String>(
+Future<String?> _promptForFolderName(BuildContext context) {
+  return showRemoteFolderNameDialog(
     context: context,
-    builder: (dialogContext) => StatefulBuilder(
-      builder: (context, setDialogState) {
-        void submit() {
-          final name = controller.text.trim();
-          if (!_isValidFolderName(name)) {
-            setDialogState(
-              () => errorText = context.l10n.enterAValidFolderName,
-            );
-            return;
-          }
-          Navigator.of(dialogContext).pop(name);
-        }
-
-        return AlertDialog(
-          title: Text(context.l10n.newFolder),
-          content: TextField(
-            key: const ValueKey('new-folder-name'),
-            controller: controller,
-            autofocus: true,
-            textInputAction: TextInputAction.done,
-            decoration: InputDecoration(
-              labelText: context.l10n.folderName,
-              errorText: errorText,
-            ),
-            onChanged: (_) {
-              if (errorText != null) {
-                setDialogState(() => errorText = null);
-              }
-            },
-            onSubmitted: (_) => submit(),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text(context.l10n.cancel),
-            ),
-            FilledButton(
-              onPressed: submit,
-              child: Text(context.l10n.createAction),
-            ),
-          ],
-        );
-      },
-    ),
+    title: context.l10n.newFolder,
+    fieldLabel: context.l10n.folderName,
+    invalidNameMessage: context.l10n.enterAValidFolderName,
+    cancelLabel: context.l10n.cancel,
+    createLabel: context.l10n.createAction,
   );
-  controller.dispose();
-  return result;
 }
 
 class _CloudFolderPickerDialog extends ConsumerStatefulWidget {

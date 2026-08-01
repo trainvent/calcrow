@@ -485,7 +485,12 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
                     ListTile(
                       leading: const Icon(Icons.logout_rounded),
                       title: Text(context.l10n.signOut),
-                      onTap: () => ref.read(authServiceProvider).signOut(),
+                      onTap: () async {
+                        await ref
+                            .read(googleDriveAuthServiceProvider)
+                            .signOutAccount();
+                        await ref.read(authServiceProvider).signOut();
+                      },
                     ),
                     const Divider(height: 1),
                     ListTile(

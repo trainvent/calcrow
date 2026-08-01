@@ -76,6 +76,29 @@ class AuthService {
     }
   }
 
+  Future<AuthSession> signInWithGoogleCredential({
+    required String? idToken,
+    required String? accessToken,
+  }) async {
+    try {
+      final credential = GoogleAuthProvider.credential(
+        idToken: idToken,
+        accessToken: accessToken,
+      );
+      final result = await _auth.signInWithCredential(credential);
+      final session = _toSession(result.user);
+      if (session == null) {
+        throw const AuthServiceException(
+          code: 'user-not-found',
+          message: 'Google sign-in completed without user context.',
+        );
+      }
+      return session;
+    } on FirebaseAuthException catch (error) {
+      throw AuthServiceException(code: error.code, message: error.message);
+    }
+  }
+
   Future<void> sendEmailVerification() async {
     final user = _auth.currentUser;
     if (user == null) {

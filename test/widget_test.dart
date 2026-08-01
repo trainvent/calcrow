@@ -17,7 +17,9 @@ void main() {
   });
 
   testWidgets('onboarding requires sign in on final page', (tester) async {
-    await tester.pumpWidget(MaterialApp(home: const OnboardingScreen()));
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: OnboardingScreen())),
+    );
 
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
@@ -26,6 +28,19 @@ void main() {
 
     expect(find.text('Sign in or create account'), findsOneWidget);
     expect(find.text('Start without account'), findsNothing);
+
+    await tester.tap(find.text('Sign in or create account'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Log in'), findsOneWidget);
+    expect(find.text('Register'), findsOneWidget);
+    expect(find.text('Continue with Google'), findsOneWidget);
+
+    await tester.tap(find.text('Register'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Create account'), findsOneWidget);
+    expect(find.text('Confirm password'), findsOneWidget);
   });
 
   testWidgets('changing the app language rebuilds the interface', (
