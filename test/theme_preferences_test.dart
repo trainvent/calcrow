@@ -32,6 +32,25 @@ void main() {
     expect(preferences.getString(IConst.themeModeKey), 'light');
   });
 
+  test('loads and stores the allow-any-date preference', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      IConst.allowAnyDateKey: true,
+    });
+    expect(await loadStoredAllowAnyDate(), isTrue);
+
+    final container = ProviderContainer(
+      overrides: [initialAllowAnyDateProvider.overrideWithValue(false)],
+    );
+    addTearDown(container.dispose);
+
+    container.read(allowAnyDateProvider.notifier).setAllowAnyDate(true);
+    await Future<void>.delayed(Duration.zero);
+
+    final preferences = await SharedPreferences.getInstance();
+    expect(container.read(allowAnyDateProvider), isTrue);
+    expect(preferences.getBool(IConst.allowAnyDateKey), isTrue);
+  });
+
   testWidgets('settings offers system, light, and dark appearance modes', (
     tester,
   ) async {
@@ -62,6 +81,8 @@ void main() {
     expect(find.text('System'), findsOneWidget);
     expect(find.text('Light'), findsOneWidget);
     expect(find.text('Dark'), findsOneWidget);
+    expect(find.text('Preferences'), findsOneWidget);
+    expect(find.text('Allow editing any date'), findsOneWidget);
 
     await tester.tap(find.text('Dark'));
     await tester.pump();
@@ -75,5 +96,10 @@ void main() {
           .selected,
       <ThemeMode>{ThemeMode.dark},
     );
+
+    await tester.ensureVisible(find.text('Allow editing any date'));
+    await tester.tap(find.text('Allow editing any date'));
+    await tester.pump();
+    expect(container.read(allowAnyDateProvider), isTrue);
   });
 }

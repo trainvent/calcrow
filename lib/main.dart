@@ -21,12 +21,16 @@ import 'app/app.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final initialThemeMode = await loadStoredThemeMode();
+  final initialAllowAnyDate = await loadStoredAllowAnyDate();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   ServiceLocator.setup();
   await installDiagnosticsErrorHandlers();
   runApp(
     ProviderScope(
-      overrides: [initialThemeModeProvider.overrideWithValue(initialThemeMode)],
+      overrides: [
+        initialThemeModeProvider.overrideWithValue(initialThemeMode),
+        initialAllowAnyDateProvider.overrideWithValue(initialAllowAnyDate),
+      ],
       child: const CalcrowApp(),
     ),
   );

@@ -2386,6 +2386,24 @@ abstract class AppLocalizations {
   /// **'Location'**
   String get location;
 
+  /// No description provided for @preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferences'**
+  String get preferences;
+
+  /// No description provided for @allowEditingAnyDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow editing any date'**
+  String get allowEditingAnyDate;
+
+  /// No description provided for @allowEditingAnyDateDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit the date field and select rows from dates other than today.'**
+  String get allowEditingAnyDateDescription;
+
   /// No description provided for @mood.
   ///
   /// In en, this message translates to:
@@ -3557,6 +3575,12 @@ abstract class AppLocalizations {
   /// **'Review the suggested setup or adjust either field before creating the worksheet.'**
   String get reviewMonthlyWorksheetSetup;
 
+  /// No description provided for @reviewWorksheetSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a blueprint and enter a name for the new worksheet.'**
+  String get reviewWorksheetSetup;
+
   /// No description provided for @blueprintWorksheet.
   ///
   /// In en, this message translates to:
@@ -3626,6 +3650,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not create the current month worksheet: {error}'**
   String couldNotCreateCurrentMonthWorksheet(String error);
+
+  /// No description provided for @couldNotCreateWorksheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not create the worksheet: {error}'**
+  String couldNotCreateWorksheet(String error);
 
   /// No description provided for @firstRowHasNoHeaderTitles.
   ///

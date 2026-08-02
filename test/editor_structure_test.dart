@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:calcrow/core/data/services/sheet_persistence_service.dart';
+import 'package:calcrow/core/providers/app_providers.dart';
 import 'package:calcrow/core/sheet_type_logic/ods_codec.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/xlsx_codec.dart';
@@ -181,6 +182,76 @@ void main() {
     expect(container.read(sheetPreviewProvider).sheetName, 'July');
     await _openEditorDetails(tester);
     expect(find.text('Active sheet: July'), findsOneWidget);
+  });
+
+  testWidgets('single-page XLSX can create a named page from its blueprint', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await _pumpWidget(
+      tester,
+      container,
+      MaterialApp(
+        home: Scaffold(
+          body: EditingPage(
+            initialSheetData: _singleNonMonthXlsxData(),
+            initialDocumentTarget: const LocalEditorDocumentTarget(
+              existingPath: '/tmp/records.xlsx',
+            ),
+            initialOpenMode: EditorOpenMode.dateBasedOpenEnd,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('editor-overflow-menu')));
+    await tester.pumpAndSettle();
+    expect(find.text('Select Page'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('editor-menu-select-page')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Records'), findsOneWidget);
+    await tester.tap(find.byTooltip('Create worksheet'));
+    await tester.pump();
+
+    expect(find.widgetWithText(TextFormField, ''), findsOneWidget);
+    await tester.enterText(find.byType(TextFormField), 'Archive');
+    await tester.tap(find.widgetWithText(FilledButton, 'Create worksheet'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(container.read(sheetPreviewProvider).sheetName, 'Archive');
+  });
+
+  testWidgets('single-page ODS always offers Select Page', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await _pumpWidget(
+      tester,
+      container,
+      MaterialApp(
+        home: Scaffold(
+          body: EditingPage(
+            initialSheetData: _singleNonMonthOdsData(),
+            initialDocumentTarget: const LocalEditorDocumentTarget(
+              existingPath: '/tmp/records.ods',
+            ),
+            initialOpenMode: EditorOpenMode.dateBasedOpenEnd,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('editor-overflow-menu')));
+    await tester.pumpAndSettle();
+    expect(find.text('Select Page'), findsOneWidget);
   });
 
   testWidgets('editor back action returns to get started in place', (
@@ -393,6 +464,56 @@ void main() {
     await _openEditorDetails(tester);
     expect(find.textContaining('row 2'), findsOneWidget);
     expect(find.text('11:00'), findsOneWidget);
+  });
+
+  testWidgets('date preference unlocks dates and permits any dated row', (
+    tester,
+  ) async {
+    container.dispose();
+    container = ProviderContainer(
+      overrides: [initialAllowAnyDateProvider.overrideWithValue(true)],
+    );
+    await tester.binding.setSurfaceSize(const Size(800, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await _pumpWidget(
+      tester,
+      container,
+      MaterialApp(
+        home: Scaffold(
+          body: EditingPage(
+            initialSheetData: _pastDiarySheetData(),
+            initialDocumentTarget: const LocalEditorDocumentTarget(
+              existingPath: '/tmp/diary.csv',
+            ),
+            initialOpenMode: EditorOpenMode.dateBased,
+            sheetPersistenceService: _FakeSheetPersistenceService(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Pick'), findsOneWidget);
+    expect(find.byIcon(Icons.calendar_today_rounded), findsOneWidget);
+    expect(find.textContaining('Diary can only open'), findsNothing);
+    expect(
+      (tester.getCenter(find.widgetWithText(TextField, 'Date')).dy -
+              tester
+                  .getCenter(find.byKey(const ValueKey('document-save-status')))
+                  .dy)
+          .abs(),
+      lessThan(1),
+    );
+
+    await tester.tap(find.text('Pick'));
+    await tester.pump();
+
+    final request = container.read(sheetPreviewRowPickProvider);
+    expect(request, isNotNull);
+    expect(request!.selectableRowIndexes, <int>{0, 1});
+    expect(request.subtitle, 'Choose any row from the sheet.');
   });
 
   testWidgets('namelist opening picks entries from sheet rows', (tester) async {
@@ -647,6 +768,31 @@ SheetData _worklogSheetData() {
   );
 }
 
+SheetData _pastDiarySheetData() {
+  final today = DateTime.now();
+  String format(DateTime value) =>
+      '${value.year.toString().padLeft(4, '0')}-'
+      '${value.month.toString().padLeft(2, '0')}-'
+      '${value.day.toString().padLeft(2, '0')}';
+
+  return SheetData(
+    fileName: 'diary.csv',
+    path: '/tmp/diary.csv',
+    format: SheetFileFormat.csv,
+    headers: const <String>['Date', 'Notes'],
+    valueTypes: const <String>['date', 'text'],
+    readOnlyColumns: const <bool>[false, false],
+    rows: <List<String>>[
+      <String>[format(today.subtract(const Duration(days: 2))), 'Earlier'],
+      <String>[format(today.subtract(const Duration(days: 1))), 'Yesterday'],
+    ],
+    csvDelimiter: ',',
+    hasTypeRow: false,
+    headerRowIndex: 0,
+    startColumnIndex: 0,
+  );
+}
+
 SheetData _multiSheetXlsxData() {
   final workbook = excel_pkg.Excel.createExcel();
   final defaultSheet = workbook.getDefaultSheet()!;
@@ -694,6 +840,60 @@ SheetData _multiSheetXlsxData() {
     startColumnIndex: parsed.startColumnIndex,
     xlsxSheetName: parsed.xlsxSheetName,
     workbook: parsed.workbook,
+  );
+}
+
+SheetData _singleNonMonthXlsxData() {
+  final workbook = excel_pkg.Excel.createExcel();
+  final defaultSheet = workbook.getDefaultSheet()!;
+  workbook.rename(defaultSheet, 'Records');
+  final sheet = workbook['Records'];
+  sheet.cell(excel_pkg.CellIndex.indexByString('A1')).value =
+      excel_pkg.TextCellValue('Date');
+  sheet.cell(excel_pkg.CellIndex.indexByString('B1')).value =
+      excel_pkg.TextCellValue('Notes');
+  sheet.cell(excel_pkg.CellIndex.indexByString('A2')).value =
+      excel_pkg.TextCellValue(_todayIsoDate());
+  sheet.cell(excel_pkg.CellIndex.indexByString('B2')).value =
+      excel_pkg.TextCellValue('Entry');
+  final parsed = XlsxSheetCodec.parse(
+    bytes: Uint8List.fromList(workbook.encode()!),
+    fileName: 'records.xlsx',
+    path: '/tmp/records.xlsx',
+    sheetName: 'Records',
+  );
+  return SheetData(
+    fileName: parsed.fileName,
+    path: parsed.path,
+    format: parsed.format,
+    headers: parsed.headers,
+    valueTypes: const ['date', 'text'],
+    readOnlyColumns: parsed.readOnlyColumns,
+    rows: parsed.rows,
+    hasCachedValueTypes: true,
+    xlsxSheetName: parsed.xlsxSheetName,
+    workbook: parsed.workbook,
+  );
+}
+
+SheetData _singleNonMonthOdsData() {
+  final draft = SheetData(
+    fileName: 'records.ods',
+    path: '/tmp/records.ods',
+    format: SheetFileFormat.ods,
+    headers: const ['Date', 'Notes'],
+    valueTypes: const ['date', 'text'],
+    readOnlyColumns: const [false, false],
+    rows: <List<String>>[
+      <String>[_todayIsoDate(), 'Entry'],
+    ],
+    xlsxSheetName: 'Records',
+  );
+  return OdsSheetCodec.parse(
+    bytes: OdsSheetCodec.buildBytes(draft),
+    fileName: draft.fileName,
+    path: draft.path,
+    sheetName: 'Records',
   );
 }
 

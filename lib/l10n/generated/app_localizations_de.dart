@@ -1250,6 +1250,16 @@ class AppLocalizationsDe extends AppLocalizations {
   String get location => 'Standort';
 
   @override
+  String get preferences => 'Präferenzen';
+
+  @override
+  String get allowEditingAnyDate => 'Beliebiges Datum bearbeiten';
+
+  @override
+  String get allowEditingAnyDateDescription =>
+      'Bearbeite das Datumsfeld und wähle Zeilen mit einem anderen Datum als heute aus.';
+
+  @override
   String get mood => 'Stimmung';
 
   @override
@@ -1979,6 +1989,10 @@ class AppLocalizationsDe extends AppLocalizations {
       'Prüfe den Vorschlag oder passe beide Felder vor dem Erstellen des Tabellenblatts an.';
 
   @override
+  String get reviewWorksheetSetup =>
+      'Wähle eine Vorlage und gib einen Namen für das neue Tabellenblatt ein.';
+
+  @override
   String get blueprintWorksheet => 'Vorlage';
 
   @override
@@ -2024,6 +2038,11 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String couldNotCreateCurrentMonthWorksheet(String error) {
     return 'Das Tabellenblatt für den aktuellen Monat konnte nicht erstellt werden: $error';
+  }
+
+  @override
+  String couldNotCreateWorksheet(String error) {
+    return 'Das Tabellenblatt konnte nicht erstellt werden: $error';
   }
 
   @override

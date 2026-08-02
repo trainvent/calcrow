@@ -373,17 +373,19 @@ class OdsSheetCodec {
       now: effectiveNow,
       preferredLanguageCode: preferredLanguageCode,
     );
-    if (suggestion == null) {
+    if (suggestion == null &&
+        (sourceSheetName?.trim().isEmpty != false ||
+            targetSheetName?.trim().isEmpty != false)) {
       throw const FormatException(
         'A current-month worksheet cannot be safely suggested.',
       );
     }
     final effectiveSource = sourceSheetName?.trim().isNotEmpty == true
         ? sourceSheetName!.trim()
-        : suggestion.sourceSheetName;
+        : suggestion!.sourceSheetName;
     final effectiveTarget = targetSheetName?.trim().isNotEmpty == true
         ? targetSheetName!.trim()
-        : suggestion.targetSheetName;
+        : suggestion!.targetSheetName;
     final names = _sheetNames(bytes);
     _validateNewSheetName(effectiveTarget, existingNames: names);
 

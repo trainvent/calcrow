@@ -49,6 +49,10 @@ class _DiaryEditingModeBehavior extends _EditingModeBehavior {
 
   @override
   Future<void> pickFromCurrentSheet(_EditingPageBaseState state) async {
+    if (state._allowsAnyDate) {
+      await state._pickTodayEntryFromCurrentSheet();
+      return;
+    }
     state._selectEditorTargetRow();
   }
 }

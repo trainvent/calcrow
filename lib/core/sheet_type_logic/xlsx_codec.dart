@@ -223,7 +223,9 @@ class XlsxSheetCodec {
       now: effectiveNow,
       preferredLanguageCode: preferredLanguageCode,
     );
-    if (suggestion == null) {
+    if (suggestion == null &&
+        (sourceSheetName?.trim().isEmpty != false ||
+            targetSheetName?.trim().isEmpty != false)) {
       throw const FormatException(
         'A current-month worksheet cannot be safely suggested.',
       );
@@ -232,10 +234,10 @@ class XlsxSheetCodec {
     final excel = excel_pkg.Excel.decodeBytes(bytes);
     final effectiveSourceSheetName = sourceSheetName?.trim().isNotEmpty == true
         ? sourceSheetName!.trim()
-        : suggestion.sourceSheetName;
+        : suggestion!.sourceSheetName;
     final effectiveTargetSheetName = targetSheetName?.trim().isNotEmpty == true
         ? targetSheetName!.trim()
-        : suggestion.targetSheetName;
+        : suggestion!.targetSheetName;
     _validateNewSheetName(
       effectiveTargetSheetName,
       existingNames: excel.tables.keys,

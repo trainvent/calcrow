@@ -158,6 +158,7 @@ class UserSettingsData {
     this.defaultDateFormat = 'YYYY-MM-DD',
     this.languageCode,
     this.themeMode,
+    this.allowAnyDate = false,
     this.diagnosticsConsentCompleted = false,
     this.usageAnalyticsEnabled = false,
     this.crashReportsEnabled = false,
@@ -185,6 +186,7 @@ class UserSettingsData {
   final String defaultDateFormat;
   final String? languageCode;
   final String? themeMode;
+  final bool allowAnyDate;
   final bool diagnosticsConsentCompleted;
   final bool usageAnalyticsEnabled;
   final bool crashReportsEnabled;
@@ -238,6 +240,7 @@ class UserSettingsData {
           : 'YYYY-MM-DD',
       languageCode: _supportedLanguageCode(settings['languageCode']),
       themeMode: _supportedThemeMode(settings['themeMode']),
+      allowAnyDate: settings['allowAnyDate'] == true,
       diagnosticsConsentCompleted:
           settings['diagnosticsConsentCompleted'] == true,
       usageAnalyticsEnabled: settings['usageAnalyticsEnabled'] == true,
@@ -427,6 +430,16 @@ class UserRepository {
     }
     return _firestore.collection(_usersCollection).doc(uid).set({
       'settings': {'themeMode': normalized},
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> setAllowAnyDate({
+    required String uid,
+    required bool allowAnyDate,
+  }) {
+    return _firestore.collection(_usersCollection).doc(uid).set({
+      'settings': {'allowAnyDate': allowAnyDate},
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }

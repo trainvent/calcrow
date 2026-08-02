@@ -1231,6 +1231,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get location => 'Location';
 
   @override
+  String get preferences => 'Preferences';
+
+  @override
+  String get allowEditingAnyDate => 'Allow editing any date';
+
+  @override
+  String get allowEditingAnyDateDescription =>
+      'Edit the date field and select rows from dates other than today.';
+
+  @override
   String get mood => 'Mood';
 
   @override
@@ -1943,6 +1953,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Review the suggested setup or adjust either field before creating the worksheet.';
 
   @override
+  String get reviewWorksheetSetup =>
+      'Choose a blueprint and enter a name for the new worksheet.';
+
+  @override
   String get blueprintWorksheet => 'Blueprint worksheet';
 
   @override
@@ -1987,6 +2001,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String couldNotCreateCurrentMonthWorksheet(String error) {
     return 'Could not create the current month worksheet: $error';
+  }
+
+  @override
+  String couldNotCreateWorksheet(String error) {
+    return 'Could not create the worksheet: $error';
   }
 
   @override

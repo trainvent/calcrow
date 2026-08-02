@@ -209,7 +209,6 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
   String? _documentImportedFileName;
   String? _documentImportedPath;
   String? _documentImportedSheetName;
-  int _documentSheetCount = 1;
   SheetFileFormat? _documentImportedFormat;
   String _documentCsvDelimiter = ',';
   bool _documentHasTypeRow = false;
@@ -303,7 +302,7 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
 
   bool get _showsInlineSaveStatus {
     final dateColumn = _documentDateColumnIndex();
-    if (dateColumn == null || !_isFixedDateField(dateColumn)) return false;
+    if (dateColumn == null) return false;
     return dateColumn >= _documentReadOnlyColumns.length ||
         !_documentReadOnlyColumns[dateColumn];
   }
@@ -393,16 +392,6 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
     final selection = await _resolveOpeningSelection(sheetData);
     if (!mounted || selection == null) return false;
 
-    final documentSheetCount = switch (sheetData.format) {
-      SheetFileFormat.xlsx => sheetData.workbook?.tables.length ?? 1,
-      SheetFileFormat.ods when sheetData.sourceBytes?.isNotEmpty == true =>
-        OdsSheetCodec.inspectSheets(
-          bytes: sheetData.sourceBytes!,
-          fileName: sheetData.fileName,
-          path: sheetData.path,
-        ).sheetCount,
-      _ => 1,
-    };
     setState(() {
       _documentImportedFileName = sheetData.fileName;
       _documentImportedPath = sheetData.path;
@@ -413,7 +402,6 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
       _documentHeaderRowIndex = sheetData.headerRowIndex;
       _documentStartColumnIndex = sheetData.startColumnIndex;
       _documentImportedSheetName = sheetData.xlsxSheetName;
-      _documentSheetCount = documentSheetCount;
       _documentHeaders = sheetData.headers;
       _documentValueTypes = sheetData.valueTypes;
       _documentReadOnlyColumns = sheetData.readOnlyColumns;
@@ -737,10 +725,12 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
 
     final today = DateTime.now();
     int? fallbackMatchIndex;
+    int? fallbackDatedRowIndex;
     for (var rowIndex = 0; rowIndex < sheetData.rows.length; rowIndex++) {
       final row = sheetData.rows[rowIndex];
       if (dateColumn >= row.length) continue;
       final rowDate = _parseDateFromCellValue(row[dateColumn]);
+      if (rowDate != null) fallbackDatedRowIndex = rowIndex;
       if (rowDate != null && _isSameCalendarDate(rowDate, today)) {
         fallbackMatchIndex ??= rowIndex;
         if (_rowHasEditableEmptyCellForSheetData(
@@ -756,6 +746,14 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
           );
         }
       }
+    }
+
+    if (_allowsAnyDate && fallbackMatchIndex == null) {
+      return _EditorTargetSelection(
+        usedDateColumn: true,
+        foundMatchingDateRow: fallbackDatedRowIndex != null,
+        targetRowIndex: fallbackDatedRowIndex ?? sheetData.rows.length,
+      );
     }
 
     return _EditorTargetSelection(
@@ -1314,8 +1312,7 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
 
   bool get _canSelectWorkbookPage =>
       (_documentImportedFormat == SheetFileFormat.xlsx ||
-          _documentImportedFormat == SheetFileFormat.ods) &&
-      _documentSheetCount > 1;
+      _documentImportedFormat == SheetFileFormat.ods);
 
   String _activeOpenModeLabel() {
     return switch (_documentOpenMode) {
@@ -1379,6 +1376,65 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
         );
       }
 
+      final sheetNames = _documentImportedFormat == SheetFileFormat.xlsx
+          ? XlsxSheetCodec.inspectSheets(
+              bytes: bytes,
+              fileName: fileName,
+              path: _documentImportedPath,
+            ).sheetNames
+          : OdsSheetCodec.inspectSheets(
+              bytes: bytes,
+              fileName: fileName,
+              path: _documentImportedPath,
+            ).sheetNames;
+      final ({String sourceSheetName, String targetSheetName})?
+      monthSuggestion = _documentOpenMode == EditorOpenMode.textBased
+          ? null
+          : (() {
+              if (_documentImportedFormat == SheetFileFormat.xlsx) {
+                final suggestion = XlsxSheetCodec.suggestCurrentMonthSheet(
+                  bytes: bytes,
+                  fileName: fileName,
+                  preferredLanguageCode: Localizations.localeOf(
+                    context,
+                  ).languageCode,
+                );
+                return suggestion == null
+                    ? null
+                    : (
+                        sourceSheetName: suggestion.sourceSheetName,
+                        targetSheetName: suggestion.targetSheetName,
+                      );
+              }
+              final suggestion = OdsSheetCodec.suggestCurrentMonthSheet(
+                bytes: bytes,
+                fileName: fileName,
+                preferredLanguageCode: Localizations.localeOf(
+                  context,
+                ).languageCode,
+              );
+              return suggestion == null
+                  ? null
+                  : (
+                      sourceSheetName: suggestion.sourceSheetName,
+                      targetSheetName: suggestion.targetSheetName,
+                    );
+            })();
+      final blueprintNames = compatibleSheets
+          .map((sheet) => sheet.name)
+          .toList(growable: false);
+      final suggestedBlueprint = monthSuggestion?.sourceSheetName;
+      final currentSheetName = _documentImportedSheetName;
+      final initialBlueprint =
+          suggestedBlueprint != null &&
+              blueprintNames.contains(suggestedBlueprint)
+          ? suggestedBlueprint
+          : currentSheetName != null &&
+                blueprintNames.contains(currentSheetName)
+          ? currentSheetName
+          : blueprintNames.first;
+      SheetData? createdSheetData;
+
       final selectedSheetName = await showSelectPageDialogue(
         context: context,
         title: context.l10n.chooseWorksheet,
@@ -1397,23 +1453,93 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
               ),
             )
             .toList(),
+        createOptionTooltip: monthSuggestion == null
+            ? context.l10n.createWorksheet
+            : context.l10n.createCurrentMonthWorksheet,
+        onCreateOption: () async {
+          final creationSetup = await showCreateMonthSheetDialogue(
+            context: context,
+            title: monthSuggestion == null
+                ? context.l10n.createWorksheet
+                : context.l10n.createCurrentMonthWorksheet,
+            description: monthSuggestion == null
+                ? context.l10n.reviewWorksheetSetup
+                : context.l10n.reviewMonthlyWorksheetSetup,
+            blueprintLabel: context.l10n.blueprintWorksheet,
+            recommendedBlueprintLabel: context.l10n.recommendedBlueprint(
+              initialBlueprint,
+            ),
+            newSheetNameLabel: context.l10n.newWorksheetName,
+            requiredNameError: context.l10n.worksheetNameRequired,
+            duplicateNameError: context.l10n.worksheetNameAlreadyExists,
+            invalidNameError: context.l10n.worksheetNameInvalidCharacters,
+            cancelLabel: context.l10n.cancel,
+            createLabel: context.l10n.createWorksheet,
+            blueprintSheetNames: blueprintNames,
+            existingSheetNames: sheetNames,
+            initialBlueprintSheetName: initialBlueprint,
+            initialNewSheetName: monthSuggestion?.targetSheetName ?? '',
+          );
+          if (creationSetup == null || !mounted) return null;
+          try {
+            createdSheetData = _documentImportedFormat == SheetFileFormat.xlsx
+                ? XlsxSheetCodec.createCurrentMonthSheet(
+                    bytes: bytes,
+                    fileName: fileName,
+                    path: _documentImportedPath,
+                    preferredLanguageCode: Localizations.localeOf(
+                      context,
+                    ).languageCode,
+                    sourceSheetName: creationSetup.sourceSheetName,
+                    targetSheetName: creationSetup.targetSheetName,
+                  )
+                : OdsSheetCodec.createCurrentMonthSheet(
+                    bytes: bytes,
+                    fileName: fileName,
+                    path: _documentImportedPath,
+                    preferredLanguageCode: Localizations.localeOf(
+                      context,
+                    ).languageCode,
+                    sourceSheetName: creationSetup.sourceSheetName,
+                    targetSheetName: creationSetup.targetSheetName,
+                  );
+            return createdSheetData?.xlsxSheetName;
+          } catch (error) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    monthSuggestion == null
+                        ? context.l10n.couldNotCreateWorksheet(error.toString())
+                        : context.l10n.couldNotCreateCurrentMonthWorksheet(
+                            error.toString(),
+                          ),
+                  ),
+                ),
+              );
+            }
+            return null;
+          }
+        },
       );
       if (!mounted || selectedSheetName == null) return;
       if (selectedSheetName == _documentImportedSheetName) return;
 
-      var selectedData = _documentImportedFormat == SheetFileFormat.xlsx
-          ? XlsxSheetCodec.parse(
-              bytes: bytes,
-              fileName: fileName,
-              path: _documentImportedPath,
-              sheetName: selectedSheetName,
-            )
-          : OdsSheetCodec.parse(
-              bytes: bytes,
-              fileName: fileName,
-              path: _documentImportedPath,
-              sheetName: selectedSheetName,
-            );
+      var selectedData =
+          createdSheetData ??
+          (_documentImportedFormat == SheetFileFormat.xlsx
+              ? XlsxSheetCodec.parse(
+                  bytes: bytes,
+                  fileName: fileName,
+                  path: _documentImportedPath,
+                  sheetName: selectedSheetName,
+                )
+              : OdsSheetCodec.parse(
+                  bytes: bytes,
+                  fileName: fileName,
+                  path: _documentImportedPath,
+                  sheetName: selectedSheetName,
+                ));
       if (!mounted) return;
       if (listEquals(selectedData.headers, _documentHeaders) &&
           selectedData.valueTypes.length == _documentValueTypes.length) {
@@ -1804,6 +1930,7 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
       return;
     }
 
+    final allowsAnyDate = _allowsAnyDate;
     final targetDate = _documentCurrentEditorDate(dateColumn);
     final matchingRowIndexes = <int>{
       for (var rowIndex = 0; rowIndex < _documentRows.length; rowIndex++)
@@ -1813,7 +1940,7 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
                 _documentRows[rowIndex][dateColumn],
               );
               return rowDate != null &&
-                  _isSameCalendarDate(rowDate, targetDate);
+                  (allowsAnyDate || _isSameCalendarDate(rowDate, targetDate));
             })())
           rowIndex,
     };
@@ -1834,7 +1961,9 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
           SheetPreviewRowPickRequest(
             selectableRowIndexes: matchingRowIndexes,
             title: context.l10n.pickRow,
-            subtitle: context.l10n.chooseRowFor(_formatDate(targetDate)),
+            subtitle: allowsAnyDate
+                ? context.l10n.chooseAnyRowFromTheSheet
+                : context.l10n.chooseRowFor(_formatDate(targetDate)),
           ),
         );
   }
@@ -2789,6 +2918,7 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(allowAnyDateProvider);
     final theme = Theme.of(context);
     return Stack(
       children: [
@@ -3079,7 +3209,7 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
                     padding: EdgeInsets.only(
                       bottom: index == _documentHeaders.length - 1 ? 0 : 10,
                     ),
-                    child: isReadOnly && index == dateColumn
+                    child: index == dateColumn
                         ? Row(
                             children: [
                               Expanded(child: inputField),
@@ -3119,7 +3249,12 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
                   Expanded(
                     child: OutlinedButton(
                       onPressed: _pickFromCurrentSheetForMode,
-                      child: Text(_modeBehavior.pickButtonLabel(context.l10n)),
+                      child: Text(
+                        _documentOpenMode == EditorOpenMode.dateBased &&
+                                _allowsAnyDate
+                            ? context.l10n.pick
+                            : _modeBehavior.pickButtonLabel(context.l10n),
+                      ),
                     ),
                   ),
                   if (_modeBehavior.showsTextEntryActions) ...[
@@ -3257,10 +3392,13 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
   }
 
   bool _isFixedDateField(int columnIndex) {
-    return (_documentOpenMode == EditorOpenMode.dateBased ||
+    return !_allowsAnyDate &&
+        (_documentOpenMode == EditorOpenMode.dateBased ||
             _documentOpenMode == EditorOpenMode.dateBasedOpenEnd) &&
         columnIndex == _documentDateColumnIndex();
   }
+
+  bool get _allowsAnyDate => ref.read(allowAnyDateProvider);
 
   Widget _buildSetupView(ThemeData theme) {
     final setupTip = _supportsLocalFileEditing

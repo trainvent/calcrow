@@ -98,7 +98,13 @@ Future<ThemeMode> loadStoredThemeMode() async {
   return themeModeFromStorage(preferences.getString(IConst.themeModeKey));
 }
 
+Future<bool> loadStoredAllowAnyDate() async {
+  final preferences = await SharedPreferences.getInstance();
+  return preferences.getBool(IConst.allowAnyDateKey) ?? false;
+}
+
 final initialThemeModeProvider = Provider<ThemeMode>((ref) => ThemeMode.system);
+final initialAllowAnyDateProvider = Provider<bool>((ref) => false);
 
 class ThemeModePreference extends Notifier<ThemeMode> {
   String? _pendingRemoteValue;
@@ -157,6 +163,56 @@ final effectiveThemeModeProvider = Provider<ThemeMode>(
   (ref) => ref.watch(themeModeProvider),
 );
 
+class AllowAnyDatePreference extends Notifier<bool> {
+  bool? _pendingRemoteValue;
+
+  @override
+  bool build() => ref.watch(initialAllowAnyDateProvider);
+
+  void setAllowAnyDate(bool value, {String? uid}) {
+    state = value;
+    _pendingRemoteValue = uid == null ? null : value;
+    unawaited(_persist(value, uid: uid));
+  }
+
+  void applyRemoteValue(bool value) {
+    if (_pendingRemoteValue != null) {
+      if (_pendingRemoteValue == value) _pendingRemoteValue = null;
+      return;
+    }
+    if (state == value) return;
+    state = value;
+    unawaited(_persist(value));
+  }
+
+  Future<void> _persist(bool value, {String? uid}) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setBool(IConst.allowAnyDateKey, value);
+    if (uid == null) return;
+    try {
+      await ref
+          .read(userRepositoryProvider)
+          .setAllowAnyDate(uid: uid, allowAnyDate: value);
+    } catch (error) {
+      debugPrint('[AllowAnyDatePreference] Could not sync preference: $error');
+    }
+  }
+}
+
+final allowAnyDateProvider = NotifierProvider<AllowAnyDatePreference, bool>(
+  AllowAnyDatePreference.new,
+);
+
+final remoteAllowAnyDateProvider = Provider<bool?>((ref) {
+  final session = ref.watch(authSessionProvider).asData?.value;
+  if (session == null) return null;
+  return ref
+      .watch(userSettingsProvider(session.uid))
+      .asData
+      ?.value
+      .allowAnyDate;
+});
+
 class LanguagePreference extends Notifier<String?> {
   static const supportedLanguageCodes = <String>{'en', 'de'};
 
@@ -203,6 +259,11 @@ final appServiceCoordinatorProvider = Provider<void>((ref) {
         ),
       ),
     );
+  }, fireImmediately: true);
+
+  ref.listen<bool?>(remoteAllowAnyDateProvider, (previous, next) {
+    if (next == null) return;
+    ref.read(allowAnyDateProvider.notifier).applyRemoteValue(next);
   }, fireImmediately: true);
 
   ref.listen<AsyncValue<AuthSession?>>(authSessionProvider, (previous, next) {

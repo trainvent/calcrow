@@ -147,6 +147,27 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
     );
   }
 
+  Widget _buildPreferencesCard({required AuthSession? session}) {
+    final allowAnyDate = ref.watch(allowAnyDateProvider);
+    return Card(
+      child: Column(
+        children: [
+          _buildSectionHeader(context, title: context.l10n.preferences),
+          const Divider(height: 1),
+          SwitchListTile(
+            secondary: const Icon(Icons.edit_calendar_outlined),
+            title: Text(context.l10n.allowEditingAnyDate),
+            subtitle: Text(context.l10n.allowEditingAnyDateDescription),
+            value: allowAnyDate,
+            onChanged: (value) => ref
+                .read(allowAnyDateProvider.notifier)
+                .setAllowAnyDate(value, uid: session?.uid),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _setLanguage({
     required AuthSession? session,
     required String languageCode,
@@ -212,6 +233,8 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
         if (session == null) ...[
           const SizedBox(height: 12),
           _buildLookAndFeelCard(session: null, settings: null),
+          const SizedBox(height: 12),
+          _buildPreferencesCard(session: null),
         ],
         if (session == null && _showSafFolderSettings) ...[
           const SizedBox(height: 12),
@@ -411,6 +434,8 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
                 ),
                 const SizedBox(height: 12),
               ],
+              _buildPreferencesCard(session: session),
+              const SizedBox(height: 12),
               Card(
                 child: Column(
                   children: [

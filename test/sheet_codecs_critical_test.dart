@@ -453,6 +453,29 @@ void main() {
       expect(created.workbook?.tables.containsKey('August custom'), isTrue);
     });
 
+    test('XLSX creates from an explicit non-month blueprint', () {
+      final bytes = buildNamedWorkbookBytes({
+        'Records': [
+          ['Date', 'Notes'],
+          ['2026-08-01', 'old'],
+        ],
+      });
+
+      final created = XlsxSheetCodec.createCurrentMonthSheet(
+        bytes: bytes,
+        fileName: 'records.xlsx',
+        path: null,
+        now: DateTime(2026, 8, 2),
+        sourceSheetName: 'Records',
+        targetSheetName: 'Archive',
+      );
+
+      expect(created.xlsxSheetName, 'Archive');
+      expect(created.rows, [
+        ['2026-08-02', ''],
+      ]);
+    });
+
     test('XLSX fresh month drops malformed and historical blueprint rows', () {
       final bytes = buildNamedWorkbookBytes({
         'July': [
@@ -964,6 +987,35 @@ void main() {
       );
 
       expect(created.xlsxSheetName, 'August custom');
+      expect(created.rows, [
+        ['2026-08-02', ''],
+      ]);
+    });
+
+    test('ODS creates from an explicit non-month blueprint', () {
+      final draft = SheetData(
+        fileName: 'records.ods',
+        path: null,
+        format: SheetFileFormat.ods,
+        headers: const ['Date', 'Notes'],
+        valueTypes: const ['date', 'text'],
+        readOnlyColumns: const [false, false],
+        rows: const [
+          ['2026-08-01', 'old'],
+        ],
+        xlsxSheetName: 'Records',
+      );
+
+      final created = OdsSheetCodec.createCurrentMonthSheet(
+        bytes: OdsSheetCodec.buildBytes(draft),
+        fileName: draft.fileName,
+        path: null,
+        now: DateTime(2026, 8, 2),
+        sourceSheetName: 'Records',
+        targetSheetName: 'Archive',
+      );
+
+      expect(created.xlsxSheetName, 'Archive');
       expect(created.rows, [
         ['2026-08-02', ''],
       ]);
