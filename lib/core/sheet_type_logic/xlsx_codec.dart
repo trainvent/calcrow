@@ -44,8 +44,19 @@ class XlsxMonthlySheetSuggestion {
   final int year;
 }
 
+class _XlsxBuildState {
+  _XlsxBuildState(this.workbook);
+
+  excel_pkg.Excel workbook;
+  Uint8List? latestBytes;
+  bool hasEncoded = false;
+}
+
 class XlsxSheetCodec {
   const XlsxSheetCodec._();
+
+  static final Expando<_XlsxBuildState> _workbookBuildStates =
+      Expando<_XlsxBuildState>('xlsxWorkbookBuildStates');
 
   static SheetData parse({
     required Uint8List bytes,
@@ -649,10 +660,56 @@ class XlsxSheetCodec {
   }
 
   static Uint8List buildBytes(SheetData data) {
-    final workbook = data.workbook;
-    if (workbook == null) {
+    final sourceWorkbook = data.workbook;
+    if (sourceWorkbook == null) {
       throw StateError('No XLSX workbook is loaded.');
     }
+    final state = _workbookBuildStates[sourceWorkbook] ??= _XlsxBuildState(
+      sourceWorkbook,
+    );
+    var workbook = state.workbook;
+    final stylesBeforeBuild = _workbookCellStyles(workbook);
+
+    _writeSheetData(workbook: workbook, data: data);
+    final introducedStyle = _workbookCellStyles(
+      workbook,
+    ).any((style) => !stylesBeforeBuild.contains(style));
+    final requiresIsolatedBuild = state.hasEncoded && introducedStyle;
+
+    if (requiresIsolatedBuild) {
+      final latestBytes = state.latestBytes;
+      if (latestBytes == null || latestBytes.isEmpty) {
+        throw StateError('Could not restore the latest XLSX workbook.');
+      }
+      // excel 4.0.6 mutates its encoded style table. Restore only when this
+      // save needs to extend that table, then promote the valid output below.
+      state.workbook = excel_pkg.Excel.decodeBytes(latestBytes);
+      workbook = state.workbook;
+      _writeSheetData(workbook: workbook, data: data);
+    }
+
+    final Uint8List bytes;
+    try {
+      bytes = _encodeWorkbook(workbook);
+    } catch (_) {
+      final latestBytes = state.latestBytes;
+      if (latestBytes != null && latestBytes.isNotEmpty) {
+        state.workbook = excel_pkg.Excel.decodeBytes(latestBytes);
+      }
+      rethrow;
+    }
+    state.latestBytes = bytes;
+    state.hasEncoded = true;
+    state.workbook = requiresIsolatedBuild
+        ? excel_pkg.Excel.decodeBytes(bytes)
+        : workbook;
+    return bytes;
+  }
+
+  static void _writeSheetData({
+    required excel_pkg.Excel workbook,
+    required SheetData data,
+  }) {
     final sheetName = _resolveSheetNameForPersist(workbook, data.xlsxSheetName);
     final sheet = workbook.tables[sheetName];
     if (sheet == null) {
@@ -708,12 +765,29 @@ class XlsxSheetCodec {
     }
 
     _restoreReadOnlyFormulas(sheet: sheet, data: data);
+  }
 
+  static Uint8List _encodeWorkbook(excel_pkg.Excel workbook) {
     final bytes = workbook.encode();
     if (bytes == null || bytes.isEmpty) {
       throw StateError('Could not encode XLSX workbook.');
     }
     return Uint8List.fromList(bytes);
+  }
+
+  static Set<excel_pkg.CellStyle> _workbookCellStyles(
+    excel_pkg.Excel workbook,
+  ) {
+    final styles = <excel_pkg.CellStyle>{};
+    for (final sheet in workbook.tables.values) {
+      for (final row in sheet.rows) {
+        for (final cell in row) {
+          final style = cell?.cellStyle;
+          if (style != null) styles.add(style);
+        }
+      }
+    }
+    return styles;
   }
 
   static void _restoreReadOnlyFormulas({

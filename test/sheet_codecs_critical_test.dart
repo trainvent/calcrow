@@ -585,6 +585,81 @@ void main() {
       expect(parsed.workbook, isNotNull);
     });
 
+    test('XLSX isolates only saves that introduce a new cell style', () {
+      final workbook = excel_pkg.Excel.createExcel();
+      final emptyDraft = SheetData(
+        fileName: 'fresh.xlsx',
+        path: null,
+        format: SheetFileFormat.xlsx,
+        headers: const <String>['Date', 'Distance', 'Cost'],
+        valueTypes: const <String>['date', 'float', 'money:EUR'],
+        readOnlyColumns: const <bool>[false, false, false],
+        rows: const <List<String>>[],
+        workbook: workbook,
+      );
+
+      XlsxSheetCodec.buildBytes(emptyDraft);
+      final firstRowBytes = XlsxSheetCodec.buildBytes(
+        copySheetData(
+          emptyDraft,
+          rows: const <List<String>>[
+            <String>['2026-08-01', '0,5', ''],
+          ],
+        ),
+      );
+
+      final reusedStyleBytes = XlsxSheetCodec.buildBytes(
+        copySheetData(
+          emptyDraft,
+          rows: const <List<String>>[
+            <String>['2026-08-01', '0,5', ''],
+            <String>['2026-08-02', '1,5', ''],
+          ],
+        ),
+      );
+      final newMoneyStyleBytes = XlsxSheetCodec.buildBytes(
+        copySheetData(
+          emptyDraft,
+          rows: const <List<String>>[
+            <String>['2026-08-01', '0,5', ''],
+            <String>['2026-08-02', '1,5', '12,30'],
+          ],
+        ),
+      );
+
+      final firstRowWorkbook = excel_pkg.Excel.decodeBytes(firstRowBytes);
+      final firstRowSheet =
+          firstRowWorkbook.tables[firstRowWorkbook.getDefaultSheet()]!;
+      final dateCell = firstRowSheet.cell(
+        excel_pkg.CellIndex.indexByString('A2'),
+      );
+      final distanceCell = firstRowSheet.cell(
+        excel_pkg.CellIndex.indexByString('B2'),
+      );
+      final reusedWorkbook = excel_pkg.Excel.decodeBytes(reusedStyleBytes);
+      final reusedSheet =
+          reusedWorkbook.tables[reusedWorkbook.getDefaultSheet()]!;
+      final savedWorkbook = excel_pkg.Excel.decodeBytes(newMoneyStyleBytes);
+      final savedSheet = savedWorkbook.tables[savedWorkbook.getDefaultSheet()]!;
+      final moneyCell = savedSheet.cell(
+        excel_pkg.CellIndex.indexByString('C3'),
+      );
+
+      expect(dateCell.value, isA<excel_pkg.DateCellValue>());
+      expect(dateCell.cellStyle?.numberFormat.formatCode, contains('yy'));
+      expect(distanceCell.value, const excel_pkg.DoubleCellValue(0.5));
+      expect(
+        distanceCell.cellStyle?.numberFormat.formatCode,
+        isNot(contains('yy')),
+      );
+      expect(
+        reusedSheet.cell(excel_pkg.CellIndex.indexByString('B3')).value,
+        const excel_pkg.DoubleCellValue(1.5),
+      );
+      expect(moneyCell.value, const excel_pkg.DoubleCellValue(12.3));
+      expect(moneyCell.cellStyle?.numberFormat.formatCode, contains('EUR'));
+    });
+
     test('XLSX parse reuses confirmed cached field types', () async {
       await TypeHintCache.rememberCsvTypes(
         fileName: 'cached.xlsx',
