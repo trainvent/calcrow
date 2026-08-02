@@ -50,6 +50,7 @@ class SheetFileService {
             'fileName': fileName,
             'path': path,
             'nowMillisecondsSinceEpoch': DateTime.now().millisecondsSinceEpoch,
+            'sheetName': xlsxSheetName,
           }),
         );
         return await _applyCachedTypeHints(sheetDataFromTransfer(transfer));

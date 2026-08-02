@@ -1,5 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:calcrow/core/data/services/sheet_persistence_service.dart';
+import 'package:calcrow/core/sheet_type_logic/ods_codec.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
+import 'package:calcrow/core/sheet_type_logic/xlsx_codec.dart';
 import 'package:calcrow/core/theme/app_text_styles.dart';
 import 'package:calcrow/features/home/editing/selection_page.dart';
 import 'package:calcrow/features/home/editing/editing_pages/editing_page_base.dart';
@@ -7,6 +11,7 @@ import 'package:calcrow/features/home/sheet/sheet_preview_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:excel/excel.dart' as excel_pkg;
 
 void main() {
   late ProviderContainer container;
@@ -83,6 +88,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Current File'), findsOneWidget);
     expect(find.text('worklog.csv - new row'), findsOneWidget);
+    expect(find.text('Location'), findsOneWidget);
+    expect(find.text('/tmp/worklog.csv'), findsOneWidget);
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
 
@@ -95,6 +102,85 @@ void main() {
     await tester.tap(find.byTooltip('Hide field types'));
     await tester.pump();
     expect(find.byIcon(Icons.accessibility_new_rounded), findsNothing);
+  });
+
+  testWidgets('editor menu can switch between XLSX worksheets', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final sheetData = _multiSheetXlsxData();
+
+    await _pumpWidget(
+      tester,
+      container,
+      MaterialApp(
+        home: Scaffold(
+          body: EditingPage(
+            initialSheetData: sheetData,
+            initialDocumentTarget: const LocalEditorDocumentTarget(
+              existingPath: '/tmp/months.xlsx',
+            ),
+            initialOpenMode: EditorOpenMode.dateBasedOpenEnd,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('editor-overflow-menu')));
+    await tester.pumpAndSettle();
+    expect(find.text('Select Page'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('editor-menu-select-page')));
+    await tester.pumpAndSettle();
+    expect(find.text('Choose a worksheet'), findsOneWidget);
+    expect(find.text('July'), findsOneWidget);
+    expect(find.text('August'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ListTile, 'August'));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+    expect(find.text('Choose a worksheet'), findsNothing);
+    expect(find.textContaining('Import failed'), findsNothing);
+    expect(container.read(sheetPreviewProvider).sheetName, 'August');
+    await _openEditorDetails(tester);
+    expect(find.text('Active sheet: August'), findsOneWidget);
+  });
+
+  testWidgets('editor menu can switch between ODS worksheets', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await _pumpWidget(
+      tester,
+      container,
+      MaterialApp(
+        home: Scaffold(
+          body: EditingPage(
+            initialSheetData: _multiSheetOdsData(),
+            initialDocumentTarget: const LocalEditorDocumentTarget(
+              existingPath: '/tmp/calcrow_sheet_2026.ods',
+            ),
+            initialOpenMode: EditorOpenMode.dateBasedOpenEnd,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('editor-overflow-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('editor-menu-select-page')));
+    await tester.pumpAndSettle();
+    expect(find.text('July'), findsOneWidget);
+    expect(find.text('August'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ListTile, 'July'));
+    await tester.pumpAndSettle();
+    expect(container.read(sheetPreviewProvider).sheetName, 'July');
+    await _openEditorDetails(tester);
+    expect(find.text('Active sheet: July'), findsOneWidget);
   });
 
   testWidgets('editor back action returns to get started in place', (
@@ -558,6 +644,90 @@ SheetData _worklogSheetData() {
     hasTypeRow: false,
     headerRowIndex: 0,
     startColumnIndex: 0,
+  );
+}
+
+SheetData _multiSheetXlsxData() {
+  final workbook = excel_pkg.Excel.createExcel();
+  final defaultSheet = workbook.getDefaultSheet()!;
+  workbook.rename(defaultSheet, 'July');
+  final july = workbook['July'];
+  final today = _todayIsoDate();
+  const headers = <String>['Date', 'Notes'];
+  for (var column = 0; column < headers.length; column++) {
+    july
+        .cell(
+          excel_pkg.CellIndex.indexByColumnRow(
+            columnIndex: column,
+            rowIndex: 0,
+          ),
+        )
+        .value = excel_pkg.TextCellValue(
+      headers[column],
+    );
+  }
+  july.cell(excel_pkg.CellIndex.indexByString('A2')).value =
+      excel_pkg.TextCellValue(today);
+  july.cell(excel_pkg.CellIndex.indexByString('B2')).value =
+      excel_pkg.TextCellValue('July entry');
+  workbook.copy('July', 'August');
+  workbook['August'].cell(excel_pkg.CellIndex.indexByString('B2')).value =
+      excel_pkg.TextCellValue('August entry');
+
+  final parsed = XlsxSheetCodec.parse(
+    bytes: Uint8List.fromList(workbook.encode()!),
+    fileName: 'months.xlsx',
+    path: '/tmp/months.xlsx',
+    sheetName: 'July',
+  );
+  return SheetData(
+    fileName: parsed.fileName,
+    path: parsed.path,
+    format: parsed.format,
+    headers: parsed.headers,
+    valueTypes: const <String>['date', 'text'],
+    readOnlyColumns: parsed.readOnlyColumns,
+    rows: parsed.rows,
+    pendingTypeSelectionColumns: const <int>[],
+    hasCachedValueTypes: true,
+    headerRowIndex: parsed.headerRowIndex,
+    startColumnIndex: parsed.startColumnIndex,
+    xlsxSheetName: parsed.xlsxSheetName,
+    workbook: parsed.workbook,
+  );
+}
+
+SheetData _multiSheetOdsData() {
+  final draft = SheetData(
+    fileName: 'calcrow_sheet_2026.ods',
+    path: '/tmp/calcrow_sheet_2026.ods',
+    format: SheetFileFormat.ods,
+    headers: const ['Date', 'Notes'],
+    valueTypes: const ['date', 'text'],
+    readOnlyColumns: const [false, false],
+    rows: const [
+      ['2026-07-31', 'July entry'],
+    ],
+    xlsxSheetName: 'July',
+  );
+  final created = OdsSheetCodec.createCurrentMonthSheet(
+    bytes: OdsSheetCodec.buildBytes(draft),
+    fileName: draft.fileName,
+    path: draft.path,
+    now: DateTime(2026, 8, 2),
+  );
+  return SheetData(
+    fileName: created.fileName,
+    path: created.path,
+    format: created.format,
+    headers: created.headers,
+    valueTypes: const ['date', 'text'],
+    readOnlyColumns: created.readOnlyColumns,
+    rows: created.rows,
+    pendingTypeSelectionColumns: const [],
+    hasCachedValueTypes: true,
+    xlsxSheetName: created.xlsxSheetName,
+    sourceBytes: created.sourceBytes,
   );
 }
 

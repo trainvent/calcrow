@@ -13,6 +13,218 @@ class SelectPageOption {
   final int headerRowNumber;
 }
 
+class CreateMonthSheetSelection {
+  const CreateMonthSheetSelection({
+    required this.sourceSheetName,
+    required this.targetSheetName,
+  });
+
+  final String sourceSheetName;
+  final String targetSheetName;
+}
+
+Future<CreateMonthSheetSelection?> showCreateMonthSheetDialogue({
+  required BuildContext context,
+  required String title,
+  required String description,
+  required String blueprintLabel,
+  required String recommendedBlueprintLabel,
+  required String newSheetNameLabel,
+  required String requiredNameError,
+  required String duplicateNameError,
+  required String invalidNameError,
+  required String cancelLabel,
+  required String createLabel,
+  required List<String> blueprintSheetNames,
+  required List<String> existingSheetNames,
+  required String initialBlueprintSheetName,
+  required String initialNewSheetName,
+}) {
+  return showDialog<CreateMonthSheetSelection>(
+    context: context,
+    builder: (context) => _CreateMonthSheetDialogue(
+      title: title,
+      description: description,
+      blueprintLabel: blueprintLabel,
+      recommendedBlueprintLabel: recommendedBlueprintLabel,
+      newSheetNameLabel: newSheetNameLabel,
+      requiredNameError: requiredNameError,
+      duplicateNameError: duplicateNameError,
+      invalidNameError: invalidNameError,
+      cancelLabel: cancelLabel,
+      createLabel: createLabel,
+      blueprintSheetNames: blueprintSheetNames,
+      existingSheetNames: existingSheetNames,
+      initialBlueprintSheetName: initialBlueprintSheetName,
+      initialNewSheetName: initialNewSheetName,
+    ),
+  );
+}
+
+class _CreateMonthSheetDialogue extends StatefulWidget {
+  const _CreateMonthSheetDialogue({
+    required this.title,
+    required this.description,
+    required this.blueprintLabel,
+    required this.recommendedBlueprintLabel,
+    required this.newSheetNameLabel,
+    required this.requiredNameError,
+    required this.duplicateNameError,
+    required this.invalidNameError,
+    required this.cancelLabel,
+    required this.createLabel,
+    required this.blueprintSheetNames,
+    required this.existingSheetNames,
+    required this.initialBlueprintSheetName,
+    required this.initialNewSheetName,
+  });
+
+  final String title;
+  final String description;
+  final String blueprintLabel;
+  final String recommendedBlueprintLabel;
+  final String newSheetNameLabel;
+  final String requiredNameError;
+  final String duplicateNameError;
+  final String invalidNameError;
+  final String cancelLabel;
+  final String createLabel;
+  final List<String> blueprintSheetNames;
+  final List<String> existingSheetNames;
+  final String initialBlueprintSheetName;
+  final String initialNewSheetName;
+
+  @override
+  State<_CreateMonthSheetDialogue> createState() =>
+      _CreateMonthSheetDialogueState();
+}
+
+class _CreateMonthSheetDialogueState extends State<_CreateMonthSheetDialogue> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late String _selectedBlueprint;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedBlueprint = widget.initialBlueprintSheetName;
+    _nameController = TextEditingController(text: widget.initialNewSheetName);
+    _nameController.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: widget.initialNewSheetName.length,
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  String? _validateName(String? value) {
+    final name = value?.trim() ?? '';
+    if (name.isEmpty) return widget.requiredNameError;
+    if (RegExp(r"[\\/*?:\[\]]").hasMatch(name) ||
+        name.startsWith("'") ||
+        name.endsWith("'")) {
+      return widget.invalidNameError;
+    }
+    final normalized = name.toLowerCase();
+    if (widget.existingSheetNames.any(
+      (existing) => existing.trim().toLowerCase() == normalized,
+    )) {
+      return widget.duplicateNameError;
+    }
+    return null;
+  }
+
+  void _submit() {
+    if (_formKey.currentState?.validate() != true) return;
+    Navigator.of(context).pop(
+      CreateMonthSheetSelection(
+        sourceSheetName: _selectedBlueprint,
+        targetSheetName: _nameController.text.trim(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AlertDialog(
+      icon: Icon(Icons.auto_awesome_outlined, color: theme.colorScheme.primary),
+      title: Text(widget.title),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.description,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedBlueprint,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: widget.blueprintLabel,
+                    helperText: widget.recommendedBlueprintLabel,
+                    prefixIcon: const Icon(Icons.content_copy_outlined),
+                    border: const OutlineInputBorder(),
+                  ),
+                  items: widget.blueprintSheetNames
+                      .map(
+                        (name) => DropdownMenuItem<String>(
+                          value: name,
+                          child: Text(name, overflow: TextOverflow.ellipsis),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) _selectedBlueprint = value;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _nameController,
+                  autofocus: true,
+                  maxLength: 31,
+                  textInputAction: TextInputAction.done,
+                  decoration: InputDecoration(
+                    labelText: widget.newSheetNameLabel,
+                    prefixIcon: const Icon(Icons.calendar_month_outlined),
+                    border: const OutlineInputBorder(),
+                  ),
+                  validator: _validateName,
+                  onFieldSubmitted: (_) => _submit(),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(widget.cancelLabel),
+        ),
+        FilledButton.icon(
+          onPressed: _submit,
+          icon: const Icon(Icons.add),
+          label: Text(widget.createLabel),
+        ),
+      ],
+    );
+  }
+}
+
 Future<String?> showSelectPageDialogue({
   required BuildContext context,
   required String title,

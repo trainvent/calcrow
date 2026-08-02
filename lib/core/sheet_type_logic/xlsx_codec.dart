@@ -9,10 +9,12 @@ import 'sheet_logic.dart';
 class XlsxWorkbookInspection {
   const XlsxWorkbookInspection({
     required this.sheetCount,
+    required this.sheetNames,
     required this.sheets,
   });
 
   final int sheetCount;
+  final List<String> sheetNames;
   final List<XlsxSheetInfo> sheets;
 }
 
@@ -165,6 +167,7 @@ class XlsxSheetCodec {
     }
     return XlsxWorkbookInspection(
       sheetCount: excel.tables.length,
+      sheetNames: excel.tables.keys.toList(growable: false),
       sheets: sheets,
     );
   }
@@ -210,6 +213,8 @@ class XlsxSheetCodec {
     required String? path,
     DateTime? now,
     String preferredLanguageCode = 'en',
+    String? sourceSheetName,
+    String? targetSheetName,
   }) {
     final effectiveNow = now ?? DateTime.now();
     final suggestion = suggestCurrentMonthSheet(
@@ -225,31 +230,65 @@ class XlsxSheetCodec {
     }
 
     final excel = excel_pkg.Excel.decodeBytes(bytes);
+    final effectiveSourceSheetName = sourceSheetName?.trim().isNotEmpty == true
+        ? sourceSheetName!.trim()
+        : suggestion.sourceSheetName;
+    final effectiveTargetSheetName = targetSheetName?.trim().isNotEmpty == true
+        ? targetSheetName!.trim()
+        : suggestion.targetSheetName;
+    _validateNewSheetName(
+      effectiveTargetSheetName,
+      existingNames: excel.tables.keys,
+    );
+    if (!excel.tables.containsKey(effectiveSourceSheetName)) {
+      throw FormatException(
+        'The blueprint worksheet “$effectiveSourceSheetName” does not exist.',
+      );
+    }
     final source = _parseSheet(
       excel: excel,
       fileName: fileName,
       path: path,
-      sheetName: suggestion.sourceSheetName,
+      sheetName: effectiveSourceSheetName,
     );
-    excel.copy(suggestion.sourceSheetName, suggestion.targetSheetName);
-    final target = excel.tables[suggestion.targetSheetName];
+    excel.copy(effectiveSourceSheetName, effectiveTargetSheetName);
+    final target = excel.tables[effectiveTargetSheetName];
     if (target == null) {
       throw StateError('Could not create the suggested worksheet.');
     }
     _prepareMonthlySheetClone(
       source: source,
       target: target,
-      sourceSheetName: suggestion.sourceSheetName,
-      targetSheetName: suggestion.targetSheetName,
+      sourceSheetName: effectiveSourceSheetName,
+      targetSheetName: effectiveTargetSheetName,
       now: effectiveNow,
     );
-    excel.setDefaultSheet(suggestion.targetSheetName);
+    excel.setDefaultSheet(effectiveTargetSheetName);
     return _parseSheet(
       excel: excel,
       fileName: fileName,
       path: path,
-      sheetName: suggestion.targetSheetName,
+      sheetName: effectiveTargetSheetName,
     );
+  }
+
+  static void _validateNewSheetName(
+    String name, {
+    required Iterable<String> existingNames,
+  }) {
+    if (name.isEmpty) {
+      throw const FormatException('The new worksheet name cannot be empty.');
+    }
+    if (name.length > 31 ||
+        RegExp(r"[\\/*?:\[\]]").hasMatch(name) ||
+        name.startsWith("'") ||
+        name.endsWith("'")) {
+      throw const FormatException('The new worksheet name is not valid.');
+    }
+    final normalized = name.toLowerCase();
+    if (existingNames.any((existing) => existing.toLowerCase() == normalized)) {
+      throw FormatException('A worksheet named “$name” already exists.');
+    }
   }
 
   static SheetData _parseSheet({
@@ -472,31 +511,37 @@ class XlsxSheetCodec {
     final dataStartRowIndex =
         source.headerRowIndex + (source.hasTypeRow ? 2 : 1);
 
-    for (var rowIndex = 0; rowIndex < source.rows.length; rowIndex++) {
+    // A blueprint contributes its structure, not its historical entries.
+    // Keep the first data row for its styles/formulas and blank the rest. The
+    // parser trims those empty trailing rows without relying on excel's
+    // coordinate-unsafe physical row removal.
+    for (var rowIndex = 1; rowIndex < source.rows.length; rowIndex++) {
       for (var column = 0; column < source.headers.length; column++) {
-        final cell = target.cell(
-          excel_pkg.CellIndex.indexByColumnRow(
-            columnIndex: source.startColumnIndex + column,
-            rowIndex: dataStartRowIndex + rowIndex,
-          ),
-        );
-        if (cell.value is excel_pkg.FormulaCellValue) continue;
-        if (column == dateColumn) {
-          final sourceDate = _parseDate(source.rows[rowIndex][column]);
-          final day = sourceDate?.day;
-          if (day != null && day <= _daysInMonth(now.year, now.month)) {
-            cell.value = excel_pkg.DateCellValue.fromDateTime(
-              DateTime(now.year, now.month, day),
-            );
-          } else {
-            cell.value = null;
-          }
-        } else if (!FieldTypeGuesser.looksLikeFormulaExpression(
-          source.rows[rowIndex][column],
-        )) {
-          cell.value = null;
-        }
+        target
+                .cell(
+                  excel_pkg.CellIndex.indexByColumnRow(
+                    columnIndex: source.startColumnIndex + column,
+                    rowIndex: dataStartRowIndex + rowIndex,
+                  ),
+                )
+                .value =
+            null;
       }
+    }
+
+    for (var column = 0; column < source.headers.length; column++) {
+      final cell = target.cell(
+        excel_pkg.CellIndex.indexByColumnRow(
+          columnIndex: source.startColumnIndex + column,
+          rowIndex: dataStartRowIndex,
+        ),
+      );
+      if (cell.value is excel_pkg.FormulaCellValue) continue;
+      cell.value = column == dateColumn
+          ? excel_pkg.DateCellValue.fromDateTime(
+              DateTime(now.year, now.month, now.day),
+            )
+          : null;
     }
 
     for (final row in target.rows) {

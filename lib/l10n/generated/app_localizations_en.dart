@@ -1911,6 +1911,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chooseWorksheet => 'Choose a worksheet';
 
   @override
+  String get selectPage => 'Select Page';
+
+  @override
   String onlyCompatibleWorksheetsShown(String openingMode) {
     return 'Only worksheets compatible with $openingMode are shown.';
   }
@@ -1936,6 +1939,35 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createCurrentMonthWorksheet => 'Create current month worksheet';
 
   @override
+  String get reviewMonthlyWorksheetSetup =>
+      'Review the suggested setup or adjust either field before creating the worksheet.';
+
+  @override
+  String get blueprintWorksheet => 'Blueprint worksheet';
+
+  @override
+  String recommendedBlueprint(String sheetName) {
+    return 'Recommended: $sheetName';
+  }
+
+  @override
+  String get newWorksheetName => 'New worksheet name';
+
+  @override
+  String get createWorksheet => 'Create worksheet';
+
+  @override
+  String get worksheetNameRequired => 'Enter a worksheet name.';
+
+  @override
+  String get worksheetNameAlreadyExists =>
+      'A worksheet with this name already exists.';
+
+  @override
+  String get worksheetNameInvalidCharacters =>
+      'The name cannot contain \\ / * ? : [ or ], or begin or end with an apostrophe.';
+
+  @override
   String createWorksheetNamed(String sheetName) {
     return 'Create “$sheetName”?';
   }
@@ -1946,7 +1978,7 @@ class AppLocalizationsEn extends AppLocalizations {
     String sourceSheetName,
     int year,
   ) {
-    return 'Calcrow will try to copy the structure of “$sourceSheetName” for $sheetName $year, move dated rows to the new month, clear editable entry values, and preserve formulas. Check the result before saving.';
+    return 'Calcrow will copy the structure of “$sourceSheetName” for $sheetName $year, start with one clean row for today, and preserve formulas. Check the result before saving.';
   }
 
   @override

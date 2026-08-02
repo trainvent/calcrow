@@ -8,11 +8,52 @@ import 'package:xml/xml.dart';
 import 'sheet_file_models.dart';
 import 'sheet_logic.dart';
 
+class OdsWorkbookInspection {
+  const OdsWorkbookInspection({
+    required this.sheetCount,
+    required this.sheetNames,
+    required this.sheets,
+  });
+
+  final int sheetCount;
+  final List<String> sheetNames;
+  final List<OdsSheetInfo> sheets;
+}
+
+class OdsSheetInfo {
+  const OdsSheetInfo({
+    required this.name,
+    required this.headerRowIndex,
+    required this.entryCount,
+    required this.hasDateColumn,
+    required this.hasEditableTextColumn,
+  });
+
+  final String name;
+  final int headerRowIndex;
+  final int entryCount;
+  final bool hasDateColumn;
+  final bool hasEditableTextColumn;
+}
+
+class OdsMonthlySheetSuggestion {
+  const OdsMonthlySheetSuggestion({
+    required this.sourceSheetName,
+    required this.targetSheetName,
+    required this.year,
+  });
+
+  final String sourceSheetName;
+  final String targetSheetName;
+  final int year;
+}
+
 Map<String, Object?> parseOdsSheetDataTransfer(Map<String, Object?> message) {
   final bytes = message['bytes'];
   final fileName = message['fileName'];
   final path = message['path'];
   final nowMilliseconds = message['nowMillisecondsSinceEpoch'];
+  final sheetName = message['sheetName'];
   if (bytes is! Uint8List || fileName is! String) {
     throw ArgumentError('Invalid ODS parse request.');
   }
@@ -24,6 +65,7 @@ Map<String, Object?> parseOdsSheetDataTransfer(Map<String, Object?> message) {
     now: nowMilliseconds is int
         ? DateTime.fromMillisecondsSinceEpoch(nowMilliseconds)
         : null,
+    sheetName: sheetName as String?,
   );
   return sheetDataToTransfer(parsed);
 }
@@ -102,6 +144,7 @@ class OdsSheetCodec {
     required String fileName,
     required String? path,
     DateTime? now,
+    String? sheetName,
   }) {
     final archive = ZipDecoder().decodeBytes(bytes, verify: true);
     final contentFile = archive.findFile('content.xml');
@@ -125,10 +168,16 @@ class OdsSheetCodec {
       throw const FormatException('The selected ODS has no sheets.');
     }
 
-    final sheetName = _selectBestSheetName(tables, now ?? DateTime.now());
+    final selectedSheetName = sheetName?.trim().isNotEmpty == true
+        ? sheetName!.trim()
+        : _selectBestSheetName(tables, now ?? DateTime.now());
     final table = tables.firstWhere(
       (candidate) =>
-          _attribute(candidate, 'name', namespace: _nsTable) == sheetName,
+          _attribute(candidate, 'name', namespace: _nsTable) ==
+          selectedSheetName,
+      orElse: () => throw FormatException(
+        'Could not find the selected ODS worksheet “$selectedSheetName”.',
+      ),
     );
 
     final parsedRows = _parseTableRows(table);
@@ -206,8 +255,221 @@ class OdsSheetCodec {
       readOnlyColumns: readOnlyColumns,
       rows: rows,
       pendingTypeSelectionColumns: pendingTypeSelectionColumns,
-      xlsxSheetName: sheetName,
+      xlsxSheetName: selectedSheetName,
       sourceBytes: bytes,
+    );
+  }
+
+  static OdsWorkbookInspection inspectSheets({
+    required Uint8List bytes,
+    required String fileName,
+    required String? path,
+  }) {
+    final names = _sheetNames(bytes);
+    final sheets = <OdsSheetInfo>[];
+    for (final name in names) {
+      try {
+        final parsed = parse(
+          bytes: bytes,
+          fileName: fileName,
+          path: path,
+          sheetName: name,
+        );
+        var hasEditableTextColumn = false;
+        for (var index = 0; index < parsed.headers.length; index++) {
+          if (parsed.readOnlyColumns[index]) continue;
+          if (parsed.valueTypes[index].trim().toLowerCase() == 'text') {
+            hasEditableTextColumn = true;
+            break;
+          }
+        }
+        sheets.add(
+          OdsSheetInfo(
+            name: name,
+            headerRowIndex: 0,
+            entryCount: parsed.rows.length,
+            hasDateColumn:
+                FieldTypeGuesser.findDateColumnIndex(
+                  headers: parsed.headers,
+                  rows: parsed.rows,
+                ) !=
+                null,
+            hasEditableTextColumn: hasEditableTextColumn,
+          ),
+        );
+      } on FormatException {
+        // Empty and non-tabular worksheets are not selectable editor pages.
+      }
+    }
+    return OdsWorkbookInspection(
+      sheetCount: names.length,
+      sheetNames: names,
+      sheets: sheets,
+    );
+  }
+
+  static OdsMonthlySheetSuggestion? suggestCurrentMonthSheet({
+    required Uint8List bytes,
+    required String fileName,
+    DateTime? now,
+    String preferredLanguageCode = 'en',
+  }) {
+    final effectiveNow = now ?? DateTime.now();
+    final year = _monthlyLogbookYear(fileName);
+    if (year == null || year != effectiveNow.year) return null;
+    final names = _sheetNames(bytes);
+    if (_findMonthSheetName(names, effectiveNow.month) != null) return null;
+
+    final candidates = <({String name, int month, bool sameLength})>[];
+    final targetDays = _daysInMonth(2000, effectiveNow.month);
+    for (final name in names) {
+      final month = _monthNumberForSheetName(name);
+      if (month == null) continue;
+      try {
+        parse(bytes: bytes, fileName: fileName, path: null, sheetName: name);
+      } on FormatException {
+        continue;
+      }
+      candidates.add((
+        name: name,
+        month: month,
+        sameLength: _daysInMonth(2000, month) == targetDays,
+      ));
+    }
+    if (candidates.isEmpty) return null;
+    candidates.sort((a, b) {
+      if (a.sameLength != b.sameLength) return a.sameLength ? -1 : 1;
+      final aDistance = (effectiveNow.month - a.month + 12) % 12;
+      final bDistance = (effectiveNow.month - b.month + 12) % 12;
+      return aDistance.compareTo(bDistance);
+    });
+    final languageCode = _monthLanguageCode(
+      names,
+      fallback: preferredLanguageCode,
+    );
+    return OdsMonthlySheetSuggestion(
+      sourceSheetName: candidates.first.name,
+      targetSheetName: _monthName(
+        effectiveNow.month,
+        languageCode: languageCode,
+      ),
+      year: year,
+    );
+  }
+
+  static SheetData createCurrentMonthSheet({
+    required Uint8List bytes,
+    required String fileName,
+    required String? path,
+    DateTime? now,
+    String preferredLanguageCode = 'en',
+    String? sourceSheetName,
+    String? targetSheetName,
+  }) {
+    final effectiveNow = now ?? DateTime.now();
+    final suggestion = suggestCurrentMonthSheet(
+      bytes: bytes,
+      fileName: fileName,
+      now: effectiveNow,
+      preferredLanguageCode: preferredLanguageCode,
+    );
+    if (suggestion == null) {
+      throw const FormatException(
+        'A current-month worksheet cannot be safely suggested.',
+      );
+    }
+    final effectiveSource = sourceSheetName?.trim().isNotEmpty == true
+        ? sourceSheetName!.trim()
+        : suggestion.sourceSheetName;
+    final effectiveTarget = targetSheetName?.trim().isNotEmpty == true
+        ? targetSheetName!.trim()
+        : suggestion.targetSheetName;
+    final names = _sheetNames(bytes);
+    _validateNewSheetName(effectiveTarget, existingNames: names);
+
+    final sourceData = parse(
+      bytes: bytes,
+      fileName: fileName,
+      path: path,
+      sheetName: effectiveSource,
+    );
+    final archive = ZipDecoder().decodeBytes(bytes, verify: true);
+    final contentFile = archive.findFile('content.xml');
+    if (contentFile == null) {
+      throw const FormatException('The selected ODS has no content.xml.');
+    }
+    final document = XmlDocument.parse(
+      utf8.decode(contentFile.content as List<int>),
+    );
+    final spreadsheet = _spreadsheetElement(document);
+    if (spreadsheet == null) {
+      throw const FormatException('The selected ODS has no spreadsheet body.');
+    }
+    final sourceTable =
+        _childElements(
+          spreadsheet,
+          localName: 'table',
+          namespace: _nsTable,
+        ).firstWhere(
+          (table) =>
+              _attribute(table, 'name', namespace: _nsTable) == effectiveSource,
+          orElse: () => throw FormatException(
+            'The blueprint worksheet “$effectiveSource” does not exist.',
+          ),
+        );
+    final targetTable = sourceTable.copy();
+    _setAttribute(
+      targetTable,
+      'name',
+      effectiveTarget,
+      namespace: _nsTable,
+      prefix: 'table',
+    );
+    final sourceIndex = spreadsheet.children.indexOf(sourceTable);
+    spreadsheet.children.insert(sourceIndex + 1, targetTable);
+    final targetRow = _ensureEditableRow(targetTable, 1);
+    final dateColumn = FieldTypeGuesser.findDateColumnIndex(
+      headers: sourceData.headers,
+      rows: sourceData.rows,
+    );
+    for (var column = 0; column < sourceData.headers.length; column++) {
+      final cell = _ensureEditableCell(targetRow, column);
+      final formula = _attribute(cell, 'formula', namespace: _nsTable);
+      if (formula != null && formula.isNotEmpty) {
+        _setAttribute(
+          cell,
+          'formula',
+          formula.replaceAll(effectiveSource, effectiveTarget),
+          namespace: _nsTable,
+          prefix: 'table',
+        );
+        continue;
+      }
+      _writeCellValue(
+        cell,
+        type: sourceData.valueTypes[column],
+        raw: column == dateColumn ? _formatDate(effectiveNow) : '',
+      );
+    }
+    final tableRows = _childElements(
+      targetTable,
+      localName: 'table-row',
+      namespace: _nsTable,
+    ).toList();
+    for (final extraRow in tableRows.skip(2).toList()) {
+      targetTable.children.remove(extraRow);
+    }
+    final createdBytes = _replaceContentXml(
+      archive: archive,
+      contentFile: contentFile,
+      document: document,
+    );
+    return parse(
+      bytes: createdBytes,
+      fileName: fileName,
+      path: path,
+      now: effectiveNow,
+      sheetName: effectiveTarget,
     );
   }
 
@@ -906,6 +1168,193 @@ class OdsSheetCodec {
       width,
       (index) => index < row.length ? row[index] : false,
     );
+  }
+
+  static List<String> _sheetNames(Uint8List bytes) {
+    final archive = ZipDecoder().decodeBytes(bytes, verify: true);
+    final contentFile = archive.findFile('content.xml');
+    if (contentFile == null) {
+      throw const FormatException('The selected ODS has no content.xml.');
+    }
+    final document = XmlDocument.parse(
+      utf8.decode(contentFile.content as List<int>),
+    );
+    final spreadsheet = _spreadsheetElement(document);
+    if (spreadsheet == null) {
+      throw const FormatException('The selected ODS has no spreadsheet body.');
+    }
+    return _childElements(spreadsheet, localName: 'table', namespace: _nsTable)
+        .map((table) => _attribute(table, 'name', namespace: _nsTable) ?? '')
+        .where((name) => name.trim().isNotEmpty)
+        .toList(growable: false);
+  }
+
+  static Uint8List _replaceContentXml({
+    required Archive archive,
+    required ArchiveFile contentFile,
+    required XmlDocument document,
+  }) {
+    final encodedXml = utf8.encode(document.toXmlString(pretty: false));
+    final updatedContentFile =
+        ArchiveFile(
+            contentFile.name,
+            encodedXml.length,
+            Uint8List.fromList(encodedXml),
+          )
+          ..compress = contentFile.compress
+          ..comment = contentFile.comment
+          ..crc32 = null
+          ..isFile = contentFile.isFile
+          ..mode = contentFile.mode
+          ..lastModTime = contentFile.lastModTime;
+    archive.addFile(updatedContentFile);
+    final encodedArchive = ZipEncoder().encode(archive);
+    if (encodedArchive == null || encodedArchive.isEmpty) {
+      throw StateError('Could not encode ODS document.');
+    }
+    return Uint8List.fromList(encodedArchive);
+  }
+
+  static int? _monthlyLogbookYear(String fileName) {
+    final match = RegExp(
+      r'_(\d{4})(?:\.[^.]+)?$',
+      caseSensitive: false,
+    ).firstMatch(fileName.trim());
+    return match == null ? null : int.tryParse(match.group(1)!);
+  }
+
+  static String? _findMonthSheetName(Iterable<String> names, int month) {
+    for (final name in names) {
+      if (_monthNumberForSheetName(name) == month) return name;
+    }
+    return null;
+  }
+
+  static int? _monthNumberForSheetName(String name) {
+    final normalized = _normalizeMonthName(name);
+    for (var month = 1; month <= 12; month++) {
+      if (_monthNamesForDetection(month).contains(normalized)) return month;
+    }
+    return null;
+  }
+
+  static Set<String> _monthNamesForDetection(int month) => <String>{
+    _normalizeMonthName(_monthName(month)),
+    _normalizeMonthName(_monthName(month, languageCode: 'de')),
+    ..._monthTokens(month).map(_normalizeMonthName),
+  };
+
+  static String _normalizeMonthName(String value) =>
+      value.trim().toLowerCase().replaceAll('ä', 'ae');
+
+  static Iterable<String> _monthTokens(int month) {
+    const names = <int, List<String>>{
+      1: ['jan', 'januar'],
+      2: ['feb', 'februar'],
+      3: ['mar', 'maerz', 'marz'],
+      4: ['apr'],
+      5: ['may', 'mai'],
+      6: ['jun', 'juni'],
+      7: ['jul', 'juli'],
+      8: ['aug'],
+      9: ['sep'],
+      10: ['oct', 'oktober', 'okt'],
+      11: ['nov'],
+      12: ['dec', 'dezember', 'dez'],
+    };
+    return names[month] ?? const <String>[];
+  }
+
+  static String _monthName(int month, {String languageCode = 'en'}) {
+    final names = languageCode.toLowerCase().startsWith('de')
+        ? const [
+            'Januar',
+            'Februar',
+            'März',
+            'April',
+            'Mai',
+            'Juni',
+            'Juli',
+            'August',
+            'September',
+            'Oktober',
+            'November',
+            'Dezember',
+          ]
+        : const [
+            'January',
+            'February',
+            'March',
+            'April',
+            'May',
+            'June',
+            'July',
+            'August',
+            'September',
+            'October',
+            'November',
+            'December',
+          ];
+    return names[month - 1];
+  }
+
+  static String _monthLanguageCode(
+    Iterable<String> names, {
+    required String fallback,
+  }) {
+    const germanOnly = {
+      'januar',
+      'februar',
+      'maerz',
+      'mai',
+      'juni',
+      'juli',
+      'oktober',
+      'dezember',
+    };
+    const englishOnly = {
+      'january',
+      'february',
+      'march',
+      'may',
+      'june',
+      'july',
+      'october',
+      'december',
+    };
+    for (final name in names.map(_normalizeMonthName)) {
+      if (germanOnly.contains(name)) return 'de';
+      if (englishOnly.contains(name)) return 'en';
+    }
+    return fallback.toLowerCase().startsWith('de') ? 'de' : 'en';
+  }
+
+  static int _daysInMonth(int year, int month) =>
+      DateTime(year, month + 1, 0).day;
+
+  static String _formatDate(DateTime value) {
+    final month = value.month.toString().padLeft(2, '0');
+    final day = value.day.toString().padLeft(2, '0');
+    return '${value.year}-$month-$day';
+  }
+
+  static void _validateNewSheetName(
+    String name, {
+    required Iterable<String> existingNames,
+  }) {
+    if (name.isEmpty) {
+      throw const FormatException('The new worksheet name cannot be empty.');
+    }
+    if (name.length > 31 ||
+        RegExp(r"[\\/*?:\[\]]").hasMatch(name) ||
+        name.startsWith("'") ||
+        name.endsWith("'")) {
+      throw const FormatException('The new worksheet name is not valid.');
+    }
+    final normalized = name.toLowerCase();
+    if (existingNames.any((existing) => existing.toLowerCase() == normalized)) {
+      throw FormatException('A worksheet named “$name” already exists.');
+    }
   }
 
   static String _selectBestSheetName(List<XmlElement> tables, DateTime now) {

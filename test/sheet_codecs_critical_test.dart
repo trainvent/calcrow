@@ -371,7 +371,7 @@ void main() {
       expect(parsed.headers, ['Date', 'Start', 'End', 'Pause', 'Notes']);
       expect(parsed.valueTypes, ['date', 'time', 'time', 'duration', 'text']);
       expect(parsed.rows, [
-        ['2026-07-28', '', '', '', ''],
+        ['2026-07-11', '', '', '', ''],
       ]);
       expect(parsed.workbook?.tables.containsKey('July'), isTrue);
 
@@ -381,7 +381,7 @@ void main() {
             parsed,
             rows: const <List<String>>[
               <String>[
-                '2026-07-28',
+                '2026-07-11',
                 '09:00:00',
                 '17:00:00',
                 '00:30:00',
@@ -396,8 +396,114 @@ void main() {
 
       expect(reparsed.xlsxSheetName, 'July');
       expect(reparsed.rows, [
-        ['2026-07-28', '09:00:00', '17:00:00', '00:30:00', 'new month'],
+        ['2026-07-11', '09:00:00', '17:00:00', '00:30:00', 'new month'],
       ]);
+    });
+
+    test('XLSX suggests a current month from a single older month sheet', () {
+      final bytes = buildNamedWorkbookBytes({
+        'July': [
+          ['Date', 'Start', 'End', 'Pause', 'Notes'],
+          ['2026-07-31', '09:00:00', '17:00:00', '00:30:00', 'old month'],
+        ],
+      });
+
+      final inspection = XlsxSheetCodec.inspectSheets(
+        bytes: bytes,
+        fileName: 'calcrow_sheet_2026.xlsx',
+        path: null,
+      );
+      final suggestion = XlsxSheetCodec.suggestCurrentMonthSheet(
+        bytes: bytes,
+        fileName: 'calcrow_sheet_2026.xlsx',
+        now: DateTime(2026, 8, 2),
+      );
+
+      expect(inspection.sheetCount, 1);
+      expect(inspection.sheets.single.name, 'July');
+      expect(suggestion?.sourceSheetName, 'July');
+      expect(suggestion?.targetSheetName, 'August');
+    });
+
+    test('XLSX creates a current month with user-selected sheet names', () {
+      final bytes = buildNamedWorkbookBytes({
+        'June': [
+          ['Date', 'Start', 'End', 'Pause', 'Notes'],
+          ['2026-06-30', '08:00:00', '16:00:00', '00:30:00', 'older'],
+        ],
+        'July': [
+          ['Date', 'Start', 'End', 'Pause', 'Notes'],
+          ['2026-07-31', '09:00:00', '17:00:00', '00:30:00', 'chosen'],
+        ],
+      });
+
+      final created = XlsxSheetCodec.createCurrentMonthSheet(
+        bytes: bytes,
+        fileName: 'calcrow_sheet_2026.xlsx',
+        path: null,
+        now: DateTime(2026, 8, 2),
+        sourceSheetName: 'July',
+        targetSheetName: 'August custom',
+      );
+
+      expect(created.xlsxSheetName, 'August custom');
+      expect(created.rows, [
+        ['2026-08-02', '', '', '', ''],
+      ]);
+      expect(created.workbook?.tables.containsKey('August custom'), isTrue);
+    });
+
+    test('XLSX fresh month drops malformed and historical blueprint rows', () {
+      final bytes = buildNamedWorkbookBytes({
+        'July': [
+          ['Date', 'Start', 'End', 'Pause', 'Notes'],
+          ['46234', '16:32:00', '11:32:00', '00:30:00', 'first entry'],
+          ['2026-08-01', '15:30:00', '18:30:00', '00:30:00', 'second entry'],
+        ],
+      });
+
+      final created = XlsxSheetCodec.createCurrentMonthSheet(
+        bytes: bytes,
+        fileName: 'calcrow_sheet_2026.xlsx',
+        path: null,
+        now: DateTime(2026, 8, 2),
+      );
+
+      expect(created.headers, ['Date', 'Start', 'End', 'Pause', 'Notes']);
+      expect(created.rows, [
+        ['2026-08-02', '', '', '', ''],
+      ]);
+
+      final reopened = XlsxSheetCodec.parse(
+        bytes: XlsxSheetCodec.buildBytes(created),
+        fileName: 'calcrow_sheet_2026.xlsx',
+        path: null,
+        now: DateTime(2026, 8, 2),
+        sheetName: 'August',
+      );
+      expect(reopened.rows, [
+        ['2026-08-02', '', '', '', ''],
+      ]);
+    });
+
+    test('XLSX rejects duplicate custom worksheet names', () {
+      final bytes = buildNamedWorkbookBytes({
+        'July': [
+          ['Date', 'Notes'],
+          ['2026-07-31', 'old month'],
+        ],
+      });
+
+      expect(
+        () => XlsxSheetCodec.createCurrentMonthSheet(
+          bytes: bytes,
+          fileName: 'calcrow_sheet_2026.xlsx',
+          path: null,
+          now: DateTime(2026, 8, 2),
+          targetSheetName: 'july',
+        ),
+        throwsA(isA<FormatException>()),
+      );
     });
 
     test('XLSX monthly clone preserves styles and retargets formulas', () {
@@ -442,7 +548,7 @@ void main() {
       );
       expect(
         target.cell(excel_pkg.CellIndex.indexByString('A2')).value.toString(),
-        contains('2026-07-30'),
+        contains('2026-07-01'),
       );
       expect(
         target.cell(excel_pkg.CellIndex.indexByString('B2')).value,
@@ -780,6 +886,88 @@ void main() {
         ['2026-07-11', '09:00:00', '17:00:00', 'first row'],
       ]);
     });
+
+    test('ODS suggests and creates one fresh current-month row', () {
+      final julyDraft = SheetData(
+        fileName: 'calcrow_sheet_2026.ods',
+        path: null,
+        format: SheetFileFormat.ods,
+        headers: const ['Date', 'Start', 'End', 'Notes'],
+        valueTypes: const ['date', 'time', 'time', 'text'],
+        readOnlyColumns: List<bool>.filled(4, false),
+        rows: const [
+          ['46234', '09:00:00', '17:00:00', 'malformed'],
+          ['2026-08-01', '10:00:00', '18:00:00', 'yesterday'],
+        ],
+        xlsxSheetName: 'July',
+      );
+      final bytes = OdsSheetCodec.buildBytes(julyDraft);
+      final inspection = OdsSheetCodec.inspectSheets(
+        bytes: bytes,
+        fileName: julyDraft.fileName,
+        path: null,
+      );
+      final suggestion = OdsSheetCodec.suggestCurrentMonthSheet(
+        bytes: bytes,
+        fileName: julyDraft.fileName,
+        now: DateTime(2026, 8, 2),
+      );
+
+      expect(inspection.sheetCount, 1);
+      expect(inspection.sheets.single.name, 'July');
+      expect(suggestion?.sourceSheetName, 'July');
+      expect(suggestion?.targetSheetName, 'August');
+
+      final created = OdsSheetCodec.createCurrentMonthSheet(
+        bytes: bytes,
+        fileName: julyDraft.fileName,
+        path: null,
+        now: DateTime(2026, 8, 2),
+      );
+      expect(created.xlsxSheetName, 'August');
+      expect(created.rows, [
+        ['2026-08-02', '', '', ''],
+      ]);
+
+      final createdBytes = OdsSheetCodec.buildBytes(created);
+      final reopened = OdsSheetCodec.parse(
+        bytes: createdBytes,
+        fileName: julyDraft.fileName,
+        path: null,
+        sheetName: 'August',
+      );
+      expect(reopened.rows, [
+        ['2026-08-02', '', '', ''],
+      ]);
+    });
+
+    test('ODS current-month creation accepts blueprint and name overrides', () {
+      final draft = SheetData(
+        fileName: 'calcrow_sheet_2026.ods',
+        path: null,
+        format: SheetFileFormat.ods,
+        headers: const ['Date', 'Notes'],
+        valueTypes: const ['date', 'text'],
+        readOnlyColumns: const [false, false],
+        rows: const [
+          ['2026-07-31', 'old'],
+        ],
+        xlsxSheetName: 'July',
+      );
+      final created = OdsSheetCodec.createCurrentMonthSheet(
+        bytes: OdsSheetCodec.buildBytes(draft),
+        fileName: draft.fileName,
+        path: null,
+        now: DateTime(2026, 8, 2),
+        sourceSheetName: 'July',
+        targetSheetName: 'August custom',
+      );
+
+      expect(created.xlsxSheetName, 'August custom');
+      expect(created.rows, [
+        ['2026-08-02', ''],
+      ]);
+    });
   });
 }
 
@@ -849,10 +1037,11 @@ SheetData parseXlsx(
   );
 }
 
-SheetData parseOds(Uint8List bytes) {
+SheetData parseOds(Uint8List bytes, {String? sheetName}) {
   return OdsSheetCodec.parse(
     bytes: bytes,
     fileName: 'sample.ods',
     path: '/tmp/sample.ods',
+    sheetName: sheetName,
   );
 }

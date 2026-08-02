@@ -1946,6 +1946,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get chooseWorksheet => 'Tabellenblatt auswählen';
 
   @override
+  String get selectPage => 'Seite auswählen';
+
+  @override
   String onlyCompatibleWorksheetsShown(String openingMode) {
     return 'Es werden nur Tabellenblätter angezeigt, die mit $openingMode kompatibel sind.';
   }
@@ -1972,6 +1975,36 @@ class AppLocalizationsDe extends AppLocalizations {
       'Tabellenblatt für den aktuellen Monat erstellen';
 
   @override
+  String get reviewMonthlyWorksheetSetup =>
+      'Prüfe den Vorschlag oder passe beide Felder vor dem Erstellen des Tabellenblatts an.';
+
+  @override
+  String get blueprintWorksheet => 'Vorlage';
+
+  @override
+  String recommendedBlueprint(String sheetName) {
+    return 'Empfohlen: $sheetName';
+  }
+
+  @override
+  String get newWorksheetName => 'Name des neuen Tabellenblatts';
+
+  @override
+  String get createWorksheet => 'Tabellenblatt erstellen';
+
+  @override
+  String get worksheetNameRequired =>
+      'Gib einen Namen für das Tabellenblatt ein.';
+
+  @override
+  String get worksheetNameAlreadyExists =>
+      'Ein Tabellenblatt mit diesem Namen ist bereits vorhanden.';
+
+  @override
+  String get worksheetNameInvalidCharacters =>
+      'Der Name darf \\ / * ? : [ oder ] nicht enthalten und nicht mit einem Apostroph beginnen oder enden.';
+
+  @override
   String createWorksheetNamed(String sheetName) {
     return '„$sheetName“ erstellen?';
   }
@@ -1982,7 +2015,7 @@ class AppLocalizationsDe extends AppLocalizations {
     String sourceSheetName,
     int year,
   ) {
-    return 'Calcrow versucht, die Struktur von „$sourceSheetName“ für $sheetName $year zu kopieren, datierte Zeilen in den neuen Monat zu verschieben, bearbeitbare Einträge zu leeren und Formeln beizubehalten. Bitte prüfe das Ergebnis vor dem Speichern.';
+    return 'Calcrow kopiert die Struktur von „$sourceSheetName“ für $sheetName $year, beginnt mit einer sauberen Zeile für heute und behält Formeln bei. Bitte prüfe das Ergebnis vor dem Speichern.';
   }
 
   @override

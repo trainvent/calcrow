@@ -89,4 +89,97 @@ void main() {
 
     expect(selectedPage, 'July');
   });
+
+  testWidgets('month setup allows blueprint reselection and renaming', (
+    tester,
+  ) async {
+    CreateMonthSheetSelection? selection;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () async {
+                selection = await showCreateMonthSheetDialogue(
+                  context: context,
+                  title: 'Create monthly worksheet',
+                  description: 'Review the suggested setup.',
+                  blueprintLabel: 'Blueprint worksheet',
+                  recommendedBlueprintLabel: 'Recommended: July',
+                  newSheetNameLabel: 'New worksheet name',
+                  requiredNameError: 'Enter a worksheet name.',
+                  duplicateNameError: 'This name already exists.',
+                  invalidNameError: 'This name is invalid.',
+                  cancelLabel: 'Cancel',
+                  createLabel: 'Create',
+                  blueprintSheetNames: const ['June', 'July'],
+                  existingSheetNames: const ['June', 'July'],
+                  initialBlueprintSheetName: 'July',
+                  initialNewSheetName: 'August',
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Recommended: July'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, 'August'), findsOneWidget);
+
+    await tester.tap(find.text('July').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('June').last);
+    await tester.enterText(find.byType(TextFormField), 'August adjusted');
+    await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+    await tester.pumpAndSettle();
+
+    expect(selection?.sourceSheetName, 'June');
+    expect(selection?.targetSheetName, 'August adjusted');
+  });
+
+  testWidgets('month setup rejects an existing worksheet name', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => showCreateMonthSheetDialogue(
+                context: context,
+                title: 'Create monthly worksheet',
+                description: 'Review the suggested setup.',
+                blueprintLabel: 'Blueprint worksheet',
+                recommendedBlueprintLabel: 'Recommended: July',
+                newSheetNameLabel: 'New worksheet name',
+                requiredNameError: 'Enter a worksheet name.',
+                duplicateNameError: 'This name already exists.',
+                invalidNameError: 'This name is invalid.',
+                cancelLabel: 'Cancel',
+                createLabel: 'Create',
+                blueprintSheetNames: const ['July'],
+                existingSheetNames: const ['July'],
+                initialBlueprintSheetName: 'July',
+                initialNewSheetName: 'August',
+              ),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField), 'july');
+    await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+    await tester.pump();
+
+    expect(find.text('This name already exists.'), findsOneWidget);
+    expect(find.text('Create monthly worksheet'), findsOneWidget);
+  });
 }

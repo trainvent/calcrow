@@ -3521,6 +3521,12 @@ abstract class AppLocalizations {
   /// **'Choose a worksheet'**
   String get chooseWorksheet;
 
+  /// No description provided for @selectPage.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Page'**
+  String get selectPage;
+
   /// No description provided for @onlyCompatibleWorksheetsShown.
   ///
   /// In en, this message translates to:
@@ -3545,6 +3551,54 @@ abstract class AppLocalizations {
   /// **'Create current month worksheet'**
   String get createCurrentMonthWorksheet;
 
+  /// No description provided for @reviewMonthlyWorksheetSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Review the suggested setup or adjust either field before creating the worksheet.'**
+  String get reviewMonthlyWorksheetSetup;
+
+  /// No description provided for @blueprintWorksheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Blueprint worksheet'**
+  String get blueprintWorksheet;
+
+  /// No description provided for @recommendedBlueprint.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended: {sheetName}'**
+  String recommendedBlueprint(String sheetName);
+
+  /// No description provided for @newWorksheetName.
+  ///
+  /// In en, this message translates to:
+  /// **'New worksheet name'**
+  String get newWorksheetName;
+
+  /// No description provided for @createWorksheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Create worksheet'**
+  String get createWorksheet;
+
+  /// No description provided for @worksheetNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a worksheet name.'**
+  String get worksheetNameRequired;
+
+  /// No description provided for @worksheetNameAlreadyExists.
+  ///
+  /// In en, this message translates to:
+  /// **'A worksheet with this name already exists.'**
+  String get worksheetNameAlreadyExists;
+
+  /// No description provided for @worksheetNameInvalidCharacters.
+  ///
+  /// In en, this message translates to:
+  /// **'The name cannot contain \\ / * ? : [ or ], or begin or end with an apostrophe.'**
+  String get worksheetNameInvalidCharacters;
+
   /// No description provided for @createWorksheetNamed.
   ///
   /// In en, this message translates to:
@@ -3554,7 +3608,7 @@ abstract class AppLocalizations {
   /// No description provided for @createMonthlyWorksheetConfirmation.
   ///
   /// In en, this message translates to:
-  /// **'Calcrow will try to copy the structure of “{sourceSheetName}” for {sheetName} {year}, move dated rows to the new month, clear editable entry values, and preserve formulas. Check the result before saving.'**
+  /// **'Calcrow will copy the structure of “{sourceSheetName}” for {sheetName} {year}, start with one clean row for today, and preserve formulas. Check the result before saving.'**
   String createMonthlyWorksheetConfirmation(
     String sheetName,
     String sourceSheetName,

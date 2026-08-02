@@ -22,12 +22,15 @@ import 'package:calcrow/core/providers/app_providers.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_service.dart';
 import 'package:calcrow/core/sheet_type_logic/type_hint_cache.dart';
+import 'package:calcrow/core/sheet_type_logic/ods_codec.dart';
+import 'package:calcrow/core/sheet_type_logic/xlsx_codec.dart';
 import 'package:calcrow/core/theme/app_text_styles.dart';
 import 'package:calcrow/core/theme/app_layout_constants.dart';
 import 'package:calcrow/core/prefills/document_prefill.dart';
 import 'package:calcrow/core/prefills/document_prefill_cache.dart';
 import 'package:calcrow/features/home/sheet/sheet_preview_store.dart';
 import 'package:calcrow/features/home/editing/define_prefills_page.dart';
+import 'package:calcrow/app/widgets/select_page_dialogue.dart';
 import 'package:calcrow/app/widgets/type_dropdown_list.dart';
 import 'package:calcrow/app/widgets/document_prefill_selector.dart';
 import 'package:calcrow/app/widgets/type_based_input_fields/type_based_input_field.dart';
@@ -44,7 +47,14 @@ enum EditorOpenMode { dateBased, dateBasedOpenEnd, textBased }
 
 enum _UnsavedEditsChoice { save, discard, cancel }
 
-enum _EditorAdjustAction { details, fieldFormats, prefills, verbose, open }
+enum _EditorAdjustAction {
+  details,
+  selectPage,
+  fieldFormats,
+  prefills,
+  verbose,
+  open,
+}
 
 class EditingPageBase extends ConsumerStatefulWidget {
   const EditingPageBase({
@@ -199,6 +209,7 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
   String? _documentImportedFileName;
   String? _documentImportedPath;
   String? _documentImportedSheetName;
+  int _documentSheetCount = 1;
   SheetFileFormat? _documentImportedFormat;
   String _documentCsvDelimiter = ',';
   bool _documentHasTypeRow = false;
@@ -382,6 +393,16 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
     final selection = await _resolveOpeningSelection(sheetData);
     if (!mounted || selection == null) return false;
 
+    final documentSheetCount = switch (sheetData.format) {
+      SheetFileFormat.xlsx => sheetData.workbook?.tables.length ?? 1,
+      SheetFileFormat.ods when sheetData.sourceBytes?.isNotEmpty == true =>
+        OdsSheetCodec.inspectSheets(
+          bytes: sheetData.sourceBytes!,
+          fileName: sheetData.fileName,
+          path: sheetData.path,
+        ).sheetCount,
+      _ => 1,
+    };
     setState(() {
       _documentImportedFileName = sheetData.fileName;
       _documentImportedPath = sheetData.path;
@@ -392,6 +413,7 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
       _documentHeaderRowIndex = sheetData.headerRowIndex;
       _documentStartColumnIndex = sheetData.startColumnIndex;
       _documentImportedSheetName = sheetData.xlsxSheetName;
+      _documentSheetCount = documentSheetCount;
       _documentHeaders = sheetData.headers;
       _documentValueTypes = sheetData.valueTypes;
       _documentReadOnlyColumns = sheetData.readOnlyColumns;
@@ -1227,6 +1249,8 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
     switch (action) {
       case _EditorAdjustAction.details:
         unawaited(_showDocumentDetails());
+      case _EditorAdjustAction.selectPage:
+        unawaited(_selectWorkbookPage());
       case _EditorAdjustAction.fieldFormats:
         _resetTypeSelection();
       case _EditorAdjustAction.prefills:
@@ -1247,6 +1271,12 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
         value: _EditorAdjustAction.details,
         child: Text(context.l10n.details),
       ),
+      if (_canSelectWorkbookPage)
+        PopupMenuItem<_EditorAdjustAction>(
+          key: const ValueKey('editor-menu-select-page'),
+          value: _EditorAdjustAction.selectPage,
+          child: Text(context.l10n.selectPage),
+        ),
       if (_canOpenLocalDocumentFromHeader)
         PopupMenuItem<_EditorAdjustAction>(
           key: const ValueKey('editor-menu-open'),
@@ -1282,6 +1312,139 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
     ];
   }
 
+  bool get _canSelectWorkbookPage =>
+      (_documentImportedFormat == SheetFileFormat.xlsx ||
+          _documentImportedFormat == SheetFileFormat.ods) &&
+      _documentSheetCount > 1;
+
+  String _activeOpenModeLabel() {
+    return switch (_documentOpenMode) {
+      EditorOpenMode.dateBased => context.l10n.diary,
+      EditorOpenMode.dateBasedOpenEnd => context.l10n.logbook,
+      EditorOpenMode.textBased => context.l10n.namelist,
+    };
+  }
+
+  Future<void> _selectWorkbookPage() async {
+    if (!_canSelectWorkbookPage) return;
+    if (!await _confirmReplacingUnsavedEdits() || !mounted) return;
+
+    try {
+      final currentData = _buildSheetDataForPersist();
+      final bytes = SheetFileService.buildBytes(currentData);
+      final fileName = _documentImportedFileName ?? currentData.fileName;
+      final sheets = _documentImportedFormat == SheetFileFormat.xlsx
+          ? XlsxSheetCodec.inspectSheets(
+                  bytes: bytes,
+                  fileName: fileName,
+                  path: _documentImportedPath,
+                ).sheets
+                .map(
+                  (sheet) => (
+                    name: sheet.name,
+                    headerRowIndex: sheet.headerRowIndex,
+                    entryCount: sheet.entryCount,
+                    hasDateColumn: sheet.hasDateColumn,
+                    hasEditableTextColumn: sheet.hasEditableTextColumn,
+                  ),
+                )
+                .toList()
+          : OdsSheetCodec.inspectSheets(
+                  bytes: bytes,
+                  fileName: fileName,
+                  path: _documentImportedPath,
+                ).sheets
+                .map(
+                  (sheet) => (
+                    name: sheet.name,
+                    headerRowIndex: sheet.headerRowIndex,
+                    entryCount: sheet.entryCount,
+                    hasDateColumn: sheet.hasDateColumn,
+                    hasEditableTextColumn: sheet.hasEditableTextColumn,
+                  ),
+                )
+                .toList();
+      final compatibleSheets = sheets.where((sheet) {
+        return switch (_documentOpenMode) {
+          EditorOpenMode.dateBased ||
+          EditorOpenMode.dateBasedOpenEnd => sheet.hasDateColumn,
+          EditorOpenMode.textBased => sheet.hasEditableTextColumn,
+        };
+      }).toList();
+      if (compatibleSheets.isEmpty) {
+        throw FormatException(
+          context.l10n.noCompatibleWorksheetsForOpeningMode(
+            _activeOpenModeLabel(),
+          ),
+        );
+      }
+
+      final selectedSheetName = await showSelectPageDialogue(
+        context: context,
+        title: context.l10n.chooseWorksheet,
+        description: context.l10n.onlyCompatibleWorksheetsShown(
+          _activeOpenModeLabel(),
+        ),
+        cancelLabel: context.l10n.cancel,
+        detailsBuilder: (entryCount, headerRowNumber) => context.l10n
+            .worksheetEntryAndHeaderDetails(entryCount, headerRowNumber),
+        options: compatibleSheets
+            .map(
+              (sheet) => SelectPageOption(
+                name: sheet.name,
+                entryCount: sheet.entryCount,
+                headerRowNumber: sheet.headerRowIndex + 1,
+              ),
+            )
+            .toList(),
+      );
+      if (!mounted || selectedSheetName == null) return;
+      if (selectedSheetName == _documentImportedSheetName) return;
+
+      var selectedData = _documentImportedFormat == SheetFileFormat.xlsx
+          ? XlsxSheetCodec.parse(
+              bytes: bytes,
+              fileName: fileName,
+              path: _documentImportedPath,
+              sheetName: selectedSheetName,
+            )
+          : OdsSheetCodec.parse(
+              bytes: bytes,
+              fileName: fileName,
+              path: _documentImportedPath,
+              sheetName: selectedSheetName,
+            );
+      if (!mounted) return;
+      if (listEquals(selectedData.headers, _documentHeaders) &&
+          selectedData.valueTypes.length == _documentValueTypes.length) {
+        selectedData = SheetData(
+          fileName: selectedData.fileName,
+          path: selectedData.path,
+          format: selectedData.format,
+          headers: selectedData.headers,
+          valueTypes: List<String>.from(_documentValueTypes),
+          readOnlyColumns: selectedData.readOnlyColumns,
+          rows: selectedData.rows,
+          pendingTypeSelectionColumns: const <int>[],
+          hasCachedValueTypes: _documentHasCachedValueTypes,
+          csvDelimiter: selectedData.csvDelimiter,
+          hasTypeRow: selectedData.hasTypeRow,
+          headerRowIndex: selectedData.headerRowIndex,
+          startColumnIndex: selectedData.startColumnIndex,
+          xlsxSheetName: selectedData.xlsxSheetName,
+          workbook: selectedData.workbook,
+          sourceBytes: selectedData.sourceBytes,
+        );
+      }
+      await _loadProfileData(selectedData, target: _documentDocumentTarget);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.importFailed('$error'))),
+      );
+    }
+  }
+
   Future<void> _showDocumentDetails() {
     final isEditingExisting = _documentEditingRowIndex < _documentRows.length;
     final targetLabel = isEditingExisting
@@ -1298,6 +1461,7 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
               : sheetName)
         : null;
     final fileName = _documentImportedFileName?.trim();
+    final documentLocation = _documentLocationLabel();
 
     return showDialog<void>(
       context: context,
@@ -1316,6 +1480,36 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
               const SizedBox(height: 8),
               Text(context.l10n.activeSheet(activeSheetLabel)),
             ],
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.folder_outlined,
+                  size: 20,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.l10n.location,
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      SelectableText(documentLocation),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
         actions: [
@@ -1326,6 +1520,23 @@ class _EditingPageBaseState extends ConsumerState<EditingPageBase>
         ],
       ),
     );
+  }
+
+  String _documentLocationLabel() {
+    final target = _documentDocumentTarget;
+    if (target is LocalEditorDocumentTarget) {
+      final path = target.existingPath?.trim();
+      if (path != null && path.isNotEmpty) return path;
+    }
+    if (target is CloudEditorDocumentTarget) {
+      final provider = ref
+          .read(cloudDocumentServiceProvider)
+          .providerLabel(target.provider);
+      return '$provider · ${target.fileId}';
+    }
+    final importedPath = _documentImportedPath?.trim();
+    if (importedPath != null && importedPath.isNotEmpty) return importedPath;
+    return context.l10n.unknown;
   }
 
   bool get _canOpenLocalDocumentFromHeader =>

@@ -19,6 +19,7 @@ import 'package:calcrow/core/providers/app_providers.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_models.dart';
 import 'package:calcrow/core/sheet_type_logic/sheet_file_service.dart';
 import 'package:calcrow/core/sheet_type_logic/type_hint_cache.dart';
+import 'package:calcrow/core/sheet_type_logic/ods_codec.dart';
 import 'package:calcrow/core/sheet_type_logic/xlsx_codec.dart';
 import 'package:calcrow/core/theme/app_text_styles.dart';
 import 'package:calcrow/core/theme/app_layout_constants.dart';
@@ -119,23 +120,93 @@ class _SelectionPageState extends ConsumerState<SelectionPage> {
       bytes: bytes,
       mimeType: mimeType,
     );
-    if (format == SheetFileFormat.xlsx) {
-      final inspection = XlsxSheetCodec.inspectSheets(
-        bytes: bytes,
-        fileName: fileName,
-        path: path,
-      );
-      if (inspection.sheetCount > 1) {
-        final monthSuggestion = _documentOpenMode == EditorOpenMode.textBased
-            ? null
-            : XlsxSheetCodec.suggestCurrentMonthSheet(
+    if (format == SheetFileFormat.xlsx || format == SheetFileFormat.ods) {
+      late final int sheetCount;
+      late final List<String> sheetNames;
+      late final List<
+        ({
+          String name,
+          int headerRowIndex,
+          int entryCount,
+          bool hasDateColumn,
+          bool hasEditableTextColumn,
+        })
+      >
+      sheets;
+      if (format == SheetFileFormat.xlsx) {
+        final inspection = XlsxSheetCodec.inspectSheets(
+          bytes: bytes,
+          fileName: fileName,
+          path: path,
+        );
+        sheetCount = inspection.sheetCount;
+        sheetNames = inspection.sheetNames;
+        sheets = inspection.sheets
+            .map(
+              (sheet) => (
+                name: sheet.name,
+                headerRowIndex: sheet.headerRowIndex,
+                entryCount: sheet.entryCount,
+                hasDateColumn: sheet.hasDateColumn,
+                hasEditableTextColumn: sheet.hasEditableTextColumn,
+              ),
+            )
+            .toList();
+      } else {
+        final inspection = OdsSheetCodec.inspectSheets(
+          bytes: bytes,
+          fileName: fileName,
+          path: path,
+        );
+        sheetCount = inspection.sheetCount;
+        sheetNames = inspection.sheetNames;
+        sheets = inspection.sheets
+            .map(
+              (sheet) => (
+                name: sheet.name,
+                headerRowIndex: sheet.headerRowIndex,
+                entryCount: sheet.entryCount,
+                hasDateColumn: sheet.hasDateColumn,
+                hasEditableTextColumn: sheet.hasEditableTextColumn,
+              ),
+            )
+            .toList();
+      }
+      final ({String sourceSheetName, String targetSheetName})?
+      monthSuggestion = _documentOpenMode == EditorOpenMode.textBased
+          ? null
+          : (() {
+              if (format == SheetFileFormat.xlsx) {
+                final suggestion = XlsxSheetCodec.suggestCurrentMonthSheet(
+                  bytes: bytes,
+                  fileName: fileName,
+                  preferredLanguageCode: Localizations.localeOf(
+                    context,
+                  ).languageCode,
+                );
+                return suggestion == null
+                    ? null
+                    : (
+                        sourceSheetName: suggestion.sourceSheetName,
+                        targetSheetName: suggestion.targetSheetName,
+                      );
+              }
+              final suggestion = OdsSheetCodec.suggestCurrentMonthSheet(
                 bytes: bytes,
                 fileName: fileName,
                 preferredLanguageCode: Localizations.localeOf(
                   context,
                 ).languageCode,
               );
-        final compatibleSheets = inspection.sheets.where((sheet) {
+              return suggestion == null
+                  ? null
+                  : (
+                      sourceSheetName: suggestion.sourceSheetName,
+                      targetSheetName: suggestion.targetSheetName,
+                    );
+            })();
+      if (sheetCount > 1 || monthSuggestion != null) {
+        final compatibleSheets = sheets.where((sheet) {
           return switch (_documentOpenMode) {
             EditorOpenMode.dateBased ||
             EditorOpenMode.dateBasedOpenEnd => sheet.hasDateColumn,
@@ -175,45 +246,55 @@ class _SelectionPageState extends ConsumerState<SelectionPage> {
           onCreateOption: monthSuggestion == null
               ? null
               : () async {
-                  final shouldCreate = await showDialog<bool>(
+                  final blueprintNames = compatibleSheets
+                      .map((sheet) => sheet.name)
+                      .toList();
+                  final initialBlueprint =
+                      blueprintNames.contains(monthSuggestion.sourceSheetName)
+                      ? monthSuggestion.sourceSheetName
+                      : blueprintNames.first;
+                  final creationSetup = await showCreateMonthSheetDialogue(
                     context: context,
-                    builder: (dialogContext) => AlertDialog(
-                      title: Text(
-                        context.l10n.createWorksheetNamed(
-                          monthSuggestion.targetSheetName,
-                        ),
-                      ),
-                      content: Text(
-                        context.l10n.createMonthlyWorksheetConfirmation(
-                          monthSuggestion.targetSheetName,
-                          monthSuggestion.sourceSheetName,
-                          monthSuggestion.year,
-                        ),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () =>
-                              Navigator.of(dialogContext).pop(false),
-                          child: Text(context.l10n.cancel),
-                        ),
-                        FilledButton(
-                          onPressed: () =>
-                              Navigator.of(dialogContext).pop(true),
-                          child: Text(context.l10n.tryCreateWorksheet),
-                        ),
-                      ],
-                    ),
+                    title: context.l10n.createCurrentMonthWorksheet,
+                    description: context.l10n.reviewMonthlyWorksheetSetup,
+                    blueprintLabel: context.l10n.blueprintWorksheet,
+                    recommendedBlueprintLabel: context.l10n
+                        .recommendedBlueprint(initialBlueprint),
+                    newSheetNameLabel: context.l10n.newWorksheetName,
+                    requiredNameError: context.l10n.worksheetNameRequired,
+                    duplicateNameError: context.l10n.worksheetNameAlreadyExists,
+                    invalidNameError:
+                        context.l10n.worksheetNameInvalidCharacters,
+                    cancelLabel: context.l10n.cancel,
+                    createLabel: context.l10n.createWorksheet,
+                    blueprintSheetNames: blueprintNames,
+                    existingSheetNames: sheetNames,
+                    initialBlueprintSheetName: initialBlueprint,
+                    initialNewSheetName: monthSuggestion.targetSheetName,
                   );
-                  if (shouldCreate != true || !mounted) return null;
+                  if (creationSetup == null || !mounted) return null;
                   try {
-                    createdSheetData = XlsxSheetCodec.createCurrentMonthSheet(
-                      bytes: bytes,
-                      fileName: fileName,
-                      path: path,
-                      preferredLanguageCode: Localizations.localeOf(
-                        context,
-                      ).languageCode,
-                    );
+                    createdSheetData = format == SheetFileFormat.xlsx
+                        ? XlsxSheetCodec.createCurrentMonthSheet(
+                            bytes: bytes,
+                            fileName: fileName,
+                            path: path,
+                            preferredLanguageCode: Localizations.localeOf(
+                              context,
+                            ).languageCode,
+                            sourceSheetName: creationSetup.sourceSheetName,
+                            targetSheetName: creationSetup.targetSheetName,
+                          )
+                        : OdsSheetCodec.createCurrentMonthSheet(
+                            bytes: bytes,
+                            fileName: fileName,
+                            path: path,
+                            preferredLanguageCode: Localizations.localeOf(
+                              context,
+                            ).languageCode,
+                            sourceSheetName: creationSetup.sourceSheetName,
+                            targetSheetName: creationSetup.targetSheetName,
+                          );
                     return createdSheetData?.xlsxSheetName;
                   } catch (error) {
                     if (mounted) {
