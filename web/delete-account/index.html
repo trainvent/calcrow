@@ -8,9 +8,10 @@
     name="description"
     content="How to delete your Calcrow account and what data is removed."
   >
-  <link rel="alternate" hreflang="en" href="./">
-  <link rel="alternate" hreflang="de" href="../de/delete-account/">
+  <link rel="alternate" hreflang="en" href="index.html">
+  <link rel="alternate" hreflang="de" href="../de/delete-account/index.html">
   <link rel="stylesheet" href="../static-pages.css">
+  <script src="../static-pages.js" defer></script>
   <style>
     :root {
       color-scheme: light;
@@ -212,8 +213,15 @@
 <body>
   <main>
     <header class="page-header">
-      <a class="eyebrow" href="../">Calcrow</a>
-      <a class="language-link" href="../de/delete-account/" lang="de" hreflang="de">Deutsch</a>
+      <a class="brand-pill" href="../" aria-label="Calcrow home">
+        <img class="brand-icon" src="../icons/Icon-192.png" alt="">
+        <span class="brand-name">Calcrow</span>
+      </a>
+      <a class="language-switch" href="../de/delete-account/index.html" lang="de" hreflang="de" aria-label="Diese Seite auf Deutsch anzeigen">
+        <span class="language-flag" aria-hidden="true">🇩🇪</span>
+        <span class="language-copy"><span class="language-label">Switch language</span><span class="language-name">Deutsch</span></span>
+        <span class="language-arrow" aria-hidden="true">⇄</span>
+      </a>
     </header>
     <h1>Delete Your Account</h1>
     <p class="meta">Last updated: March 12, 2026</p>
@@ -280,9 +288,11 @@
 
     <h2>Need more context?</h2>
     <p>
-      Review the <a href="../privacy-policy/">Calcrow Privacy Policy</a> for more details about how account and file data is handled.
+      Review the <a href="../privacy-policy/index.html">Calcrow Privacy Policy</a> for more details about how account and file data is handled.
     </p>
   </main>
+
+  <footer data-calcrow-footer></footer>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";

@@ -5,15 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Calcrow-Konto löschen</title>
   <meta name="description" content="So löschst du dein Calcrow-Konto und die damit verbundenen Daten.">
-  <link rel="alternate" hreflang="en" href="../../delete-account/">
-  <link rel="alternate" hreflang="de" href="./">
+  <link rel="alternate" hreflang="en" href="../../delete-account/index.html">
+  <link rel="alternate" hreflang="de" href="index.html">
   <link rel="stylesheet" href="../../static-pages.css">
+  <script src="../../static-pages.js" defer></script>
 </head>
 <body>
   <main>
     <header class="page-header">
-      <a class="eyebrow" href="../../">Calcrow</a>
-      <a class="language-link" href="../../delete-account/" lang="en" hreflang="en">English</a>
+      <a class="brand-pill" href="../../" aria-label="Calcrow-Startseite">
+        <img class="brand-icon" src="../../icons/Icon-192.png" alt="">
+        <span class="brand-name">Calcrow</span>
+      </a>
+      <a class="language-switch" href="../../delete-account/index.html" lang="en" hreflang="en" aria-label="View this page in English">
+        <span class="language-flag" aria-hidden="true">🇬🇧</span>
+        <span class="language-copy"><span class="language-label">Sprache wechseln</span><span class="language-name">English</span></span>
+        <span class="language-arrow" aria-hidden="true">⇄</span>
+      </a>
     </header>
     <h1>Konto löschen</h1>
     <p class="meta">Zuletzt aktualisiert: 12. März 2026</p>
@@ -61,8 +69,10 @@
     <p>Die Kontolöschung beginnt unmittelbar nach der Bestätigung. Bei verbundenen Systemen oder aufbewahrungspflichtigen Daten kann es länger dauern, bis sie aus Sicherungen oder Anbieteroberflächen verschwinden.</p>
 
     <h2>Weitere Informationen</h2>
-    <p>In der <a href="../privacy-policy/">Calcrow-Datenschutzerklärung</a> erfährst du mehr über den Umgang mit Konto- und Dateidaten.</p>
+    <p>In der <a href="../privacy-policy/index.html">Calcrow-Datenschutzerklärung</a> erfährst du mehr über den Umgang mit Konto- und Dateidaten.</p>
   </main>
+
+  <footer data-calcrow-footer></footer>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";

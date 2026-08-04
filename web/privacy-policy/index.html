@@ -8,9 +8,10 @@
     name="description"
     content="Privacy Policy for Calcrow, covering local file handling, sign-in, sync, analytics, and purchases."
   >
-  <link rel="alternate" hreflang="en" href="./">
-  <link rel="alternate" hreflang="de" href="../de/privacy-policy/">
+  <link rel="alternate" hreflang="en" href="index.html">
+  <link rel="alternate" hreflang="de" href="../de/privacy-policy/index.html">
   <link rel="stylesheet" href="../static-pages.css">
+  <script src="../static-pages.js" defer></script>
   <style>
     :root {
       color-scheme: light;
@@ -123,8 +124,15 @@
 <body>
   <main>
     <header class="page-header">
-      <a class="eyebrow" href="../">Calcrow</a>
-      <a class="language-link" href="../de/privacy-policy/" lang="de" hreflang="de">Deutsch</a>
+      <a class="brand-pill" href="../" aria-label="Calcrow home">
+        <img class="brand-icon" src="../icons/Icon-192.png" alt="">
+        <span class="brand-name">Calcrow</span>
+      </a>
+      <a class="language-switch" href="../de/privacy-policy/index.html" lang="de" hreflang="de" aria-label="Diese Seite auf Deutsch anzeigen">
+        <span class="language-flag" aria-hidden="true">🇩🇪</span>
+        <span class="language-copy"><span class="language-label">Switch language</span><span class="language-name">Deutsch</span></span>
+        <span class="language-arrow" aria-hidden="true">⇄</span>
+      </a>
     </header>
     <h1>Privacy Policy</h1>
     <p class="meta">Effective date: March 12, 2026</p>
@@ -171,7 +179,7 @@
     </p>
     <p>
       If Calcrow uses Google AdMob on supported mobile builds, see the dedicated
-      <a href="../privacy-policy-ads/">Ads Privacy Policy</a> for ad consent and regional privacy choices.
+      <a href="../privacy-policy-ads/index.html">Ads Privacy Policy</a> for ad consent and regional privacy choices.
     </p>
 
     <h2>Data sharing</h2>
@@ -191,7 +199,7 @@
     <ul>
       <li>You can avoid cloud processing by using local-only file flows.</li>
       <li>You can revoke third-party account access from the provider you connected.</li>
-      <li>You can review account deletion instructions at <a href="../delete-account/">/delete-account/</a>.</li>
+      <li>You can review account deletion instructions at <a href="../delete-account/index.html">/delete-account/</a>.</li>
       <li>You can stop using the app and remove local files or downloaded exports from your device at any time.</li>
     </ul>
 
@@ -206,5 +214,6 @@
       This policy may be updated as the app's features change. The current version will be posted at this URL.
     </p>
   </main>
+  <footer data-calcrow-footer></footer>
 </body>
 </html>

@@ -8,9 +8,10 @@
     name="description"
     content="Terms of Use for Calcrow, including app license, subscriptions, ads, accounts, files, and cloud integrations."
   >
-  <link rel="alternate" hreflang="en" href="./">
-  <link rel="alternate" hreflang="de" href="../de/terms-of-use/">
+  <link rel="alternate" hreflang="en" href="index.html">
+  <link rel="alternate" hreflang="de" href="../de/terms-of-use/index.html">
   <link rel="stylesheet" href="../static-pages.css">
+  <script src="../static-pages.js" defer></script>
   <style>
     :root {
       color-scheme: light;
@@ -123,8 +124,15 @@
 <body>
   <main>
     <header class="page-header">
-      <a class="eyebrow" href="../">Calcrow</a>
-      <a class="language-link" href="../de/terms-of-use/" lang="de" hreflang="de">Deutsch</a>
+      <a class="brand-pill" href="../" aria-label="Calcrow home">
+        <img class="brand-icon" src="../icons/Icon-192.png" alt="">
+        <span class="brand-name">Calcrow</span>
+      </a>
+      <a class="language-switch" href="../de/terms-of-use/index.html" lang="de" hreflang="de" aria-label="Diese Seite auf Deutsch anzeigen">
+        <span class="language-flag" aria-hidden="true">🇩🇪</span>
+        <span class="language-copy"><span class="language-label">Switch language</span><span class="language-name">Deutsch</span></span>
+        <span class="language-arrow" aria-hidden="true">⇄</span>
+      </a>
     </header>
     <h1>Terms of Use</h1>
     <p class="meta">Effective date: June 16, 2026</p>
@@ -138,7 +146,7 @@
     <h2>Who provides Calcrow</h2>
     <p>
       Calcrow is provided by Trainvent. If you have questions about these terms,
-      contact us through <a href="../support/">/support/</a>.
+      contact us through <a href="../support/index.html">/support/</a>.
     </p>
     <p>
       Developer contact for questions, complaints, or claims about Calcrow:
@@ -194,7 +202,7 @@
     <p>
       Some features require an account. You are responsible for keeping your sign-in
       credentials secure and for activity under your account. You can request account
-      deletion using the instructions at <a href="../delete-account/">/delete-account/</a>.
+      deletion using the instructions at <a href="../delete-account/index.html">/delete-account/</a>.
     </p>
 
     <h2>Files and cloud integrations</h2>
@@ -217,7 +225,7 @@
       system, app, diagnostic, and usage information, to provide software updates, support,
       security, analytics, and other services related to Calcrow. We may use information that
       does not personally identify you to improve Calcrow or provide services and technologies
-      to you. Our data practices are described in the <a href="../privacy-policy/">Privacy Policy</a>.
+      to you. Our data practices are described in the <a href="../privacy-policy/index.html">Privacy Policy</a>.
     </p>
 
     <h2>External services</h2>
@@ -251,8 +259,8 @@
     <h2>Ads and privacy choices</h2>
     <p>
       Some versions or configurations of Calcrow may show ads. Ad-related privacy choices are
-      described in the <a href="../privacy-policy-ads/">Ads Privacy Policy</a>. General data
-      handling is described in the <a href="../privacy-policy/">Privacy Policy</a>.
+      described in the <a href="../privacy-policy-ads/index.html">Ads Privacy Policy</a>. General data
+      handling is described in the <a href="../privacy-policy/index.html">Privacy Policy</a>.
     </p>
 
     <h2>Availability and changes</h2>
@@ -359,5 +367,6 @@
       change. The current version will be posted at this URL.
     </p>
   </main>
+  <footer data-calcrow-footer></footer>
 </body>
 </html>

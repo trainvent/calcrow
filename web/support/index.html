@@ -8,9 +8,10 @@
     name="description"
     content="Support and contact information for Calcrow."
   >
-  <link rel="alternate" hreflang="en" href="./">
-  <link rel="alternate" hreflang="de" href="../de/support/">
+  <link rel="alternate" hreflang="en" href="index.html">
+  <link rel="alternate" hreflang="de" href="../de/support/index.html">
   <link rel="stylesheet" href="../static-pages.css">
+  <script src="../static-pages.js" defer></script>
   <style>
     :root {
       color-scheme: light;
@@ -163,8 +164,15 @@
 <body>
   <main>
     <header class="page-header">
-      <a class="eyebrow" href="../">Calcrow</a>
-      <a class="language-link" href="../de/support/" lang="de" hreflang="de">Deutsch</a>
+      <a class="brand-pill" href="../" aria-label="Calcrow home">
+        <img class="brand-icon" src="../icons/Icon-192.png" alt="">
+        <span class="brand-name">Calcrow</span>
+      </a>
+      <a class="language-switch" href="../de/support/index.html" lang="de" hreflang="de" aria-label="Diese Seite auf Deutsch anzeigen">
+        <span class="language-flag" aria-hidden="true">🇩🇪</span>
+        <span class="language-copy"><span class="language-label">Switch language</span><span class="language-name">Deutsch</span></span>
+        <span class="language-arrow" aria-hidden="true">⇄</span>
+      </a>
     </header>
     <h1>Support</h1>
     <p class="meta">Last updated: March 13, 2026</p>
@@ -180,10 +188,16 @@
         Email support for help with installation, sign-in, file import or export, syncing, purchases,
         and bug reports.
       </p>
-      <a class="contact-link" href="mailto:support@trainvent.com?subject=Calcrow%20Support">
-        support@trainvent.com
-      </a>
+      <div class="contact-actions">
+        <a class="contact-link" href="mailto:support@trainvent.com?subject=Calcrow%20Support">
+          Email support
+        </a>
+        <a class="contact-link secondary external-link" href="https://next.trainvent.com/en/software-support/" target="_blank" rel="noopener noreferrer">
+          Open official support form
+        </a>
+      </div>
       <p>
+        Support email: <a href="mailto:support@trainvent.com">support@trainvent.com</a><br>
         Company website:
         <a href="https://trainvent.com/" rel="noopener noreferrer">trainvent.com</a>
       </p>
@@ -203,8 +217,8 @@
       For privacy and account management topics, use the pages below.
     </p>
     <div class="quick-links">
-      <a href="../privacy-policy/">Privacy Policy</a>
-      <a href="../delete-account/">Delete Account</a>
+      <a href="../privacy-policy/index.html">Privacy Policy</a>
+      <a href="../delete-account/index.html">Delete Account</a>
     </div>
 
     <h2>What Calcrow helps with</h2>
@@ -213,5 +227,6 @@
       including CSV and XLSX workflows.
     </p>
   </main>
+  <footer data-calcrow-footer></footer>
 </body>
 </html>

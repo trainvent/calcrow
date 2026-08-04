@@ -1548,7 +1548,11 @@ class _SettingsTabState extends ConsumerState<SettingsTab> {
 
   void _openDeleteAccountPage() {
     if (kIsWeb) {
-      openSameTabUrl('/delete-account/');
+      final languageCode = Localizations.localeOf(context).languageCode;
+      final localizedPath = languageCode == 'de'
+          ? '/de/delete-account/index.html'
+          : '/delete-account/index.html';
+      openSameTabUrl(localizedPath);
       return;
     }
     openExternalUrl(IConst.deleteAccountUrl).then((opened) {

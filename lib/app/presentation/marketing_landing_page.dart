@@ -100,6 +100,9 @@ class _MarketingFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final staticPagePrefix =
+        Localizations.localeOf(context).languageCode == 'de' ? '/de' : '';
+
     return Column(
       children: <Widget>[
         Wrap(
@@ -108,23 +111,29 @@ class _MarketingFooter extends StatelessWidget {
           runSpacing: 8,
           children: <Widget>[
             TextButton(
-              onPressed: () => openSameTabUrl('/privacy-policy/'),
+              onPressed: () =>
+                  openSameTabUrl('$staticPagePrefix/privacy-policy/index.html'),
               child: Text(context.l10n.privacyPolicy),
             ),
             TextButton(
-              onPressed: () => openSameTabUrl('/terms-of-use/'),
+              onPressed: () =>
+                  openSameTabUrl('$staticPagePrefix/terms-of-use/index.html'),
               child: Text(context.l10n.terms),
             ),
             TextButton(
-              onPressed: () => openSameTabUrl('/privacy-policy-ads/'),
+              onPressed: () => openSameTabUrl(
+                '$staticPagePrefix/privacy-policy-ads/index.html',
+              ),
               child: Text(context.l10n.adsPrivacy),
             ),
             TextButton(
-              onPressed: () => openSameTabUrl('/support/'),
+              onPressed: () =>
+                  openSameTabUrl('$staticPagePrefix/support/index.html'),
               child: Text(context.l10n.support),
             ),
             TextButton(
-              onPressed: () => openSameTabUrl('/delete-account/'),
+              onPressed: () =>
+                  openSameTabUrl('$staticPagePrefix/delete-account/index.html'),
               child: Text(context.l10n.deleteAccount),
             ),
           ],

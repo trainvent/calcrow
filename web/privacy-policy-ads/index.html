@@ -8,9 +8,10 @@
     name="description"
     content="Ads privacy policy for Calcrow, including Google AdMob consent handling for EEA, UK, Switzerland, and applicable US state privacy choices."
   >
-  <link rel="alternate" hreflang="en" href="./">
-  <link rel="alternate" hreflang="de" href="../de/privacy-policy-ads/">
+  <link rel="alternate" hreflang="en" href="index.html">
+  <link rel="alternate" hreflang="de" href="../de/privacy-policy-ads/index.html">
   <link rel="stylesheet" href="../static-pages.css">
+  <script src="../static-pages.js" defer></script>
   <style>
     :root {
       color-scheme: light;
@@ -123,8 +124,15 @@
 <body>
   <main>
     <header class="page-header">
-      <a class="eyebrow" href="../">Calcrow</a>
-      <a class="language-link" href="../de/privacy-policy-ads/" lang="de" hreflang="de">Deutsch</a>
+      <a class="brand-pill" href="../" aria-label="Calcrow home">
+        <img class="brand-icon" src="../icons/Icon-192.png" alt="">
+        <span class="brand-name">Calcrow</span>
+      </a>
+      <a class="language-switch" href="../de/privacy-policy-ads/index.html" lang="de" hreflang="de" aria-label="Diese Seite auf Deutsch anzeigen">
+        <span class="language-flag" aria-hidden="true">🇩🇪</span>
+        <span class="language-copy"><span class="language-label">Switch language</span><span class="language-name">Deutsch</span></span>
+        <span class="language-arrow" aria-hidden="true">⇄</span>
+      </a>
     </header>
     <h1>Ads Privacy Policy</h1>
     <p class="meta">Effective date: April 10, 2026</p>
@@ -139,7 +147,7 @@
     <p>
       This ads privacy policy applies when Calcrow shows or prepares to show ads through Google AdMob
       on Android or iOS. It does not change the local-first file editing behavior described in the main
-      <a href="../privacy-policy/">Privacy Policy</a>.
+      <a href="../privacy-policy/index.html">Privacy Policy</a>.
     </p>
 
     <h2>How ad privacy choices are collected</h2>
@@ -175,8 +183,8 @@
     <ul>
       <li>You can open Calcrow Settings and review ad privacy choices again at any time when the device supports that entry point.</li>
       <li>You can avoid ad-supported features by using versions or configurations of Calcrow that do not show ads.</li>
-      <li>You can review our general data handling at <a href="../privacy-policy/">/privacy-policy/</a>.</li>
-      <li>You can contact support through <a href="../support/">/support/</a> if you believe this disclosure needs correction.</li>
+      <li>You can review our general data handling at <a href="../privacy-policy/index.html">/privacy-policy/</a>.</li>
+      <li>You can contact support through <a href="../support/index.html">/support/</a> if you believe this disclosure needs correction.</li>
     </ul>
 
     <h2>Third-party terms</h2>
@@ -191,5 +199,6 @@
       will remain available at this URL.
     </p>
   </main>
+  <footer data-calcrow-footer></footer>
 </body>
 </html>
