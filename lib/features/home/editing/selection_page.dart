@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'package:excel/excel.dart' as excel_pkg;
 import 'package:file_selector/file_selector.dart';
@@ -96,6 +97,27 @@ class _SelectionPageState extends ConsumerState<SelectionPage> {
           (_documentImportedSourceBytes?.isNotEmpty ?? false)) &&
       (_documentImportedFileName?.trim().isNotEmpty == true);
 
+  void _logDocumentOpenError(
+    String operation,
+    Object error,
+    StackTrace stackTrace, {
+    String? fileName,
+  }) {
+    if (!kDebugMode) return;
+    final message =
+        '$operation failed (mode=${_documentOpenMode.name}, '
+        'file=${fileName ?? "not selected"}): ${error.runtimeType}: $error';
+    developer.log(
+      message,
+      name: 'calcrow.document.open',
+      level: 1000,
+      error: error,
+      stackTrace: stackTrace,
+    );
+    debugPrint('[calcrow.document.open] $message');
+    debugPrintStack(stackTrace: stackTrace, maxFrames: 100);
+  }
+
   Future<void> _runWithDocumentOpeningIndicator(
     Future<void> Function() action,
   ) async {
@@ -120,6 +142,13 @@ class _SelectionPageState extends ConsumerState<SelectionPage> {
       bytes: bytes,
       mimeType: mimeType,
     );
+    if (kDebugMode) {
+      debugPrint(
+        '[calcrow.document.open] Parsing file=$fileName, '
+        'format=${format.name}, bytes=${bytes.length}, '
+        'mimeType=${mimeType ?? "unknown"}, mode=${_documentOpenMode.name}',
+      );
+    }
     if (format == SheetFileFormat.xlsx || format == SheetFileFormat.ods) {
       late final int sheetCount;
       late final List<String> sheetNames;
@@ -296,7 +325,13 @@ class _SelectionPageState extends ConsumerState<SelectionPage> {
                             targetSheetName: creationSetup.targetSheetName,
                           );
                     return createdSheetData?.xlsxSheetName;
-                  } catch (error) {
+                  } catch (error, stackTrace) {
+                    _logDocumentOpenError(
+                      'Create current month worksheet while opening',
+                      error,
+                      stackTrace,
+                      fileName: fileName,
+                    );
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
@@ -528,12 +563,14 @@ class _SelectionPageState extends ConsumerState<SelectionPage> {
           content: Text(context.l10n.selectedLocalDocument(selection.fileName)),
         ),
       );
-    } on LocalDocumentException catch (error) {
+    } on LocalDocumentException catch (error, stackTrace) {
+      _logDocumentOpenError('Select local document', error, stackTrace);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.localizedMessage(context.l10n))),
       );
-    } on UnsupportedError catch (error) {
+    } on UnsupportedError catch (error, stackTrace) {
+      _logDocumentOpenError('Select local document', error, stackTrace);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -542,7 +579,8 @@ class _SelectionPageState extends ConsumerState<SelectionPage> {
           ),
         ),
       );
-    } catch (error) {
+    } catch (error, stackTrace) {
+      _logDocumentOpenError('Select local document', error, stackTrace);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.l10n.couldNotSelectDocument('$error'))),
@@ -587,7 +625,13 @@ class _SelectionPageState extends ConsumerState<SelectionPage> {
         );
       } on _SheetSelectionCanceled {
         return;
-      } on LocalDocumentException {
+      } on LocalDocumentException catch (error, stackTrace) {
+        _logDocumentOpenError(
+          'Reopen local document',
+          error,
+          stackTrace,
+          fileName: _documentImportedFileName,
+        );
         if (!mounted) return;
         setState(() => _rememberLocalDocumentForReopen = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -598,7 +642,13 @@ class _SelectionPageState extends ConsumerState<SelectionPage> {
           ),
         );
         await _importLocalDocument();
-      } catch (_) {
+      } catch (error, stackTrace) {
+        _logDocumentOpenError(
+          'Reopen local document',
+          error,
+          stackTrace,
+          fileName: _documentImportedFileName,
+        );
         if (!mounted) return;
         setState(() => _rememberLocalDocumentForReopen = false);
         await _importLocalDocument();
@@ -673,19 +723,37 @@ class _SelectionPageState extends ConsumerState<SelectionPage> {
         );
       } on _SheetSelectionCanceled {
         return;
-      } on LocalDocumentException catch (error) {
+      } on LocalDocumentException catch (error, stackTrace) {
+        _logDocumentOpenError(
+          'Import local document',
+          error,
+          stackTrace,
+          fileName: _documentImportedFileName,
+        );
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(error.localizedMessage(context.l10n))),
         );
-      } on UnsupportedError catch (error) {
+      } on UnsupportedError catch (error, stackTrace) {
+        _logDocumentOpenError(
+          'Import local document',
+          error,
+          stackTrace,
+          fileName: _documentImportedFileName,
+        );
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(context.l10n.importFailed(error.message ?? '$error')),
           ),
         );
-      } catch (error) {
+      } catch (error, stackTrace) {
+        _logDocumentOpenError(
+          'Import local document',
+          error,
+          stackTrace,
+          fileName: _documentImportedFileName,
+        );
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(context.l10n.importFailed('$error'))),
@@ -718,12 +786,24 @@ class _SelectionPageState extends ConsumerState<SelectionPage> {
         );
       } on _SheetSelectionCanceled {
         return;
-      } on CloudDocumentException catch (error) {
+      } on CloudDocumentException catch (error, stackTrace) {
+        _logDocumentOpenError(
+          'Open cloud document',
+          error,
+          stackTrace,
+          fileName: file.name,
+        );
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(error.localizedMessage(context.l10n))),
         );
-      } on UnsupportedError catch (error) {
+      } on UnsupportedError catch (error, stackTrace) {
+        _logDocumentOpenError(
+          'Open cloud document',
+          error,
+          stackTrace,
+          fileName: file.name,
+        );
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -732,7 +812,13 @@ class _SelectionPageState extends ConsumerState<SelectionPage> {
             ),
           ),
         );
-      } catch (error) {
+      } catch (error, stackTrace) {
+        _logDocumentOpenError(
+          'Open cloud document',
+          error,
+          stackTrace,
+          fileName: file.name,
+        );
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -763,7 +849,12 @@ class _SelectionPageState extends ConsumerState<SelectionPage> {
       }
 
       await _openCloudDocument(file: selectedFile);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _logDocumentOpenError(
+        'Restore cloud document selection',
+        error,
+        stackTrace,
+      );
       await _chooseCloudSyncFile(openAfterSelection: true);
     }
   }
@@ -841,7 +932,8 @@ class _SelectionPageState extends ConsumerState<SelectionPage> {
       if (openAfterSelection) {
         await _openCloudDocument(file: selectedFile);
       }
-    } on CloudDocumentException catch (error) {
+    } on CloudDocumentException catch (error, stackTrace) {
+      _logDocumentOpenError('Select cloud document', error, stackTrace);
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(content: Text(error.localizedMessage(context.l10n))),
@@ -952,7 +1044,12 @@ class _SelectionPageState extends ConsumerState<SelectionPage> {
       if (selectedFile == null) {
         await _chooseCloudSyncFile();
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _logDocumentOpenError(
+        'Restore cloud document selection',
+        error,
+        stackTrace,
+      );
       await _chooseCloudSyncFile();
     }
   }
